@@ -22,7 +22,7 @@
 {% endmacro %}
 <div class="adm">
   <aside class="adm__side" id="adm-side" aria-label="Owner menu">
-    <a class="adm__brand" href="{{ url_for('owner.dashboard') }}">{{ m.icon('home') }}<span class="label">RR FOODS owner</span></a>
+    <a class="adm__brand" href="{{ url_for('owner.dashboard') }}"><img class="adm__brand-logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="54" height="54" alt="RR FOODS logo"><span class="label">RR FOODS <small>OWNER</small></span></a>
     <nav>
       <ul class="nav">
         {{ item('owner.dashboard', 'Dashboard', 'home', 'owner.dashboard') }}

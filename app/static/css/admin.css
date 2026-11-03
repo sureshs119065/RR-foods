@@ -152,3 +152,10 @@
 .adm,.adm__main { background:#fff; }
 
 .upload-progress { width:100%; height:10px; accent-color:var(--c-brand); }
+
+/* Branded staff workspace sidebar */
+.adm__brand { min-height:5.2rem; gap:.7rem; padding:.8rem 1rem; }
+.adm__brand-logo { display:block; width:54px; height:54px; flex:none; object-fit:contain; border-radius:12px; background:#fff; padding:2px; }
+.adm__brand .label { display:flex; flex-direction:column; gap:.05rem; font-size:1rem; line-height:1.1; }
+.adm__brand .label small { color:#b9d9c4; font-size:.62rem; letter-spacing:.18em; font-weight:800; }
+@media(min-width:1024px){.adm--mini .adm__brand{justify-content:center;padding:.65rem}.adm--mini .adm__brand-logo{width:42px;height:42px}}

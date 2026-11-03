@@ -32,7 +32,7 @@
 <header class="sh" id="sh" data-sh>
   <div class="sh__row">
     <button class="icon-btn sh__menu" type="button" data-open="drawer" aria-label="Open menu" aria-controls="drawer" aria-expanded="false">{{ s.icon('menu') }}</button>
-    <a class="brand rr-brand" href="{{ url_for('shop.home') }}"><img class="brand__logo rr-brand__logo" src="{{ url_for('static', filename='img/rr-foods-logo.png') }}" width="44" height="44" alt="RR FOODS"><span>RR FOODS</span></a>
+    <a class="brand rr-brand" href="{{ url_for('shop.home') }}"><img class="brand__logo rr-brand__logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="44" height="44" alt="RR FOODS"><span>RR FOODS</span></a>
     <nav class="sh__links" aria-label="Main">
       <button class="btn sh__mega-btn" type="button" id="mega-btn" aria-expanded="false" aria-controls="mega">{{ s.icon('menu') }} Categories {{ s.icon('chevdown') }}</button>
       <ul>
@@ -140,7 +140,7 @@
 <footer class="sf" data-footer>
   <div class="sf__grid">
     <div class="sf__brand">
-      <p class="sf__logo"><img src="{{ url_for('static', filename='img/rr-foods-logo.png') }}" width="48" height="48" alt="RR FOODS">RR FOODS</p>
+      <p class="sf__logo"><img src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="48" height="48" alt="RR FOODS">RR FOODS</p>
       <p>Traditional roots. Modern taste. A healthier tomorrow.</p>
       <a href="{{ url_for('shop.about') }}">About RR FOODS</a>
       <a href="{{ url_for('shop.help_page') }}">Contact &amp; support</a>

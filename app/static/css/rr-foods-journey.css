@@ -8,3 +8,37 @@
 @media(max-width:760px){.quality-journey{border-radius:20px}.nurse-guide{grid-template-columns:1fr;gap:1.25rem}.nurse-guide__guide{position:relative;top:auto;display:grid;grid-template-columns:minmax(110px,.75fr) minmax(0,1.25fr);align-items:center;gap:.4rem .8rem;padding:.7rem;text-align:left}.nurse-guide__character-wrap{grid-row:1 / span 3;width:100%;max-width:180px}.nurse-guide__speech{margin:0;padding:.8rem .9rem}.nurse-guide__speech:before{left:0;top:35%;transform:translateX(-50%) rotate(-45deg)}.nurse-guide__speech p{min-height:0;font-size:.84rem}.nurse-guide__controls{grid-column:2;justify-content:flex-start;flex-wrap:wrap;margin:.35rem 0 0}.nurse-guide__controls button{font-size:.78rem;padding:.48rem .7rem}.nurse-guide__counter{grid-column:2;margin:0}.nurse-guide__timeline{padding-left:2rem}.nurse-guide__rail{left:12px}.nurse-stage__card{padding:1rem}.nurse-stage__card h3{font-size:1.05rem}.nurse-guide__finish{margin-left:0}}
 @media(max-width:420px){.nurse-guide__guide{grid-template-columns:100px minmax(0,1fr);gap:.35rem .55rem}.nurse-guide__character-wrap{max-width:112px}.nurse-guide__speech{padding:.7rem}.nurse-guide__speech-label{font-size:.77rem}.nurse-guide__speech p{font-size:.78rem}.nurse-guide__controls{gap:.35rem}.nurse-guide__controls button{font-size:.7rem}}
 @media(prefers-reduced-motion:reduce){.nurse-guide__character,.nurse-guide__body,.nurse-guide__head,.nurse-guide__eyes,.nurse-guide__arms,.nurse-prop,.nurse-stage__dot,.nurse-guide__finish,.nurse-confetti-piece{animation:none!important;transition:none!important}.nurse-guide__rail span{transform:scaleY(1)!important}.nurse-guide__speech p{min-height:0}}
+
+/* Premium nurse-guide finish: branded identity, richer depth and stage transitions */
+.quality-journey{position:relative;isolation:isolate;background:radial-gradient(ellipse at 8% 8%,#e5f2df 0,transparent 34%),radial-gradient(ellipse at 95% 90%,#fff0d1 0,transparent 28%),linear-gradient(145deg,#fbfdf9,#f1f7ef 58%,#fff)}
+.quality-journey:before{content:"";position:absolute;inset:12px;border:1px solid #ffffffb8;border-radius:20px;pointer-events:none;z-index:-1}
+.quality-journey__head .eyebrow{display:inline-flex;align-items:center;gap:.45rem;padding:.38rem .8rem;border:1px solid #d4e4d2;border-radius:999px;background:#fff;color:#1f5c3a;font-size:.72rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
+.quality-journey__head .eyebrow:before{content:"✚";display:grid;place-items:center;width:19px;height:19px;border-radius:50%;background:#1f5c3a;color:#fff;font-size:.68rem}
+.nurse-guide__guide{background:linear-gradient(155deg,#f4faf1,#e6f1e4 65%,#f9f7eb);border-color:#d4e5d2;box-shadow:0 18px 42px #1f5c3a12}
+.nurse-guide__identity{display:flex;align-items:center;justify-content:center;gap:.6rem;margin:0 auto .8rem;color:#1b5031;text-align:left}
+.nurse-guide__identity-mark{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#1f5c3a;color:#fff;font-size:1.2rem;box-shadow:0 5px 12px #1f5c3a30}
+.nurse-guide__identity strong,.nurse-guide__identity small{display:block}
+.nurse-guide__identity strong{font-size:.85rem;line-height:1.2}
+.nurse-guide__identity small{margin-top:.12rem;color:#718474;font-size:.67rem;letter-spacing:.06em}
+.nurse-guide__character-wrap{filter:drop-shadow(0 12px 10px #244d3218)}
+.nurse-guide__character{transform-origin:50% 90%;animation:nurse-float 4.2s ease-in-out infinite}
+.nurse-guide__character .nurse-guide__head{transform-origin:130px 120px}
+.nurse-guide.is-moving .nurse-guide__character{animation:nurse-greet .65s cubic-bezier(.2,.8,.2,1)}
+.nurse-guide__speech{border-color:#d5e6d4;box-shadow:0 12px 28px #193d2912}
+.nurse-guide__speech-label{display:flex;align-items:center;gap:.45rem}
+.nurse-guide__speech-label:before{content:"";width:8px;height:8px;border-radius:50%;background:#3c9b5e;box-shadow:0 0 0 4px #3c9b5e20}
+.nurse-guide__controls button{box-shadow:0 3px 9px #193d2910;transition:transform .2s,box-shadow .2s,background .2s}
+.nurse-guide__controls button:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 7px 15px #193d2920}
+.nurse-guide__meter{height:6px;width:min(100%,230px);margin:.7rem auto 0;border-radius:99px;background:#d6e5d5;overflow:hidden}
+.nurse-guide__meter span{display:block;width:16.666%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#8ebd69,#1f5c3a);transition:width .55s cubic-bezier(.2,.8,.2,1)}
+.nurse-stage__card{overflow:hidden}
+.nurse-stage__card:after{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:linear-gradient(#e8c36b,#1f5c3a);opacity:0;transition:opacity .3s}
+.nurse-stage.is-active .nurse-stage__card:after{opacity:1}
+.nurse-stage.is-active .nurse-stage__card{transform:translateX(5px);box-shadow:0 16px 36px #1f5c3a18}
+.nurse-stage__dot{transition:background .25s,box-shadow .25s,transform .25s}
+.nurse-stage.is-complete .nurse-stage__dot{box-shadow:0 0 0 4px #2d865020}
+.nurse-guide__finish{box-shadow:0 12px 26px #1f5c3a18}
+@keyframes nurse-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes nurse-greet{0%{transform:translateY(0) rotate(0)}25%{transform:translateY(-10px) rotate(-2deg)}55%{transform:translateY(1px) rotate(2deg)}100%{transform:translateY(0) rotate(0)}}
+@media(max-width:760px){.nurse-guide__identity{grid-column:1/-1;justify-content:flex-start;margin:0 0 .35rem}.nurse-guide__meter{grid-column:2;margin:.15rem 0 0;width:100%}}
+@media(prefers-reduced-motion:reduce){.nurse-guide__character{animation:none!important}}

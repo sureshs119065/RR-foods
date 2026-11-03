@@ -89,3 +89,10 @@ a { color: var(--c-brand); }
 .linklist { padding-left: 1.2rem; display: grid; gap: var(--sp-2); }
 .linklist a { display: inline-flex; min-height: var(--tap); align-items: center; }
 [hidden] { display: none !important; }
+
+/* RR FOODS shared brand mark */
+.rr-brand { display:inline-flex; align-items:center; gap:.55rem; color:var(--c-brand); text-decoration:none; font-weight:900; letter-spacing:.015em; }
+.rr-brand__logo { width:clamp(42px,5vw,58px); height:clamp(42px,5vw,58px); object-fit:contain; flex:none; }
+.rr-brand--base { gap:.5rem; }
+.rr-brand--base .rr-brand__logo { width:54px; height:54px; }
+@media(max-width:420px){.rr-brand--base .rr-brand__logo{width:46px;height:46px}.rr-brand--base{font-size:1rem}}

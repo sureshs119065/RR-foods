@@ -1,791 +1,394 @@
-# RR FOODS — Full-Stack E-commerce Platform
+# RR FOODS platform (Flask + PostgreSQL)
 
-A Flask + PostgreSQL e-commerce application for RR FOODS. It includes a customer storefront, separate customer/owner/admin access, catalogue and inventory management, cart and checkout, order processing, promotions, content modules, and responsive branded pages.
+Steps 2 to 7 of the upgrade: project setup, database, sign-in and roles, the admin panel, the owner panel, the storefront, and the extras
+(wishlist, compare, reviews, questions, notifications and email, invoices, returns, forgot password). Step 8 is final testing and deployment notes.
 
-**Brand colour:** `#1f5c3a`  
-**Backend:** Python, Flask, SQLAlchemy, PostgreSQL  
-**Frontend:** Jinja templates, vanilla JavaScript, CSS  
-**Database migrations:** Flask-Migrate / Alembic
+## Run it (first time)
+1. Install Python 3.11 or newer and PostgreSQL 16 (or run `docker compose up -d` for a ready database).
+2. Create the environment and install:
+       python -m venv .venv
+       .venv\Scripts\activate          (Windows)   or   source .venv/bin/activate   (Mac/Linux)
+       pip install -r requirements.txt
+3. Copy `.env.example` to `.env` and set `SECRET_KEY` and `DATABASE_URL`.
+   With docker compose the default `DATABASE_URL` already works.
+4. Create the tables and sample data:
+       flask db upgrade
+       flask seed
+   `flask seed` prints the passwords for the admin, owner and demo customer once. Save them.
+   (Or set SEED_ADMIN_PASSWORD, SEED_OWNER_PASSWORD, SEED_USER_PASSWORD in `.env` first.)
+5. Start the app:
+       flask run
+   Open http://127.0.0.1:5000  and  http://127.0.0.1:5000/healthz
 
----
+## Sign-in and roles (Step 3)
+Three separate logins. Each accepts only its own role, and a correct password on the wrong page shows the same
+"Incorrect email or password." message, so nobody can learn which accounts exist or what role they have.
+    Customers   /login   then /account        (sign up at /register)
+    Owner       /owner/login   then /owner/
+    Admin       /admin/login   then /admin/
+Owner pages return 403 for admins and customers, admin pages return 403 for owners and customers, and signed-out
+visitors are sent to the matching login. Every route inside /owner and /admin is protected automatically.
+Safety measures: argon2 password hashes, CSRF token on every form, sign-out only by POST, new session on every sign-in,
+5 wrong passwords lock the account for 15 minutes, 10 sign-in attempts per minute per IP, owner/admin sessions end after
+60 minutes idle (STAFF_IDLE_MINUTES), changing a password signs out other devices, blocked accounts are signed out at once,
+"next" links can only point to pages on this site, security headers, private pages are never cached,
+and every staff sign-in, failure, lockout and password change is written to the audit log.
+Not in this step: forgot-password and email verification (Step 7), block/unblock and reset-password screens (Step 4).
+For the live server: set SECRET_KEY, FLASK_ENV=production (marks cookies Secure, needs HTTPS), TRUST_PROXY=1 if you
+run behind nginx or a load balancer, and RATELIMIT_STORAGE_URI=redis://... so limits work across several workers.
 
-## Contents
+## Admin panel (Step 4)  /admin/
+Sign in at /admin/login. The menu is a slide-in drawer on phones and a collapsible icon-only sidebar on desktop.
+Tables turn into stacked cards on small screens, and long forms are collapsible sections.
+  Products      add and edit with live price preview, SKU, brand, category and subcategory, MRP, percent or flat discount,
+                stock, low-stock alert level, variants (size/colour/weight with own price and stock), up to 10 images
+                (drag files in, set the main image, reorder, remove), ingredients, nutrition, specifications, tags,
+                offer labels, related products, visible/hidden.
+                Archive with Undo, permanent delete (needs a tick and an archived product), duplicate (hidden copy with its own image files).
+  Bulk tools    select rows, then hide/show, archive/restore, set discount, change price by %, move category, delete.
+                CSV export (respects your filters) and CSV import (see below).
+  Categories    two levels, reorder, image, archive/restore, permanent delete only when empty.
+  Offers        labels such as "Deal of the Day", shown on products.
+  Coupons       percent or flat, minimum cart, optional cap, expiry, total and per-customer limits.
+  Header banners  see below.
+  Users         search, block/unblock (signs the person out at once), reset password (temporary password shown once),
+                create owner accounts.
+  Audit log     who did what and when, with before/after values.
+Every change is written to the audit log. Money, stock and discount rules are enforced twice: by the form and by the database.
 
-1. [Project overview](#project-overview)
-2. [Main features](#main-features)
-3. [Technology stack](#technology-stack)
-4. [Project structure](#project-structure)
-5. [Requirements](#requirements)
-6. [Local setup — Windows PowerShell](#local-setup--windows-powershell)
-7. [Local setup — macOS and Linux](#local-setup--macos-and-linux)
-8. [Environment configuration](#environment-configuration)
-9. [Database and migrations](#database-and-migrations)
-10. [Initial data and product import](#initial-data-and-product-import)
-11. [User roles and login URLs](#user-roles-and-login-urls)
-12. [Customer storefront routes](#customer-storefront-routes)
-13. [Admin panel](#admin-panel)
-14. [Owner panel](#owner-panel)
-15. [Cart, checkout and order lifecycle](#cart-checkout-and-order-lifecycle)
-16. [RR FOODS homepage and About page](#rr-foods-homepage-and-about-page)
-17. [Bestsellers, bundles and Diwali combos](#bestsellers-bundles-and-diwali-combos)
-18. [Reels and recipes](#reels-and-recipes)
-19. [Images and uploads](#images-and-uploads)
-20. [CLI commands](#cli-commands)
-21. [Testing](#testing)
-22. [Production deployment](#production-deployment)
-23. [Backup and restore](#backup-and-restore)
-24. [Security notes](#security-notes)
-25. [Pre-launch checklist](#pre-launch-checklist)
-26. [Known configuration and verification notes](#known-configuration-and-verification-notes)
+CSV import columns. Required: sku, name, category, mrp (the old site's id and price columns also work).
+Optional: subcategory, brand, pack_size, discount_type (none/percent/flat), discount_value, stock_qty, low_stock_threshold,
+short_description, description, ingredients, how_to_use, fssai, video_id, tags, is_active, is_bestseller, image_urls (separate with |).
+The file is checked first and NOTHING is imported if any row has a problem; the error list gives row numbers.
+Exports protect against spreadsheet formula injection (cells starting with = + - @ get a leading apostrophe).
 
----
+Header banner carousel
+  Admin: /admin/header-banners. Add, edit, duplicate, delete, turn on/off, drag to reorder, schedule start and end (typed in shop
+  time, stored in UTC), optional countdown, desktop and mobile images (resized automatically), quick-start templates
+  (festival, today's special, flash sale, coupon), and carousel settings (seconds per banner 2-30, autoplay, slide or fade, max 1-10).
+  Public data for the home page (built in Step 6):  GET /api/header-banners
+  returns {"settings": {interval_ms, autoplay, transition, arrows}, "banners": [{id, title, subtitle, badge, desktop_image,
+  mobile_image, bg_color, text_color, button_text, href, ends_at}]} with only live banners, in order. It is cached for 60 seconds
+  and also refreshed at the exact moment a banner starts or expires, and whenever the admin changes anything.
+  With no live banners the list is empty (the home page hides the area). With one banner, autoplay and arrows are off.
+  Banner links accept only: a real category, product or coupon, a page on this site starting with /, or a full https:// address.
 
-## Project overview
+Uploads are re-encoded with Pillow: anything that is not a real JPG/PNG/WebP is refused, metadata is removed, files are renamed
+with random names, resized (products 1600 px, banners 1920 px / 900 px) and saved as WebP. Max 5 MB per image.
+Files go in the uploads/ folder and are served from /uploads/. Back that folder up with your database.
 
-RR FOODS is organized as a Flask application with feature blueprints. Jinja templates render the storefront and staff panels. SQLAlchemy models store users, catalogue items, variants, carts, orders, inventory history, reviews, notifications, content, promotions and settings in PostgreSQL.
+## Owner panel (Step 5)  /owner/
+Sign in at /owner/login. Same menu behaviour as the admin panel (drawer on phones, collapsible on desktop).
+  Dashboard     orders today, orders waiting for confirmation (with how long they have waited), orders to pack or ship,
+                low/out-of-stock alerts, revenue for today, the last 7 days and the last 30 days.
+                Revenue counts orders that are confirmed, packed, shipped or delivered. New, rejected and cancelled orders are not counted.
+                "Today" follows SHOP_TIMEZONE (default Asia/Kolkata).
+  Inventory     every live product (and its variants) with the stock number as an editable box: type a number, press Save (or Enter).
+                Select rows for bulk update: set to, add, take away, or set the alert level. Bulk is all-or-nothing:
+                if any item would go below zero, nothing changes. Alert level (low-stock threshold) is edited per product.
+                Filters: search, category, low/out/healthy; sort: lowest stock first (default).
+  Stock history who, when, old number, new number and reason for every change, per product or for the whole shop.
+  Orders        tabs: New, To pack, To ship, On the way, Delivered, Rejected/cancelled, All; search by order number, name or phone.
+                One-tap buttons: Confirm order, Mark packed, Mark shipped, Mark delivered. Reject needs a reason (5 to 300 characters)
+                that the customer sees. Every change is stored in order history, audit log and sent to the customer as an in-app notification.
+Rules the code enforces
+  - Moves go forward only: placed > confirmed > packed > shipped > delivered. Reject is allowed from placed, confirmed or packed (before it ships).
+  - Rejecting puts the items back on the shelf (with stock history rows) and gives back a coupon use. It can only happen once per order.
+  - Delivering a cash-on-delivery order marks it paid. Online orders are not touched (the refund for a rejected paid order is done in your
+    payment dashboard until the refund feature in Step 7; the order page says so).
+  - Stock rows are locked while they change, and each edit carries the number the owner saw. If a customer's order changed the stock in the meantime,
+    the edit is refused and the real number is shown, so an old page can never overwrite an order's deduction.
+  - Two people opening the same order: the second click is refused with "this order is now ...".
+  - The owner sees the customer's name, phone and delivery address (needed to deliver), never their email.
+Contract with checkout (built in Step 6): checkout takes the stock off the shelf and writes a coupon_usages row when the order is placed.
+Order history links in notifications point to /account/orders/<order number>, which Step 6 provides.
+No new database migration and no new packages in this step.
 
-The application has three distinct account roles:
+## Storefront (Step 6)
+Pages: / (home with header offer carousel), /shop (search + filters), /category/<slug>, /product/<slug>, /cart, /checkout, /account/orders,
+/account/orders/<order number>, /account/addresses, /offers. Existing /login, /register, /account are unchanged apart from the new header and menu.
+  Search         type in the box: suggestions appear as you type (products and categories), typos are tolerated ("milet" finds "Millet"),
+                 recent searches are remembered on the device. Phones get a full-screen search.
+  Filters        category, price range, brand, rating, discount %, in-stock only. Sort: relevance, popularity, newest, price, rating, discount.
+                 On phones filters open as a bottom sheet; on desktop they sit beside the results and apply immediately.
+  Product page   gallery (swipe, tap to zoom), option selector with its own price and stock, "Only N left", MRP struck through with % off,
+                 pincode delivery check, offers and coupons, specifications, reviews (read-only until Step 7), questions, related products,
+                 frequently bought together (from real past orders), recently viewed. Sticky Add to cart / Buy now bar on phones.
+  Cart           saved in your account (works on any device), save for later, quantity limited by stock and by 10 per item, coupon box, price breakdown.
+  Checkout       saved addresses, cash on delivery or online (test mode), summary with delivery fee for the chosen address, stock re-checked when you press Place order.
+  Orders         history, tracking timeline (Placed > Confirmed > Packed > Shipped > Delivered), cancel until shipped, reorder.
+Rules the code enforces
+  - Prices, stock, coupon and delivery fee are always read from the database. Nothing price-related is trusted from the browser.
+  - Placing an order is one transaction: it locks the stock rows, re-checks every line, takes the stock (with a stock-history row naming the order),
+    records the coupon use, writes the order with a copy of names/prices/address, and empties the cart. Two buyers racing for the last item: exactly one wins.
+  - Cancelling (customer) or rejecting (owner) gives the stock and the coupon use back, once.
+  - Adding to the cart needs a customer account (signed-out visitors are sent to sign in and come back). Owners and admins cannot shop.
+  - Option products (sizes/weights): the customer must choose an option; the option's own price and stock are used.
+Site settings you can change with one command (no screen for these yet):
+    flask set-setting free_delivery_min_cart 500      delivery is free when the cart (after coupon) reaches this amount (0 = never free)
+    flask set-setting tax_percent 5                   prices include this tax; the bill shows how much of the total it is (0 = hide the line)
+    flask set-setting header_carousel_interval_ms 5000   (the carousel settings from Step 4 work the same way)
+Delivery fee and ETA per pincode come from the delivery_zones table (seeded for a few pincodes). A pincode that is missing or not serviceable cannot be ordered to.
+Online payments: ONLINE_PAYMENT_MODE in .env.
+    off    the option is hidden (default when FLASK_ENV=production)
+    stub   shows a "Pay online" option and a test page whose button only marks the order paid. No money moves. Default in development.
+    To plug in Razorpay: create the gateway order in app/shop/checkout.py (pay view), and mark the payment paid from Razorpay's signed webhook,
+    never from the browser. Until then keep production on "off".
+Mobile and speed: designed at 360px first; bottom navigation, drawer menu, bottom-sheet filters, sticky buy bars, 44px tap targets, 16px inputs,
+safe-area padding for notched phones, lazy images with fixed sizes (no layout shift), dark mode (menu > Dark mode), installable (manifest + a tiny
+service worker that only shows an offline page), reduced-motion respected. See "Mobile checks" below for what still has to be tested on real phones.
+Header carousel: templates/partials/header_carousel.html, static/js/header-carousel.js. Banner colours are served as CSS from /banner-colors.css
+(the site's security policy forbids inline styles). Countdowns use the server's clock. A banner whose countdown ends while the page is open slides out by itself.
+No new database migration and no new packages in this step.
+Mobile checks to do before launch (I cannot run these from here): real Android + iPhone, Lighthouse mobile run, drag the window from 1920 to 320 px.
 
-- **Customer:** browse products, manage a cart, place orders and use account features.
-- **Owner:** manage inventory, fulfil orders and respond to customer questions.
-- **Admin:** manage products, categories, promotions, users, content, combo offers and audit records.
+## Extras (Step 7)
+  Wishlist       heart on every product card and product page; /account/wishlist; works for customers only (guests are sent to sign in).
+  Compare        up to 4 products side by side (/compare), kept in the browser session, no account needed.
+  Reviews        a customer can review a product only after an order containing it was delivered ("Verified purchase"). One review per
+                 customer per product, editable and deletable by its author. Up to 3 photos (JPG/PNG/WebP, re-encoded, 5 MB each).
+                 "Helpful" votes (not on your own review). The product's rating is recalculated from visible reviews every time.
+                 Admin > Reviews can hide a review that breaks your rules; hidden reviews stop counting in the rating.
+  Questions      customers ask on the product page (10-500 characters, at most 3 unanswered per product). Owner > Questions answers or removes
+                 them. Only answered questions are public. The customer is notified when answered.
+  Notifications  bell in the header with unread count, inbox at /notifications (customers and owners), "mark all read".
+                 Owners are told about customer cancellations, return requests and new questions.
+  Email          order updates, return updates and password resets are also queued as emails. They are sent by:  flask send-emails
+                 Run it every minute from cron.  MAIL_MODE in .env:  off (send nothing)  console (print, for testing)  smtp (real: set MAIL_SERVER,
+                 MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM, SITE_URL). Default is console in development and OFF in production.
+                 An email is stamped "sent" only after the mail server accepted it; failures are retried on the next run.
+  Invoices       PDF for any order from "confirmed" onwards: customer (order page) and owner (order page). Seller details come from site settings:
+                     flask set-setting business_name '"RR FOODS"'
+                     flask set-setting business_address '"12 Lake Road, Coimbatore 641001"'
+                     flask set-setting gstin '"33ABCDE1234F1Z5"'
+                 Amounts print as "Rs." (standard PDF fonts have no rupee sign). Ask your accountant what a GST invoice must contain for you.
+  Returns        a customer can request a return of a delivered order within return_window_days (default 7, change with
+                 `flask set-setting return_window_days 10`). The owner accepts (optionally putting the items back in stock) or declines with a reason,
+                 then marks it refunded after sending the money back. Marking refunded records it; it does not move money. Tab "Returns" in Owner > Orders.
+  Forgot password  /forgot sends a one-hour link by email (customers only; staff are reset by an admin). The link works once and stops working if
+                 the password changes any other way. The page gives the same answer for unknown emails. Needs MAIL_MODE=smtp in production.
+New dependency: reportlab (invoices). No new database migration.
+Not built: email/OTP verification at sign-up, loyalty points. Coupons are managed in Admin > Coupons (Step 4) and applied in the cart (Step 6).
 
-The storefront is responsive and uses the RR FOODS green visual identity. Browser interactions use regular CSS and JavaScript; no frontend framework is required for the current pages.
+## Move your existing products in
+Your current website keeps products in a CSV (`docs/sample-products.csv` in the old project).
+Copy your latest CSV over `app/seed_data/products.csv`, or run:
+    flask import-products-csv path\to\your-products.csv
+Existing products (matched by the id column, which becomes the SKU) are updated, new ones are added.
+Stock is set to 25 for new in-stock products and 0 for sold-out ones. Change stock in the owner panel (/owner/inventory).
+Rows tagged `featured` become bestsellers.
 
-## Main features
+## Tests
+Full instructions: TESTING.md. Short version:
+    createdb nk_test
+    set TEST_DATABASE_URL=postgresql+psycopg://USER:PASSWORD@localhost:5432/nk_test
+    python -m pytest -q
+WARNING: the test run wipes the test database. Never point TEST_DATABASE_URL at your real data.
+Browser layout audit (needs a running seeded site): scripts/layout_audit.py, see TESTING.md.
 
-### Customer storefront
+## Changing the database later
+After editing a model:  flask db migrate -m "what changed"   then   flask db upgrade
+(Alembic always proposes re-creating the `ix_products_fts` index. Delete that part of the new file.)
 
-- Homepage with promotional areas and configurable header banner carousel.
-- Shop All, bestseller and category product listings.
-- Product search, suggestions, typo-tolerant search and recent searches.
-- Filters for category, price, brand, rating, discount and stock.
-- Product detail pages with gallery, variants, stock, offers, reviews and related products.
-- Cart, saved-for-later items, coupon application and checkout.
-- Customer addresses, order history, order tracking, cancellation and reorder.
-- Wishlist, product comparison, reviews, helpful votes and product questions.
-- Notifications, invoices, returns and password recovery.
-- Recipes, recipe detail pages, product bundles and homepage reels.
+## Tables (27)  (migration 2 adds failed_login_count and locked_until to users)
+users, addresses, delivery_zones, categories, products, product_images, product_variants, offers, product_offers,
+product_related, coupons, coupon_usages, cart_items, wishlist, orders, order_items, order_status_history, payments,
+reviews, review_votes, product_questions, inventory_logs, notifications, banners, header_banners, site_settings, audit_logs.
 
-### Admin workspace
+## Files
+app/__init__.py       app factory, /healthz and a placeholder home page
+app/config.py         settings read from .env
+app/models/           user.py, catalog.py, orders.py, engagement.py, content.py, base.py
+app/seed.py           seed data and CSV importer
+app/cli.py            flask seed, import-products-csv, create-user, set-setting, send-emails, check-config
+app/prodcheck.py      production safety check (used at startup and by flask check-config)
+app/security.py       argon2 password hashing
+app/auth/             sign-in service, routes, decorators, password rules
+app/admin/            admin panel (products, categories, offers, coupons, banners, users, audit, bulk, CSV)
+app/services/         header banner schedule and cache
+app/api.py            public JSON for the home page header carousel
+app/uploads.py        safe image upload and resize; app/media.py serves /uploads/
+app/owner/            owner panel: dashboard, inventory, orders, password (role-guarded)
+app/admin/            admin panel (role-guarded)
+app/services/inventory.py, orders.py, notify.py   stock locking and history, order status moves, in-app notifications
+app/templates/        base, auth, account, owner, admin, error pages
+app/static/css/base.css   shared design tokens (mobile-first)
+migrations/           Alembic migration (adds the pg_trgm extension for typo-tolerant search)
+tests/                pytest suite
 
-- Product create/edit/archive/restore and permanent deletion workflow.
-- Product variants, images, stock thresholds, pricing, discounts and bestseller flag.
-- Category and subcategory management.
-- Bulk product actions and CSV import/export.
-- Offers and coupons.
-- Header banner carousel management and scheduling.
-- User management, owner account creation and password reset.
-- Reviews moderation and audit log.
-- Reels and recipe management.
-- Product bundles and Diwali combo management.
+## Deployment (Step 8, Part 2)
 
-### Owner workspace
+### Before anything: the safety check
+    flask check-config
+It lists settings that are unsafe for real customers ([FIX] = the site refuses to start in production until fixed,
+[ADVICE] = works, but fix it soon). With FLASK_ENV=production the site will not start if: SECRET_KEY is weak, the database
+still has the example password, ONLINE_PAYMENT_MODE=stub (it would let anyone mark an order paid), cookies are not Secure,
+or DEBUG is on. Monitoring URLs: /healthz (process is up) and /readyz (database answers; 503 if not).
 
-- Sales and order dashboard.
-- Inventory editing and bulk stock operations.
-- Low-stock and out-of-stock alerts.
-- Stock movement history.
-- Order confirmation, packing, shipping, delivery and rejection.
-- Customer questions and response workflow.
-- Owner password management.
+### Option A: one Linux server (Ubuntu/Debian)
+1. Install: python3-venv, postgresql, nginx, redis-server, certbot.
+2. Database: create a user and a database with a strong password (not the example one).
+3. Code: copy the project to /srv/nk, then
+       python3 -m venv venv && venv/bin/pip install -r requirements.txt gunicorn
+4. Settings: copy .env.production.example to /srv/nk/.env and fill it in. Then:
+       cd /srv/nk && set -a && . ./.env && set +a
+       venv/bin/flask check-config          # must say "0 to fix"
+       venv/bin/flask db upgrade
+5. Accounts: do NOT run `flask seed` on a live shop (it adds sample data and example @nurseskitchen.local logins).
+       venv/bin/flask create-user you@yourshop.com "Your Name" --role admin
+       venv/bin/flask create-user owner@yourshop.com "Owner Name" --role owner
+   Add real products from Admin > Products (or CSV import). Set business details for invoices:
+       flask set-setting business_name '"RR FOODS"'   (see "Extras (Step 7)" for the other invoice settings)
+6. Run it: deploy/nk.service (systemd). deploy/nginx.conf for the web server, then `certbot --nginx -d your.domain`.
+7. Cron: deploy/crontab.txt (sends queued emails every minute, nightly backup).
 
-### Quality and brand experience
+### Option B: Docker (web app only)
+    docker build -t nk-shop .
+    docker run -d --name nk --env-file .env -p 8000:8000 -v nk_uploads:/data/uploads nk-shop
+The image does not contain a database: set DATABASE_URL to a managed PostgreSQL or your own server. Run migrations once with
+    docker run --rm --env-file .env nk-shop flask db upgrade
+Put nginx or a cloud load balancer in front for HTTPS and set TRUST_PROXY=1. Note: the Docker files were written but not built
+or run while preparing this step (no Docker was available).
 
-- RR FOODS green theme (`#1f5c3a`).
-- About Us story page.
-- Nurse Guide quality journey: six stages from ingredient sourcing through delivery, with SVG nurse character, stage props, speech bubble, progress, navigation and reduced-motion support.
-- Homepage Bestsellers and New Arrivals image-backed promotional blocks.
-- Diwali combo offer cards, countdown and canvas fireworks animation.
-- Responsive layout and keyboard-accessible controls in the relevant components.
+### Backups (do this before launch, not after)
+scripts/backup.sh saves the database and the uploaded images every night and keeps 14 days. Copy them off the server as well.
+Restore test (do it once, so you know it works):
+    createdb nk_restore && pg_restore -d nk_restore /var/backups/nk/db-YYYYMMDD-HHMMSS.dump
+Uploads: unpack uploads-*.tar.gz into the folder UPLOAD_DIR points to.
 
----
+### Updating a live site
+    git pull (or copy new files) && venv/bin/pip install -r requirements.txt
+    venv/bin/flask db upgrade && sudo systemctl restart nk
+Take a backup first. Check /readyz afterwards.
 
-## Technology stack
+### Online payments
+Production defaults to cash on delivery only. To accept online payments, wire Razorpay in app/services/payments.py (verify the
+payment signature on the server, never trust the browser), then set ONLINE_PAYMENT_MODE=razorpay and test with Razorpay test keys.
 
-| Layer | Technology |
-|---|---|
-| Server | Python 3.11+ and Flask 3 |
-| ORM | Flask-SQLAlchemy / SQLAlchemy 2 |
-| Database | PostgreSQL 16+ |
-| Migrations | Flask-Migrate / Alembic |
-| Templates | Jinja2 |
-| Frontend | HTML, CSS and vanilla JavaScript |
-| Authentication | Argon2 password hashing |
-| Forms/security | Flask-WTF CSRF |
-| Rate limiting | Flask-Limiter |
-| Image processing | Pillow |
-| PDF invoices | ReportLab |
-| Tests | pytest |
-| Production server | Gunicorn |
-| Optional infrastructure | Redis, Nginx, Docker |
+## Launch checklist
+[ ] flask check-config says "0 to fix", and advice items are reviewed
+[ ] Real admin and owner accounts created; the @nurseskitchen.local examples blocked or never created
+[ ] HTTPS works (padlock), http redirects to https
+[ ] Redis installed and RATELIMIT_STORAGE_URI set
+[ ] One real email sent (forgot password) through your SMTP server; cron line for flask send-emails installed
+[ ] Invoice settings filled (business name, address, GSTIN); accountant has looked at the invoice
+[ ] Backup ran once and a restore was tested
+[ ] Tax percent and free delivery minimum set (flask set-setting tax_percent 5, flask set-setting free_delivery_min_cart 500)
+[ ] Delivery zones (pincodes and fees) entered
+[ ] Test order placed and walked through all owner steps on a real phone
+[ ] Lighthouse mobile run on Home, a product page, cart and checkout
+[ ] Android phone and iPhone checked (see TESTING.md section 3)
 
-See `requirements.txt` for pinned compatibility ranges.
+## What has and has not been verified
+Verified by automatic tests on real PostgreSQL (see TESTING.md): every route's access rules, the full customer + owner + admin
+journey, stock when two buyers check out at the same instant, order, review, return and refund rules, password reset, invoice PDF
+text, production safety check, /readyz.
+Verified by hand in this environment: gunicorn in production mode serves the site with Secure/HttpOnly cookies; nginx.conf passes
+`nginx -t`; backup.sh makes a dump that restores with the same product count; Chromium layout audit found and fixed sideways
+scroll on /shop (360 px) and the signed-out top bar (320 px).
+NOT verified: real phones, Lighthouse scores, real SMTP delivery, a real payment gateway, the Dockerfile build, the systemd unit,
+certbot/HTTPS, Redis rate limiting, behaviour under heavy traffic, interactive widgets in a browser (menu drawer, bottom
+sheets, carousel swipe, gallery zoom), owner/admin pages at widths other than 360 px.
+Known small gap: the select-row checkboxes in Owner > Inventory and Admin > Products are 13 px wide (below the 44 px tap rule).
+Not built (from the original spec): sign-up email/OTP verification, loyalty/wallet points, admin-editable homepage sections other
+than the header carousel, a tax/delivery settings screen (use flask set-setting).
 
----
 
-## Project structure
+## Content modules (Reels, Recipes and Bundles)
 
-```text
-rr-foods/
-├── app/
-│   ├── __init__.py              # Flask application factory and blueprint registration
-│   ├── config.py                # Environment-based configuration
-│   ├── extensions.py            # Flask extensions
-│   ├── cli.py                   # Custom Flask CLI commands
-│   ├── api.py                   # Public JSON API endpoints
-│   ├── security.py              # Password/security helpers
-│   ├── uploads.py               # Validated image upload handling
-│   ├── media.py                 # Uploaded media serving
-│   ├── prodcheck.py             # Production configuration checks
-│   ├── seed.py                  # Demo seed and CSV import functions
-│   ├── auth/                    # Login, registration, recovery and role decorators
-│   ├── models/                  # SQLAlchemy models
-│   ├── shop/                    # Public storefront routes
-│   ├── admin/                   # Admin routes
-│   ├── owner/                   # Owner routes
-│   ├── services/                # Cart, checkout, inventory, orders, mail, etc.
-│   ├── templates/
-│   │   ├── auth/
-│   │   ├── account/
-│   │   ├── shop/
-│   │   ├── admin/
-│   │   ├── owner/
-│   │   └── partials/
-│   └── static/
-│       ├── css/                 # Base, shop, admin, owner and feature styles
-│       ├── js/                  # Storefront and feature interactions
-│       ├── img/                 # Brand assets and static images
-│       └── fonts/
-├── migrations/                  # Alembic migration history
-├── tests/                       # pytest tests
-├── docs/                        # Feature notes, QA and data review documents
-├── deploy/                      # Nginx, systemd and cron examples
-├── scripts/                     # Backup and layout audit scripts
-├── .env.example                 # Development environment template
-├── .env.production.example      # Production environment template
-├── Dockerfile
-├── docker-compose.yml            # PostgreSQL service for local development
-├── requirements.txt
-├── TESTING.md
-├── IMPLEMENTATION-REPORT.md
-└── wsgi.py
-```
+Apply the latest database migration after pulling this update:
+    flask db upgrade
 
----
+Admin menu:
+- `/admin/reels`: upload MP4/WebM/MOV reels (50 MB max), set thumbnail, linked product, active state and display order. The home-page display settings control visibility, selected reels and maximum count.
+- `/admin/recipes`: full recipe create/edit/publish/delete. Recipes support uploaded video or a YouTube URL, thumbnail, category, ingredients (one per line) and linked products.
+- `/admin/bundles`: create/edit/activate/delete product bundles, choose products and quantities, set a bundle price and optional validity dates.
 
-## Requirements
+Storefront:
+- `/recipes` and `/recipes/<slug>` show published recipes. Recipe detail supports the video player, ingredients and adding linked ingredient products to the cart.
+- `/bundles` shows active bundles and savings. Bundle additions create bundle-specific cart lines with allocated discounted unit prices, so the existing checkout/order workflow receives the discounted values. Product detail pages link to matching bundles.
+- Reels appear on the home page only. They lazy-load, play muted when visible, and open in a fullscreen-style dialog when tapped.
 
-- Python 3.11 or newer.
-- PostgreSQL 16 or newer.
-- Windows, macOS or Linux.
-- Git (recommended).
-- Optional: Docker Desktop, Redis and Nginx.
+Uploads:
+- Reels and recipe videos accept MP4, WebM or MOV up to 50 MB. Images are re-encoded to WebP by the existing safe image uploader. Configure `MAX_UPLOAD_MB=60` if your deployment overrides the upload cap.
+- Configure `WHATSAPP_NUMBER` (country code plus number, digits only) and `SUPPORT_EMAIL` in `.env` to show the optional WhatsApp and support links.
 
----
+Design/accessibility:
+- Storefront surfaces are white, the footer is black, the mobile header keeps navigation above a second-row search/actions area, and content cards are responsive. Controls retain 44px minimum tap targets and visible keyboard focus styles.
+- Reels and recipe videos use native browser video playback. Admin uploads show transfer progress and server-side validation errors.
 
-## Local setup — Windows PowerShell
+## Verification notes
+The source package was syntax-checked with Python's compiler and Jinja's parser. The runtime dependencies (Flask and SQLAlchemy) were not installed in the build environment, so database migration execution, full route tests, checkout integration tests and Lighthouse scoring must be completed in the target environment. Run `pytest` after `pip install -r requirements.txt`; then test `/admin/reels`, `/admin/recipes`, `/admin/bundles`, `/recipes` and `/bundles` with seeded accounts.
 
-Open PowerShell in the project root (the folder containing `wsgi.py` and `requirements.txt`).
 
-### 1. Create and activate a virtual environment
+## RR FOODS rollout notes
+
+This repository has been rebranded for RR FOODS using the supplied brand asset and the approved Fresh Market – Modern Premium palette. The customer storefront, account pages, owner workspace and admin workspace use the RR FOODS identity.
+
+### Product catalogue import
+
+The supplied spreadsheet has been converted to `app/seed_data/rr_foods_products.csv` for the existing Admin → Products → Import workflow. It contains all 32 source product records, the supplied SKU, category, name, variant, pack weight and price fields. Missing ingredients, nutrition, allergen, preparation, FSSAI and other package data have deliberately been left blank. Source marketing claims have not been published.
+
+1. Configure the application and database using the normal setup instructions below.
+2. Create or sign in with an administrator account.
+3. Run `flask import-rr-foods` from the project root (add `--yes` to skip the confirmation prompt), or use **Admin → Products → Import** and upload the CSV with **Create missing categories** enabled.
+4. Review the import result.
+5. Set verified inventory quantities and upload approved product images before opening sales.
+
+All products are imported with zero stock because the source spreadsheet contains no stock counts. They remain unavailable for purchase until the owner enters actual inventory. Do not set stock based on assumptions.
+
+`docs/RR-FOODS-product-data-review.csv` is an internal review sheet retaining the supplied marketing notes and highlighting the package fields that still need verification. Do not upload this review sheet to the storefront.
+
+### About RR FOODS
+
+The `/about` page uses the supplied About Us document. The story is reproduced as provided, with only layout and punctuation formatting.
+
+### Payment and production readiness
+
+The existing project includes a test payment stub, not a live payment gateway. It does not move money and must not be used for customer payments. Production configuration must keep the stub disabled. A real gateway (for example, Razorpay) still requires merchant credentials, server-side order creation, signature verification, webhook handling and end-to-end sandbox testing before enabling online payment. Do not enter gateway secrets into frontend code.
+
+### Launch items requiring business confirmation
+
+- Confirm and publish the official business phone, email, address, WhatsApp number and social links.
+- Supply approved product pack images and verify product names, variants, weights and prices.
+- Confirm actual inventory quantities.
+- Provide approved ingredients, allergens, nutrition panels, preparation and storage directions, shelf life, barcode and FSSAI licence details for each SKU.
+- Approve or remove marketing statements in the source spreadsheet before publication.
+- Confirm delivery charges, tax rules, shipping coverage, return/cancellation terms and privacy/terms copy.
+- Connect and test a live payment gateway before accepting online payments.
+
+### Brand files
+
+The original RR FOODS logo is stored at `app/static/img/rr-foods-logo.png`. It is copied byte-for-byte from the supplied PNG and must not be altered.
+
+### RR FOODS combo offers and bestsellers
+- Mark catalogue items as **Bestseller** in Admin → Products. The storefront navigation opens `/bestsellers`, which only lists active products explicitly marked as bestsellers.
+- Configure combo promotions in Admin → Combo Offers. Add a name, image, products/quantities, discounted bundle price, active status and optional start/end dates. Active bundles appear on the Offers page and the dedicated Bundles page.
+- Combo offers use the existing `bundles` table and migration (`b7f1c9a4d203_content_modules`); run `flask db upgrade` when setting up a fresh database.
+
+
+## RR FOODS product seed import
+
+The canonical product seed file is `app/seed_data/seed_products.csv` (32 source products).
+The source categories and supplied prices/pack sizes are preserved. Seven relevant products
+receive a `Breakfast` subcategory under their source category. Missing ingredients, nutrition,
+allergens, FSSAI and preparation details are intentionally left blank until approved label
+information is supplied. Imported stock defaults to zero.
+
+From the project root, after configuring `.env` and applying migrations:
 
 ```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
-
-If PowerShell blocks script execution for the current user:
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-```
-
-Then activate again. If the environment already exists at a different path, activate that exact path. For example:
-
-```powershell
-& "D:\path\to\project\.venv\Scripts\Activate.ps1"
-```
-
-Check that Python and pip belong to the intended environment:
-
-```powershell
-python --version
-python -m pip --version
-```
-
-### 2. Install dependencies
-
-```powershell
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-### 3. Configure environment variables
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Edit `.env` and set a strong `SECRET_KEY` and the correct PostgreSQL `DATABASE_URL`.
-
-### 4. Start PostgreSQL
-
-Use your local PostgreSQL installation, or start the included database container:
-
-```powershell
-docker compose up -d db
-```
-
-The default Docker database values are for local development only.
-
-### 5. Create database tables
-
-```powershell
-flask db upgrade
-```
-
-### 6. Seed demo data (optional)
-
-```powershell
-flask seed
-```
-
-The command prints the generated demo account passwords once. Save them securely. Do not run demo seeding on a production database.
-
-### 7. Start Flask
-
-```powershell
-python -m flask run
-```
-
-Open:
-
-- Storefront: `http://127.0.0.1:5000/`
-- Health: `http://127.0.0.1:5000/healthz`
-- Readiness: `http://127.0.0.1:5000/readyz`
-
-**Important:** Run commands from the project root. If `.\.venv\Scripts\Activate.ps1` is not found, the virtual environment is not located in the current directory. Use the correct full path or create a new `.venv` in the project root.
-
----
-
-## Local setup — macOS and Linux
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-cp .env.example .env
-```
-
-Edit `.env`, ensure PostgreSQL is running, then:
-
-```bash
-flask db upgrade
-flask seed
-python -m flask run
-```
-
----
-
-## Environment configuration
-
-The repository contains `.env.example` and `.env.production.example`. Copy the appropriate example and replace development values.
-
-Common settings:
-
-| Variable | Purpose |
-|---|---|
-| `FLASK_APP` | Flask entry point; normally `wsgi.py` |
-| `FLASK_ENV` | `development` or `production` |
-| `SECRET_KEY` | Secret used for sessions and CSRF; use a long random value |
-| `DATABASE_URL` | PostgreSQL connection string using the psycopg driver |
-| `UPLOAD_DIR` | Directory for uploaded product/banner/content media |
-| `MAX_UPLOAD_MB` | Upload size limit |
-| `SHOP_TIMEZONE` | Shop timezone; normally `Asia/Kolkata` |
-| `ONLINE_PAYMENT_MODE` | `off` or `stub`; stub is test-only and not a real gateway |
-| `MAIL_MODE` | `off`, `console` or `smtp` |
-| `MAIL_SERVER`, `MAIL_PORT` | SMTP server settings |
-| `MAIL_USERNAME`, `MAIL_PASSWORD` | SMTP credentials |
-| `MAIL_FROM` | Sender address |
-| `SITE_URL` | Public site URL used in emails |
-| `WHATSAPP_NUMBER` | Optional support number, country code plus digits |
-| `SUPPORT_EMAIL` | Optional support email |
-| `RATELIMIT_STORAGE_URI` | Redis URL for shared rate-limit state in multi-worker deployments |
-| `TRUST_PROXY` | Enable only when correctly deployed behind a trusted reverse proxy |
-
-Never commit `.env`, production credentials, database passwords or payment secrets. The `.env.example` file is a template, not a secure production configuration.
-
----
-
-## Database and migrations
-
-Apply migrations after installing dependencies and configuring the database:
-
-```bash
-flask db upgrade
-```
-
-Current migration history includes:
-
-- `9abfa11104ad` — initial schema.
-- `b7f1c9a4d203` — content modules.
-- `dcef60c4798e` — login lockout columns.
-- `ef30c2a6d811` — admin-managed Diwali combos.
-
-To create a migration after changing SQLAlchemy models:
-
-```bash
-flask db migrate -m "describe the schema change"
-flask db upgrade
-```
-
-Review generated migration files before applying them. Do not edit an already-applied migration in a deployed environment; create a new migration instead.
-
----
-
-## Initial data and product import
-
-### Demo seed
-
-```bash
-flask seed
-```
-
-This creates sample accounts and catalogue/demo data. It is intended for development and testing only.
-
-### RR FOODS catalogue import
-
-The supplied catalogue CSV is:
-
-```text
-app/seed_data/seed_products.csv
-```
-
-Import it using:
-
-```bash
 flask import-rr-foods --yes
 ```
 
-The import preserves supplied catalogue values and creates missing categories as supported by the importer. Imported inventory defaults to zero where stock was not supplied. Set actual stock in Owner → Inventory before allowing orders.
-
-Review `docs/RR-FOODS-product-data-review.csv` before publishing package information. Do not invent ingredients, nutrition, allergens, FSSAI details, preparation directions or other regulated product-label facts.
-
-### Other product CSV import
-
-```bash
-flask import-products-csv path/to/products.csv
-```
-
-Use the Admin → Products import workflow for validation and row-level error reporting.
-
----
-
-## User roles and login URLs
-
-| Role | Login | Workspace |
-|---|---|---|
-| Customer | `/login` | `/account` |
-| Owner | `/owner/login` | `/owner/` |
-| Admin | `/admin/login` | `/admin/` |
-
-Customer registration is available at `/register`.
-
-Role guards protect the owner and admin route groups. A user with the wrong role cannot enter another role's workspace.
-
----
-
-## Customer storefront routes
-
-| Route | Purpose |
-|---|---|
-| `/` | Homepage |
-| `/shop` | Shop All catalogue |
-| `/bestsellers` | Products explicitly marked as bestsellers |
-| `/category/<slug>` | Category listing |
-| `/product/<slug>` | Product details |
-| `/cart` | Shopping cart |
-| `/checkout` | Checkout |
-| `/offers` | Current offers and promotions, including active Diwali combos |
-| `/bundles` | Active product bundles |
-| `/recipes` | Published recipes |
-| `/recipes/<slug>` | Recipe details |
-| `/account` | Customer account |
-| `/account/orders` | Order history |
-| `/account/orders/<order-number>` | Order detail and tracking |
-| `/account/addresses` | Saved addresses |
-| `/account/wishlist` | Wishlist |
-| `/compare` | Product comparison |
-| `/notifications` | Customer notifications |
-| `/about` | RR FOODS story and Nurse Guide quality journey |
-| `/help` | Help page |
-| `/forgot` | Password recovery |
-
-Some routes require a signed-in customer. Staff accounts are intended to use their separate workspaces.
-
----
-
-## Admin panel
-
-Sign in at `/admin/login`.
-
-The admin workspace includes:
-
-- **Dashboard:** shop overview.
-- **Products:** create/edit, images, variants, price, discount, stock threshold, visibility and bestseller status.
-- **Bulk tools:** bulk visibility, archive/restore, price/discount and category actions.
-- **CSV:** product import/export.
-- **Categories:** category and subcategory management.
-- **Offers:** product offer labels.
-- **Coupons:** discount rules, limits and expiry.
-- **Header banners:** desktop/mobile images, scheduling, ordering, carousel settings and countdown.
-- **Users:** search, block/unblock, password reset and owner creation.
-- **Audit:** administrative activity records.
-- **Reviews:** moderation.
-- **Reels:** upload and manage homepage reels.
-- **Recipes:** create, edit, publish and remove recipes.
-- **Bundles:** create product bundles.
-- **Diwali Combos:** manage festival combo name, description, products, quantities, price, image, tag, active status and countdown end date.
-
-All admin routes are role-protected. Use the audit log to review administrative changes.
-
----
-
-## Owner panel
-
-Sign in at `/owner/login`.
-
-The owner workspace includes:
-
-- Dashboard for orders, revenue and stock alerts.
-- Inventory editing and bulk stock updates.
-- Stock history with user, timestamp, old value, new value and reason.
-- Order tabs for new, packing, shipping, delivered and rejected/cancelled orders.
-- Order status actions and rejection reasons.
-- Customer product questions.
-- Password management.
-
-Order progression is controlled by the backend. Stock changes are transactional and recorded in inventory history.
-
----
-
-## Cart, checkout and order lifecycle
-
-The intended order lifecycle is:
-
-```text
-Placed → Confirmed → Packed → Shipped → Delivered
-```
-
-Rejection is allowed only before shipment. Customer cancellation is also restricted by order status.
-
-Important rules implemented in the application:
-
-- Product price, stock, discounts, coupon rules and delivery fee are read from the database, not trusted from browser-submitted totals.
-- Checkout rechecks stock and locks relevant inventory rows during order placement.
-- Successful checkout records order items and stock history, applies coupon usage and clears the cart.
-- Cancelling/rejecting an eligible order restores inventory and coupon usage once.
-- COD orders are marked paid when delivered; this does not process online payments.
-- Bundle cart additions use the existing bundle/cart pricing workflow.
-
-Review the checkout and order service modules before integrating a real payment provider.
-
----
-
-## RR FOODS homepage and About page
-
-### Homepage
-
-The homepage includes promotional areas, product sections and the configurable header banner carousel. The Bestsellers and New Arrivals promotional blocks can use local background images.
-
-Expected static image paths (add the image files to this directory):
-
-```text
-app/static/img/rr-foods-bestsellers-background.jpg
-app/static/img/rr-foods-new-arrivals-background.jpg
-```
-
-The About hero background can use:
-
-```text
-app/static/img/RR-FOODS-About-Hero-Background.jpg
-```
-
-CSS references should be relative to `app/static/css/`, for example:
-
-```css
-background-image: url("../img/rr-foods-bestsellers-background.jpg");
-```
-
-If the image is missing or the path/capitalization differs, the browser will not display it. Keep image filenames and CSS references identical.
-
-### About page — Nurse Guide
-
-The `/about` page contains the RR FOODS story and a six-stage quality guide:
-
-1. **Sourcing:** handpicked millets, grains and nuts from trusted farmers.
-2. **Cleaning and Sorting:** removal of stone, dust and impurities.
-3. **Traditional Processing:** stone-ground or slow-roasted processing; no preservatives.
-4. **Quality Testing:** moisture, purity and freshness checks.
-5. **Hygienic Packaging:** sealed, food-grade and batch-coded packaging.
-6. **Delivery:** fresh products delivered to the doorstep.
-
-Stage content is supplied by a Python list in the About route and rendered by the Jinja template. The nurse character is inline SVG and its body/arms/props are animated with CSS. JavaScript handles stage activation, speech text, progress, navigation and count-up metrics. Reduced-motion preferences are respected.
-
----
-
-## Bestsellers, bundles and Diwali combos
-
-### Bestsellers
-
-Admin users can mark products as bestsellers. The public `/bestsellers` page lists active products explicitly marked with the bestseller flag.
-
-### Product bundles
-
-Bundles are managed in the admin content area and displayed on `/bundles`. Bundle pricing is applied through the existing cart workflow.
-
-### Diwali combos
-
-The Diwali feature adds admin-managed `Combo` records connected to existing `Bundle` records. Active Diwali-tagged combos appear at the top of `/offers`.
-
-Admin management:
-
-- `/admin/combos`
-- Create, edit, activate/deactivate and delete combos.
-- Select catalogue products and quantities.
-- Configure original and discounted prices.
-- Configure image and festival tag.
-- Set the site-wide Diwali countdown end date.
-
-Seed three sample combos from active catalogue products:
-
-```bash
-flask seed-diwali-combos
-```
-
-The seed command requires at least two active, in-stock products without active variants. It does not duplicate samples if combos already exist. Review the selected products, descriptions and prices in the admin panel before publishing.
-
-The offers page uses existing cart handling through the linked bundle. A customer must sign in to add items to the cart.
-
-The fireworks effect is implemented with canvas and vanilla JavaScript. It pauses when the section is off-screen or the browser tab is hidden, limits particle count and respects reduced-motion preferences.
-
----
-
-## Reels and recipes
-
-- Reels are managed in the admin workspace and shown on the homepage.
-- Reels support MP4, WebM and MOV within the configured upload limit.
-- Recipes support text, ingredients, category, thumbnail and video or YouTube URL.
-- Recipe detail pages can link ingredient products to the cart.
-- Uploaded videos are served from the configured uploads directory.
-
-Review the admin forms and upload configuration before increasing upload limits.
-
----
-
-## Images and uploads
-
-Static, committed images belong in:
-
-```text
-app/static/img/
-```
-
-Uploaded product, banner, reel and recipe media are stored in the configured upload directory (default: `uploads/`) and served through the application's media route.
-
-The image uploader validates image formats, re-encodes supported images with Pillow, strips metadata, assigns random filenames and resizes images for their intended use. Keep the uploads directory backed up together with the database.
-
-Do not store secrets or private customer documents in the public static directory.
-
----
-
-## CLI commands
-
-Run commands from the project root with the virtual environment activated.
-
-| Command | Purpose |
-|---|---|
-| `flask db upgrade` | Apply database migrations |
-| `flask db migrate -m "message"` | Generate a migration after model changes |
-| `flask seed` | Create development/demo data and accounts |
-| `flask import-rr-foods --yes` | Import supplied RR FOODS catalogue |
-| `flask import-products-csv PATH` | Import a general product CSV |
-| `flask create-user EMAIL "Name" --role admin` | Create an admin account |
-| `flask create-user EMAIL "Name" --role owner` | Create an owner account |
-| `flask create-user EMAIL "Name" --role user` | Create a customer account |
-| `flask seed-diwali-combos` | Seed sample Diwali combos |
-| `flask set-setting KEY VALUE` | Change a JSON-backed site setting |
-| `flask send-emails` | Deliver queued emails |
-| `flask check-config` | Check production configuration |
-
-Example site settings:
-
-```bash
-flask set-setting free_delivery_min_cart 500
-flask set-setting tax_percent 5
-flask set-setting business_name '"RR FOODS"'
-```
-
-The `set-setting` command parses JSON values where possible. Strings should be passed as JSON strings, including quotes.
-
----
-
-## Testing
-
-Install dependencies first:
-
-```bash
-pip install -r requirements.txt
-```
-
-Read `TESTING.md` before running the full suite. The tests use a dedicated test database and may clear its contents. **Never point `TEST_DATABASE_URL` at the production database or a database containing important data.**
-
-Typical command:
-
-```bash
-pytest -q
-```
-
-For PostgreSQL-backed tests, create a separate test database and configure the test connection as described in `TESTING.md`.
-
-Additional manual checks:
-
-- Sign in as each role and verify access boundaries.
-- Browse `/shop`, `/bestsellers`, categories and product details.
-- Add products and bundles to the cart and complete a test checkout.
-- Verify inventory and order status history.
-- Test `/about`, all six Nurse Guide stages, stage navigation and reduced-motion mode.
-- Test `/offers`, Diwali countdown and fireworks.
-- Test the homepage promotional background images.
-- Test responsive layouts at mobile, tablet and desktop widths.
-- Test admin CRUD and owner inventory/order actions.
-
----
-
-## Production deployment
-
-Do not expose the Flask development server to the public internet.
-
-Before production:
-
-1. Use a production `.env` with a strong random `SECRET_KEY`.
-2. Use a dedicated PostgreSQL database and strong credentials.
-3. Set `FLASK_ENV=production`.
-4. Set `ONLINE_PAYMENT_MODE=off` until a real gateway is fully integrated and verified.
-5. Set secure cookies and serve only over HTTPS.
-6. Configure Redis for rate limiting when using multiple workers.
-7. Configure SMTP if transactional email is required.
-8. Configure Nginx or another reverse proxy and Gunicorn.
-9. Set `TRUST_PROXY=1` only behind a correctly configured trusted proxy.
-10. Run migrations and `flask check-config`.
-11. Create real staff accounts; do not use demo credentials.
-12. Back up database and uploads.
-13. Complete the launch checklist and real-device tests.
-
-### Configuration check
-
-```bash
-flask check-config
-```
-
-Resolve every `[FIX]` item before launch and review all `[ADVICE]` items.
-
-### Gunicorn
-
-The project includes `gunicorn.conf.py` and deployment examples under `deploy/`. Install Gunicorn in the production environment if it is not already present:
-
-```bash
-pip install gunicorn
-gunicorn -c gunicorn.conf.py wsgi:app
-```
-
-Confirm the WSGI target in `wsgi.py` and the deployment service file before starting the service.
-
-### Docker
-
-The repository includes a Dockerfile and a PostgreSQL `docker-compose.yml` service for local development. Review the Dockerfile, environment, persistent uploads volume and database URL before using it in production.
-
----
-
-## Backup and restore
-
-Back up both:
-
-- PostgreSQL database.
-- Upload directory configured by `UPLOAD_DIR`.
-
-A database-only backup does not preserve uploaded product images, banners, reels or recipe media.
-
-The project includes `scripts/backup.sh` as a deployment example. Review its paths, credentials, retention and destination before scheduling it. Store copies off the application server and test a restore before launch.
-
----
-
-## Security notes
-
-- Passwords are hashed using Argon2.
-- Forms use CSRF protection.
-- Role-based access protects admin and owner workspaces.
-- Sign-out uses POST.
-- Login lockout and rate limiting are included.
-- Staff actions are recorded in audit history.
-- Uploads are validated and re-encoded.
-- Checkout recalculates prices and checks stock on the server.
-- Production must use HTTPS, secure cookies and a strong secret key.
-- The payment `stub` mode is a test mechanism only. It does not move money and must not be enabled for real customer payments.
-- Never put database, SMTP or payment secrets in frontend JavaScript or committed files.
-
----
-
-## Pre-launch checklist
-
-- [ ] Confirm `.env` contains production-only secrets and strong database credentials.
-- [ ] `flask check-config` reports no blocking issues.
-- [ ] Database migrations have been applied.
-- [ ] Real admin and owner accounts have been created.
-- [ ] Demo accounts/passwords are disabled or removed.
-- [ ] Product names, prices, variants and pack sizes are verified.
-- [ ] Actual inventory quantities have been entered.
-- [ ] Ingredients, allergens, nutrition, FSSAI and package details are approved.
-- [ ] Product and homepage images are approved and load correctly.
-- [ ] Delivery zones, fees, tax and free-delivery threshold are confirmed.
-- [ ] Privacy, terms, returns and cancellation policies are approved.
-- [ ] SMTP delivery is tested if email is enabled.
-- [ ] Online payment gateway is integrated and verified before enabling it.
-- [ ] HTTPS, secure cookies and rate limiting are configured.
-- [ ] Database and uploads backups are scheduled and restore-tested.
-- [ ] Customer, owner and admin workflows are tested.
-- [ ] About Nurse Guide, offers, Diwali combos and mobile layouts are checked.
-- [ ] Android and iPhone browser testing is completed.
-
----
-
-## Known configuration and verification notes
-
-- The repository contains implementation notes in `IMPLEMENTATION-REPORT.md`, `TESTING.md` and `docs/`. Read them alongside this README.
-- Some business details and product label data are intentionally left for RR FOODS to confirm. Do not publish unverified claims.
-- The current online payment stub is not a production payment gateway.
-- Email delivery requires SMTP configuration and scheduled execution of `flask send-emails`.
-- Browser testing, Lighthouse, real-device testing and production infrastructure checks must be completed in the target deployment environment.
-- A development setup may use demo credentials and a local database; never reuse those defaults in production.
-
----
-
-## Documentation
-
-- `TESTING.md` — automated and manual test guidance.
-- `IMPLEMENTATION-REPORT.md` — implementation overview.
-- `docs/RR-FOODS-DESIGN-SYSTEM.md` — visual design notes.
-- `docs/RR-FOODS-DIWALI-QUALITY-JOURNEY.md` — quality journey implementation notes.
-- `docs/RR-FOODS-DIWALI-IMPLEMENTATION-TESTS.md` — Diwali feature test checklist.
-- `docs/RR-FOODS-BESTSELLER-RULES.md` — bestseller behaviour.
-- `docs/RR-FOODS-LISTING-FILTERS-IMPLEMENTATION.md` — listing/filter notes.
-- `docs/RR-FOODS-QA-REPORT.md` — QA notes.
-- `docs/RR-FOODS-product-data-review.csv` — internal product data review; not storefront content.
-
----
-
-## License and ownership
-
-This repository does not declare an open-source license. Treat the source code, brand assets, product images and business content as project-owned/private unless the project owner specifies otherwise.
+The import command updates matching SKUs and creates missing categories/subcategories.
+
+
+## RR FOODS brand identity update
+The supplied RR FOODS sunflower-and-bees logo is stored at
+`app/static/img/rr-foods-brand-logo.png`. The shared base header, storefront
+header/footer, authentication pages, admin sidebar and owner sidebar use this
+asset. Shared favicon and Apple touch icon references use the same brand image.
+The About page Nurse Guide includes an animated identity badge, a stage progress
+meter, refined nurse movement, active-stage emphasis, and explicit completion
+through the Finish Journey control. Reduced-motion preferences remain supported.

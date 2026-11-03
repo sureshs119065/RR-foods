@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#183D2B">
+  <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}">
   <meta name="robots" content="{% block robots %}index,follow{% endblock %}">
   <title>{% block title %}RR FOODS{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
@@ -15,7 +17,7 @@
   {% block topbar %}
   <header class="topbar">
     <div class="container topbar__row">
-      <a class="brand" href="/">RR FOODS</a>
+      <a class="brand rr-brand rr-brand--base" href="/" aria-label="RR FOODS home"><img class="rr-brand__logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="56" height="56" alt="RR FOODS logo"><span>RR FOODS</span></a>
       <nav class="topbar__nav" aria-label="Account">
         {% if current_user %}
           {% if current_user.role == 'admin' %}<a href="/admin/">Admin</a>

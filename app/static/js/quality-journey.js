@@ -12,6 +12,7 @@
   var prev = root.querySelector("[data-nurse-prev]");
   var next = root.querySelector("[data-nurse-next]");
   var counter = root.querySelector("[data-nurse-counter]");
+  var meter = root.querySelector("[data-nurse-meter]");
   var reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
   var active = -1, typingTimer = 0, observed = false;
   var data = stages.map(function (item) {
@@ -68,6 +69,7 @@
     });
     if (progress) progress.style.transform = "scaleY(" + (index / Math.max(1, stages.length - 1)) + ")";
     if (counter) counter.textContent = "Stage " + (index + 1) + " of " + stages.length;
+    if (meter) meter.style.width = (((index + 1) / stages.length) * 100) + "%";
     if (prev) prev.disabled = index === 0;
     if (next) { next.disabled = root.dataset.completed === "true"; next.textContent = index === stages.length - 1 ? "Finish journey ✓" : "Next stage →"; }
     countStat(index);
@@ -82,6 +84,7 @@
     if (title) title.textContent = "Quality care, from start to finish";
     typeText("That's our promise: thoughtful care at every stage. Thank you for choosing RR FOODS!");
     if (counter) counter.textContent = "All 6 stages completed";
+    if (meter) meter.style.width = "100%";
     if (next) { next.disabled = true; next.textContent = "Journey complete ✓"; }
     confettiBurst();
   }
@@ -107,6 +110,7 @@
     if (title) title.textContent = "Step 1 · " + data[0].title;
     if (speech) speech.textContent = data.map(function (d, i) { return (i + 1) + ". " + d.title + ": " + d.text; }).join(" ");
     if (progress) progress.style.transform = "scaleY(1)";
+    if (meter) meter.style.width = (100 / stages.length) + "%";
     stages.forEach(function (_, i) { countStat(i); });
     if (finish) finish.hidden = false;
     if (next) next.disabled = false;
