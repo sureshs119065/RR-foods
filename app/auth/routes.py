@@ -120,7 +120,24 @@ def register():
 def account():
     if g.user.role != "user":
         return redirect(PORTALS[g.user.role]["home"])
-    return render_template("account/index.html")
+    from sqlalchemy import func, select
+    from sqlalchemy.orm import selectinload
+    from ..models import Address, Notification, Order, WishlistItem
+    total_orders = db.session.scalar(select(func.count(Order.id)).where(Order.user_id == g.user.id)) or 0
+    active_orders = db.session.scalar(select(func.count(Order.id)).where(Order.user_id == g.user.id,
+        Order.status.in_(("placed", "confirmed", "packed", "shipped", "out_for_delivery")))) or 0
+    wishlist_count = db.session.scalar(select(func.count(WishlistItem.id)).where(WishlistItem.user_id == g.user.id)) or 0
+    unread_count = db.session.scalar(select(func.count(Notification.id)).where(Notification.user_id == g.user.id,
+        Notification.channel == "in_app", Notification.is_read.is_(False))) or 0
+    recent_orders = db.session.scalars(select(Order).where(Order.user_id == g.user.id)
+        .options(selectinload(Order.items)).order_by(Order.created_at.desc(), Order.id.desc()).limit(3)).all()
+    default_address = db.session.scalar(select(Address).where(Address.user_id == g.user.id)
+        .order_by(Address.is_default.desc(), Address.id.desc()).limit(1))
+    recent_notifications = db.session.scalars(select(Notification).where(Notification.user_id == g.user.id,
+        Notification.channel == "in_app").order_by(Notification.created_at.desc(), Notification.id.desc()).limit(3)).all()
+    return render_template("account/index.html", total_orders=total_orders, active_orders=active_orders,
+        wishlist_count=wishlist_count, unread_count=unread_count, recent_orders=recent_orders,
+        default_address=default_address, recent_notifications=recent_notifications)
 
 
 @bp.route("/account/password", methods=["GET", "POST"])

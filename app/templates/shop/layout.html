@@ -55,8 +55,23 @@
     <div class="sh__actions">
       <button class="icon-btn sh__searchbtn" type="button" data-open="search" aria-label="Search">{{ s.icon('search') }}</button>
       <a class="icon-btn sh__acct" href="{{ '/account' if current_user and current_user.role == 'user' else ('/owner/' if current_user and current_user.role == 'owner' else ('/admin/' if current_user else '/login')) }}" aria-label="{{ 'My account' if current_user else 'Sign in' }}">{{ s.icon('user') }}<span class="sh__acct-t">{{ 'Account' if current_user else 'Sign in' }}</span></a>
-      {% if current_user and current_user.role == 'user' %}{% set un = unread_count() %}<a class="icon-btn sh__bell" href="{{ url_for('shop.notifications') }}" aria-label="Notifications{% if un %} ({{ un }} unread){% endif %}"><svg class="ic" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>{% if un %}<span class="dot-n">{{ un if un < 100 else '99+' }}</span>{% endif %}</a>{% endif %}
-      <a class="icon-btn sh__help" href="/help" aria-label="Help"><span class="sh__action-label">Help</span></a>
+   {% if current_user and current_user.role == 'user' %}
+    {% set un = unread_count() if unread_count is callable else unread_count|default(0) %}
+    <a class="icon-btn sh__bell"
+       href="{{ url_for('shop.notifications') }}"
+       aria-label="Notifications{% if un %} ({{ un }} unread){% endif %}">
+        <svg class="ic" viewBox="0 0 24 24" width="24" height="24"
+             fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true">
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/>
+            <path d="M10 21a2 2 0 0 0 4 0"/>
+        </svg>
+        <span class="dot-n" data-notif-count {% if not un %}hidden{% endif %}>
+            {{ un if un < 100 else '99+' }}
+        </span>
+    </a>
+{% endif %}
       {% if config.get('WHATSAPP_NUMBER') %}<a class="icon-btn sh__whatsapp" href="https://wa.me/{{ config.get('WHATSAPP_NUMBER') }}" target="_blank" rel="noopener" aria-label="WhatsApp"><span class="sh__action-label">WhatsApp</span></a>{% endif %}
       <a class="icon-btn sh__cart" href="{{ url_for('shop.cart') }}" aria-label="Cart">{{ s.icon('cart') }}<span class="sh__cart-t">Cart</span>{% set n = cart_count() %}<span class="dot-n" data-cart-count {% if not n %}hidden{% endif %}>{{ n }}</span></a>
     </div>
@@ -130,6 +145,7 @@
 {% endblock %}
 
 {% block after %}
+{% include "partials/review_thanks.html" %}
 <nav class="bn" aria-label="Main">
   <a href="{{ url_for('shop.home') }}" {% if request.endpoint == 'shop.home' %}aria-current="page"{% endif %}>{{ s.icon('home') }}<span>Home</span></a>
   <button type="button" data-open="drawer" aria-controls="drawer">{{ s.icon('grid') }}<span>Categories</span></button>

@@ -159,3 +159,17 @@
 .adm__brand .label { display:flex; flex-direction:column; gap:.05rem; font-size:1rem; line-height:1.1; }
 .adm__brand .label small { color:#b9d9c4; font-size:.62rem; letter-spacing:.18em; font-weight:800; }
 @media(min-width:1024px){.adm--mini .adm__brand{justify-content:center;padding:.65rem}.adm--mini .adm__brand-logo{width:42px;height:42px}}
+
+/* Admin status controls */
+.admin-order-status .status-actions { display:flex; flex-wrap:wrap; gap:.6rem; }
+.status-action-form { display:flex; align-items:center; flex-wrap:wrap; gap:.3rem; }
+.status-action-form input { max-width:180px; min-height:40px; border:1px solid var(--c-line); border-radius:9px; padding:.4rem .6rem; }
+.status-btn--confirmed,.status-btn--packed,.status-btn--shipped,.status-btn--delivered { background:#1d7544; color:#fff; }
+.status-btn--rejected,.status-btn--cancelled { background:#b42332; color:#fff; }
+.status-btn--returned { background:#9a6400; color:#fff; }
+.status-btn--refunded { background:#1769aa; color:#fff; }
+.status-btn:disabled { opacity:.38; filter:grayscale(1); cursor:not-allowed; }
+.admin-status-history { display:grid; gap:.6rem; padding-left:1.2rem; }
+.admin-status-history li { padding:.5rem; border-bottom:1px solid var(--c-line); }
+.admin-status-history span { display:block; color:var(--c-muted); font-size:.85rem; }
+\n.admin-status-stepper li.is-complete b{color:#1d7544}.admin-status-stepper li:not(.is-complete){opacity:.55}\n

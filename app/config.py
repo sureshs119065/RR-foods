@@ -28,8 +28,11 @@ class Config:
     LOGIN_RATE_LIMIT = os.environ.get("LOGIN_RATE_LIMIT", "10 per minute")
     RATELIMIT_ENABLED = True
     RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")  # use redis:// in production
-    # online payments: "off" hides the option, "stub" shows a test payment page (never move money), "razorpay" = real gateway (wire it in app/services/payments.py)
-    ONLINE_PAYMENT_MODE = os.environ.get("ONLINE_PAYMENT_MODE", "off")
+    # WhatsApp-first ordering (no API, no cost): the order is sent to this number as a ready-written WhatsApp message and the
+    # owner settles payment with the customer on WhatsApp. Digits only, with country code, e.g. 919876543210.
+    ADMIN_WHATSAPP_NUMBER = os.environ.get("ADMIN_WHATSAPP_NUMBER", "")
+    DEFAULT_COUNTRY_CODE = os.environ.get("DEFAULT_COUNTRY_CODE", "91")  # added to 10 digit customer numbers
+    SHOP_NAME = os.environ.get("SHOP_NAME", "RR FOODS")
     # email: "off" (send nothing), "console" (print to the terminal, for testing), "smtp" (real). Run `flask send-emails` every minute from cron.
     MAIL_MODE = os.environ.get("MAIL_MODE", "off" if os.environ.get("FLASK_ENV") == "production" else "console")
     MAIL_SERVER = os.environ.get("MAIL_SERVER", "")

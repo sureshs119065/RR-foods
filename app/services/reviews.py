@@ -7,11 +7,20 @@ from ..models import Order, OrderItem, Product, Review, ReviewVote
 REVIEWABLE_ORDER_STATUSES = ("delivered", "return_requested", "returned", "refunded")
 
 
-def purchase_for(user_id: int, product_id: int) -> OrderItem | None:
-    """The delivered order line that lets this customer review the product (None = they never received it)."""
-    return db.session.scalar(select(OrderItem).join(Order, Order.id == OrderItem.order_id)
-                             .where(Order.user_id == user_id, OrderItem.product_id == product_id, Order.status.in_(REVIEWABLE_ORDER_STATUSES))
-                             .order_by(OrderItem.id.desc()).limit(1))
+def moderation_on() -> bool:
+    """Site setting `review_moderation` (admin > Reviews). Off by default: reviews go live at once. On: they wait for the admin to approve."""
+    from .storefront import setting
+    return str(setting("review_moderation", "0")).lower() in ("1", "true", "on", "yes")
+
+
+def purchase_for(user_id: int, product_id: int, order_item_id: int | None = None) -> OrderItem | None:
+    """The delivered order line that lets this customer review the product (None = they never received it).
+    With order_item_id, only that line counts (it must belong to this customer, be this product and be delivered)."""
+    q = (select(OrderItem).join(Order, Order.id == OrderItem.order_id)
+         .where(Order.user_id == user_id, OrderItem.product_id == product_id, Order.status.in_(REVIEWABLE_ORDER_STATUSES)))
+    if order_item_id:
+        q = q.where(OrderItem.id == order_item_id)
+    return db.session.scalar(q.order_by(OrderItem.id.desc()).limit(1))
 
 
 def refresh_rating(product_id: int) -> None:

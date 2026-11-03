@@ -1,2 +1,45 @@
-{% extends "admin/layout.html" %}{% block title %}Order {{ order.order_number }}{% endblock %}{% block heading %}Order {{ order.order_number }}{% endblock %}
-{% block content %}<div class="pagehead"><h2>Order details</h2><a class="btn btn--ghost" href="{{ url_for('admin.orders') }}">Back to orders</a></div><section class="panel"><p><b>Customer:</b> {{ order.user.name if order.user else 'Customer' }}</p><p><b>Status:</b> {{ order.status|title }}</p><p><b>Placed:</b> {{ order.created_at|local_display }}</p><p><b>Payment:</b> {{ order.payment_method|upper }} · {{ order.payment_status|title }}</p><p><b>Total:</b> ₹{{ '%.2f'|format(order.total) }}</p><h3>Items</h3><ul>{% for line in order.items %}<li>{{ line.name }} × {{ line.quantity }} — ₹{{ '%.2f'|format(line.line_total) }}</li>{% endfor %}</ul></section>{% endblock %}
+{% extends "admin/layout.html" %}
+{% block title %}Order {{ order.order_number }}{% endblock %}
+{% block heading %}Order {{ order.order_number }}{% endblock %}
+{% block content %}
+<div class="pagehead"><h2>Order details</h2><a class="btn btn--ghost" href="{{ url_for('admin.orders') }}">Back to orders</a></div>
+<section class="panel">
+  <p><b>Customer:</b> {{ order.user.name if order.user else 'Customer' }}</p>
+  <p><b>Status:</b> <span class="badge badge--{{ order.status }}">{{ order.status|replace('_',' ')|title }}</span></p>
+  <p><b>Placed:</b> {{ order.created_at|local_display }}</p>
+  <p><b>Payment:</b> {{ 'Paid' if order.payment_status == 'paid' else 'Not paid' if order.payment_status == 'pending' else order.payment_status|title }}</p>
+  {% set wa = wa_customer_link(order) %}{% if wa %}<p><a class="btn btn--sm" href="{{ wa }}" target="_blank" rel="noopener">Message customer on WhatsApp</a></p>{% endif %}
+  <p><b>Total:</b> ₹{{ '%.2f'|format(order.total) }}</p>
+  <h3>Items</h3><ul>{% for line in order.items %}<li>{{ line.name }} × {{ line.quantity }} — ₹{{ '%.2f'|format(line.line_total) }}</li>{% endfor %}</ul>
+</section>
+<section class="panel admin-order-status">
+  <h2>Update order status</h2>
+  <p class="muted">Only valid next steps are enabled. Every successful change is recorded and creates a customer notification.</p>
+  <div class="status-actions">
+  {% for status in ['confirmed','packed','shipped','delivered','rejected','cancelled','returned','refunded'] %}
+    <form method="post" action="{{ url_for('admin.order_status_update', order_id=order.id) }}" class="status-action-form" data-status="{{ status }}">
+      {{ m.csrf() }}
+      <input type="hidden" name="status" value="{{ status }}">
+      <label class="sr-only" for="reason-{{ status }}">Reason (optional)</label>
+      <input id="reason-{{ status }}" type="text" name="reason" maxlength="300" placeholder="Reason (required for reject/return)">
+      <button class="btn status-btn status-btn--{{ status }}" type="submit" {% if status not in next_actions or (status == 'refunded' and order.payment_status != 'paid') %}disabled title="Not available from the current order status"{% endif %}>{{ status|replace('_',' ')|title }}</button>
+    </form>
+  {% endfor %}
+  </div>
+</section>
+<section class="panel">
+  <h2>Order journey</h2>
+  {% set journey = ['placed','confirmed','packed','shipped','delivered'] %}
+  <ol class="admin-status-history admin-status-stepper">
+    {% for step in journey %}
+      {% set stamp = order.created_at if step == 'placed' else (history|selectattr('to_status','equalto',step)|map(attribute='created_at')|first) %}
+      <li class="{% if stamp %}is-complete{% endif %}"><b>{{ step|replace('_',' ')|title }}</b><span>{{ stamp|local_display if stamp else 'Not reached yet' }}</span></li>
+    {% endfor %}
+  </ol>
+</section>
+<section class="panel">
+  <h2>Status history</h2>
+  {% if history %}<ol class="admin-status-history">{% for h in history %}<li><b>{{ h.from_status|default('New', true)|replace('_',' ')|title }} → {{ h.to_status|replace('_',' ')|title }}</b><span>{{ h.created_at|local_display }}</span>{% if h.note %}<p>{{ h.note }}</p>{% endif %}</li>{% endfor %}</ol>{% else %}<p class="muted">No status changes have been recorded yet.</p>{% endif %}
+</section>
+<script src="{{ url_for('static', filename='js/admin-order-status.js') }}" defer></script>
+{% endblock %}

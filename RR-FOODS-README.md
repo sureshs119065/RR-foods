@@ -304,7 +304,7 @@ Common settings:
 | `UPLOAD_DIR` | Directory for uploaded product/banner/content media |
 | `MAX_UPLOAD_MB` | Upload size limit |
 | `SHOP_TIMEZONE` | Shop timezone; normally `Asia/Kolkata` |
-| `ONLINE_PAYMENT_MODE` | `off` or `stub`; stub is test-only and not a real gateway |
+| `ADMIN_WHATSAPP_NUMBER` | Shop WhatsApp number (country code, digits only). Orders are sent here; payment is taken on WhatsApp |
 | `MAIL_MODE` | `off`, `console` or `smtp` |
 | `MAIL_SERVER`, `MAIL_PORT` | SMTP server settings |
 | `MAIL_USERNAME`, `MAIL_PASSWORD` | SMTP credentials |
@@ -673,7 +673,7 @@ Before production:
 1. Use a production `.env` with a strong random `SECRET_KEY`.
 2. Use a dedicated PostgreSQL database and strong credentials.
 3. Set `FLASK_ENV=production`.
-4. Set `ONLINE_PAYMENT_MODE=off` until a real gateway is fully integrated and verified.
+4. Set `ADMIN_WHATSAPP_NUMBER`. Payment is taken on WhatsApp and marked Paid in the owner panel (there is no gateway).
 5. Set secure cookies and serve only over HTTPS.
 6. Configure Redis for rate limiting when using multiple workers.
 7. Configure SMTP if transactional email is required.

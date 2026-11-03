@@ -129,11 +129,18 @@ Site settings you can change with one command (no screen for these yet):
     flask set-setting tax_percent 5                   prices include this tax; the bill shows how much of the total it is (0 = hide the line)
     flask set-setting header_carousel_interval_ms 5000   (the carousel settings from Step 4 work the same way)
 Delivery fee and ETA per pincode come from the delivery_zones table (seeded for a few pincodes). A pincode that is missing or not serviceable cannot be ordered to.
-Online payments: ONLINE_PAYMENT_MODE in .env.
-    off    the option is hidden (default when FLASK_ENV=production)
-    stub   shows a "Pay online" option and a test page whose button only marks the order paid. No money moves. Default in development.
-    To plug in Razorpay: create the gateway order in app/shop/checkout.py (pay view), and mark the payment paid from Razorpay's signed webhook,
-    never from the browser. Until then keep production on "off".
+Ordering and payment (WhatsApp-first, free, no payment gateway):
+    1. The customer places the order on the site (stock, coupon and delivery are checked and saved as before; payment starts as "Not paid").
+    2. The "Order placed" page opens WhatsApp with the whole order already written (items, total, name, phone, address, note) addressed to
+       ADMIN_WHATSAPP_NUMBER. The customer only presses Send. A "Copy message" button is the fallback.
+    3. The owner reads it, settles payment with the customer on WhatsApp (UPI QR or any personal method).
+    4. In the owner panel the owner presses "Confirm order" and may tick "Payment already received" (Paid), or marks Paid / Not paid at any
+       time from the order page. Packed, Shipped, Delivered and Reject work as before.
+    5. "Message customer on WhatsApp" (order page and orders list) opens WhatsApp with a message written for the current status.
+    The admin panel orders pages show the Paid / Not paid state and the same WhatsApp button (fulfilment stays in the owner panel).
+    Set ADMIN_WHATSAPP_NUMBER (country code, digits only) in .env. Customer phone numbers are 10 digits; DEFAULT_COUNTRY_CODE (91) is added.
+    Old orders that were placed as cash on delivery or online keep working and display as before.
+    Later option: the WhatsApp Cloud API can call services/orders.change_status / set_payment from a webhook; nothing else has to change.
 Mobile and speed: designed at 360px first; bottom navigation, drawer menu, bottom-sheet filters, sticky buy bars, 44px tap targets, 16px inputs,
 safe-area padding for notched phones, lazy images with fixed sizes (no layout shift), dark mode (menu > Dark mode), installable (manifest + a tiny
 service worker that only shows an offline page), reduced-motion respected. See "Mobile checks" below for what still has to be tested on real phones.
@@ -222,7 +229,7 @@ tests/                pytest suite
     flask check-config
 It lists settings that are unsafe for real customers ([FIX] = the site refuses to start in production until fixed,
 [ADVICE] = works, but fix it soon). With FLASK_ENV=production the site will not start if: SECRET_KEY is weak, the database
-still has the example password, ONLINE_PAYMENT_MODE=stub (it would let anyone mark an order paid), cookies are not Secure,
+still has the example password, cookies are not Secure,
 or DEBUG is on. Monitoring URLs: /healthz (process is up) and /readyz (database answers; 503 if not).
 
 ### Option A: one Linux server (Ubuntu/Debian)
@@ -261,9 +268,9 @@ Uploads: unpack uploads-*.tar.gz into the folder UPLOAD_DIR points to.
     venv/bin/flask db upgrade && sudo systemctl restart nk
 Take a backup first. Check /readyz afterwards.
 
-### Online payments
-Production defaults to cash on delivery only. To accept online payments, wire Razorpay in app/services/payments.py (verify the
-payment signature on the server, never trust the browser), then set ONLINE_PAYMENT_MODE=razorpay and test with Razorpay test keys.
+### Payments
+There is no payment gateway. Customers pay the owner directly on WhatsApp and the owner marks the order Paid in the owner panel.
+Set ADMIN_WHATSAPP_NUMBER; `flask check-config` warns if it is empty.
 
 ## Launch checklist
 [ ] flask check-config says "0 to fix", and advice items are reviewed
@@ -392,3 +399,15 @@ asset. Shared favicon and Apple touch icon references use the same brand image.
 The About page Nurse Guide includes an animated identity badge, a stage progress
 meter, refined nurse movement, active-stage emphasis, and explicit completion
 through the Finish Journey control. Reduced-motion preferences remain supported.
+
+## Order lifecycle, live tracking and reviews (upgrade)
+Order stages (owner panel, `/owner/orders`): Placed -> Confirmed -> Packed -> Shipped -> Out for delivery -> Delivered. Out for delivery is optional
+(an owner can press "Skip to delivered"). Every move is saved in `order_status_history` (order, from, to, who, timestamp) and sends the customer ONE
+in-app notification (plus the existing email queue) with the order number, a friendly message and a link to the tracking page.
+Run `flask db upgrade` once: it adds the `out_for_delivery` status.
+- Customer: bell with unread count (refreshes every 30 s), `/notifications`, and `/account/orders/<number>` with a responsive tracker that
+  shows ticks and timestamps for finished stages, "Pending" for the rest, and reloads itself within 20 s when the shop changes the status.
+- Reviews: after delivery the order page shows a review form per product (1-5 stars, text, up to 3 photos). One review per customer and product
+  (saving again edits it). After a successful save a thank-you popup (hearts, confetti, close button, reduced-motion safe) appears once.
+- Admin > Reviews: ratings, product, customer, order number, date, status; Approve / Reject; and a switch "Approval before publishing".
+  Off (default): reviews are live at once. On: they wait as "Waiting" and the customer is told when they go live.

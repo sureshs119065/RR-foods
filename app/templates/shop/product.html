@@ -148,6 +148,7 @@
       </ul>
     {% else %}<p class="muted">No reviews yet.</p>{% endif %}
 
+    {% if my_review and my_review.status == 'pending' %}<p class="notice small">Your review is waiting for the shop's approval. It will appear here once approved.</p>{% endif %}
     {% if can_review %}
     <div class="acc" {% if not my_review %}data-open{% endif %}><button class="acc__h" type="button" aria-expanded="false">{{ 'Edit your review' if my_review else 'Write a review' }}</button>
       <div class="acc__p"><div class="acc__i"><div class="acc__b">

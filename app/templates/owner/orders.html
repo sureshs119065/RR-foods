@@ -9,8 +9,11 @@
   {% endfor %}
 </nav>
 
+<p class="row">
+  <a class="chip {% if unpaid %}chip--on{% endif %}" href="{{ url_for('owner.orders', tab=tab, pay=None if unpaid else 'pending', q=request.args.get('q') or None) }}">Not paid only</a>
+</p>
 <form class="filters filters--one" method="get" role="search">
-  <input type="hidden" name="tab" value="{{ tab }}">
+  <input type="hidden" name="tab" value="{{ tab }}">{% if unpaid %}<input type="hidden" name="pay" value="pending">{% endif %}
   <input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Search order number, name or phone" aria-label="Search orders" inputmode="search">
   <button class="btn" type="submit">Search</button>
 </form>
@@ -36,6 +39,7 @@
             <button class="btn btn--sm" type="submit">{{ svc.ACTION_LABELS[nxt] }}</button>
           </form>
         {% endif %}
+        {% set wa = wa_customer_link(ord) %}{% if wa and ord.status in ('placed', 'confirmed', 'packed', 'shipped', 'out_for_delivery') %}<a class="btn btn--ghost btn--sm" href="{{ wa }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}
         <a class="btn btn--ghost btn--sm" href="{{ url_for('owner.order_detail', order_id=ord.id) }}">{{ 'Review / reject' if svc.can_reject(ord.status) else ('Review return' if ord.status == 'return_requested' else 'View') }}</a>
       </td>
     </tr>

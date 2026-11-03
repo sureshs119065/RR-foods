@@ -13,10 +13,10 @@ from . import bp
 PER_PAGE = 20
 # (tab key, label, statuses it shows). The first tab is what the owner needs to act on right now.
 TABS = (
-    ("new", "New", ("placed",)),
+    ("new", "Awaiting confirmation", ("placed",)),
     ("pack", "To pack", ("confirmed",)),
     ("ship", "To ship", ("packed",)),
-    ("transit", "On the way", ("shipped",)),
+    ("transit", "On the way", ("shipped", "out_for_delivery")),
     ("done", "Delivered", ("delivered",)),
     ("returns", "Returns", ("return_requested", "returned", "refunded")),
     ("closed", "Rejected / cancelled", ("rejected", "cancelled")),
@@ -37,6 +37,9 @@ def orders():
     q = select(Order).join(User, User.id == Order.user_id).options(joinedload(Order.user), selectinload(Order.items))
     if tabs[tab] is not None:
         q = q.where(Order.status.in_(tabs[tab]))
+    unpaid = request.args.get("pay") == "pending"  # "Not paid" filter: money not yet received on WhatsApp
+    if unpaid:
+        q = q.where(Order.payment_status == "pending", Order.status.notin_(svc.NO_PAYMENT_CHANGE))
     term = (request.args.get("q") or "").strip().lower()
     if term:
         q = q.where(or_(
@@ -49,7 +52,7 @@ def orders():
     q = q.order_by(Order.created_at.asc() if tab in ("new", "pack", "ship") else Order.created_at.desc(), Order.id.desc())
     page = db.paginate(q, page=page_number(), per_page=PER_PAGE, error_out=False)
     args = {k: v for k, v in request.args.items() if k != "page" and v}
-    return render_template("owner/orders.html", page=page, args=args, tab=tab, tabs=TABS, tab_counts=tab_counts, svc=svc,
+    return render_template("owner/orders.html", page=page, args=args, tab=tab, tabs=TABS, tab_counts=tab_counts, svc=svc, unpaid=unpaid,
                            next_url=request.full_path.rstrip("?"))
 
 
@@ -82,16 +85,37 @@ def order_status(order_id):
     back = safe_next(request.form.get("next"), url_for("owner.order_detail", order_id=order_id))
     try:
         order = svc.change_status(order_id, to, g.user, reason=request.form.get("reason"), expected_from=request.form.get("from_status") or None,
-                                  restock=request.form.get("restock") == "1")
+                                  restock=request.form.get("restock") == "1", mark_paid=request.form.get("paid") == "1")
         db.session.commit()
     except svc.OrderError as e:
         db.session.rollback()
         flash(str(e), "error")
         return redirect(back)
-    verb = {"confirmed": "confirmed", "packed": "marked as packed", "shipped": "marked as shipped", "delivered": "marked as delivered",
+    verb = {"confirmed": "confirmed", "packed": "marked as packed", "shipped": "marked as shipped", "out_for_delivery": "marked as out for delivery", "delivered": "marked as delivered",
             "rejected": "rejected", "returned": "marked as returned", "refunded": "marked as refunded"}[to]
     if to == "delivered" and request.form.get("from_status") == "return_requested":
         verb = "kept as delivered (return declined)"
     note = " The stock was put back." if to == "rejected" else ""
+    if to == "confirmed" and order.payment_status == "paid":
+        note = " Payment is marked as received."
     flash(f"Order {order.order_number} {verb}. The customer has been notified.{note}", "success")
+    return redirect(back)
+
+
+@bp.post("/orders/<int:order_id>/payment")
+def order_payment(order_id):
+    """Paid / Not paid toggle. The money itself is received on WhatsApp; this only records it."""
+    paid = request.form.get("paid") == "1"
+    back = safe_next(request.form.get("next"), url_for("owner.order_detail", order_id=order_id))
+    try:
+        order, changed = svc.set_payment(order_id, paid, g.user)
+        db.session.commit()
+    except svc.OrderError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+        return redirect(back)
+    if changed:
+        flash(f"Order {order.order_number} marked as {'paid. The customer has been told.' if paid else 'not paid.'}", "success")
+    else:
+        flash(f"Order {order.order_number} was already marked as {'paid' if paid else 'not paid'}.", "info")
     return redirect(back)

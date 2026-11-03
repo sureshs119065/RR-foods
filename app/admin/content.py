@@ -1,10 +1,10 @@
 from datetime import datetime, timezone
 from pathlib import Path
 import re
-from flask import abort, flash, redirect, render_template, request, url_for
+from flask import abort, flash, g, redirect, render_template, request, url_for
 from sqlalchemy import select
 from ..extensions import db
-from ..models import Bundle, Product, Reel, RecipeVideo
+from ..models import Bundle, Product, Reel, RecipeVideo, Order, OrderStatusHistory, Notification
 from ..uploads import save_image, save_video, UploadError, delete_files
 from . import bp
 
@@ -196,4 +196,86 @@ def order_detail(order_id):
     from sqlalchemy.orm import joinedload
     order = db.session.scalar(select(Order).where(Order.id == order_id).options(joinedload(Order.user), joinedload(Order.items)))
     if not order: abort(404)
-    return render_template("admin/order_detail.html", order=order)
+    history = db.session.scalars(select(OrderStatusHistory).where(OrderStatusHistory.order_id == order.id).order_by(OrderStatusHistory.created_at, OrderStatusHistory.id)).all()
+    return render_template("admin/order_detail.html", order=order, history=history,
+                           next_actions=_ADMIN_ORDER_TRANSITIONS.get(order.status, ()))
+
+
+# ---------------------------------------------------------------- order status management
+_ADMIN_ORDER_TRANSITIONS = {
+    "placed": ("confirmed", "rejected", "cancelled"),
+    "confirmed": ("packed", "cancelled"),
+    "packed": ("shipped", "cancelled"),
+    "shipped": ("delivered", "returned"),
+    "out_for_delivery": ("delivered", "returned"),
+    "delivered": ("returned",),
+    "return_requested": ("returned", "delivered"),
+    "returned": ("refunded",),
+    "rejected": ("refunded",),
+    "cancelled": ("refunded",),
+    "refunded": (),
+}
+_ADMIN_STATUS_COPY = {
+    "confirmed": ("Order confirmed", "Your order #{n} has been confirmed. We're getting it ready."),
+    "packed": ("Order packed", "Your order #{n} is packed and ready to ship."),
+    "shipped": ("Order shipped", "Your order #{n} is on its way."),
+    "delivered": ("Order delivered", "Your order #{n} was delivered. Tell us how you liked it!"),
+    "rejected": ("Order rejected", "Sorry, we couldn't accept order #{n}. Reason: {reason}"),
+    "cancelled": ("Order cancelled", "Your order #{n} has been cancelled."),
+    "returned": ("Order returned", "We've received the return for order #{n}."),
+    "refunded": ("Refund processed", "Your refund of ₹{total} for order #{n} has been processed."),
+}
+
+@bp.post("/orders/<int:order_id>/status")
+def order_status_update(order_id):
+    from ..models import AuditLog
+    from ..services.inventory import restore_order_stock
+    from ..services.coupons import release as release_coupon
+    from ..models.base import utcnow
+    order = db.session.scalar(select(Order).where(Order.id == order_id).with_for_update())
+    if order is None:
+        abort(404)
+    target = (request.form.get("status") or "").strip().lower()
+    reason = " ".join((request.form.get("reason") or "").split())[:300]
+    allowed = _ADMIN_ORDER_TRANSITIONS.get(order.status, ())
+    if target not in allowed:
+        flash("That status change is not allowed for this order.", "error")
+        return redirect(url_for("admin.order_detail", order_id=order.id))
+    if target in ("rejected", "returned") and len(reason) < 5:
+        flash("Please provide a reason of at least 5 characters.", "error")
+        return redirect(url_for("admin.order_detail", order_id=order.id))
+    if target == "refunded" and order.payment_status != "paid":
+        flash("Only paid orders can be marked refunded.", "error")
+        return redirect(url_for("admin.order_detail", order_id=order.id))
+    old = order.status
+    order.status = target
+    order.updated_at = utcnow()
+    if target in ("rejected", "cancelled", "returned"):
+        restore_order_stock(order, f"order {order.order_number} {target} by admin", g.user.id)
+        if target in ("rejected", "cancelled"):
+            release_coupon(order)
+        if target == "rejected":
+            order.rejection_reason = reason
+    if target == "refunded":
+        order.payment_status = "refunded"
+        for payment in order.payments:
+            if payment.status == "paid":
+                payment.status = "refunded"
+    if target == "delivered" and order.payment_method == "cod" and order.payment_status == "pending":
+        order.payment_status = "paid"
+        for payment in order.payments:
+            if payment.status == "pending":
+                payment.status = "paid"
+    db.session.add(OrderStatusHistory(order_id=order.id, from_status=old, to_status=target,
+                                      changed_by=g.user.id, note=reason or None))
+    title, body = _ADMIN_STATUS_COPY[target]
+    body = body.format(n=order.order_number, reason=reason or "not specified", total=f"{order.total:,.2f}")
+    db.session.add(Notification(user_id=order.user_id, channel="in_app", kind="order_status",
+                                title=title.format(n=order.order_number), body=body,
+                                link=f"/account/orders/{order.order_number}", is_read=False))
+    db.session.add(AuditLog(actor_id=g.user.id, action=f"order.{target}",
+                            entity_type="order", entity_id=str(order.id),
+                            before={"status": old}, after={"status": target, "reason": reason or None}))
+    db.session.commit()
+    flash(f"Order {order.order_number} updated to {target.replace('_', ' ').title()}.", "success")
+    return redirect(url_for("admin.order_detail", order_id=order.id))
