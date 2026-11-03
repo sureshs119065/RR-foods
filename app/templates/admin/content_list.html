@@ -1,0 +1,32 @@
+{% extends "admin/layout.html" %}
+{% import "admin/_macros.html" as m %}
+{% block title %}{{ 'Combo Offers' if kind == 'bundles' else title }}{% endblock %}{% block heading %}{{ 'Combo Offers' if kind == 'bundles' else title }}{% endblock %}
+{% block content %}
+<div class="pagehead"><h2>{{ 'Combo Offers' if kind == 'bundles' else title }}</h2><a class="btn" href="{{ url_for('admin.' + kind[:-1] + '_form') if kind != 'bundles' else url_for('admin.bundle_form') }}">Add {{ title[:-1] if title.endswith('s') else title }}</a></div>
+{% if kind == 'reels' %}
+<section class="panel"><h3>Home page display settings</h3><form method="post" action="{{ url_for('admin.reels_settings') }}" class="form">
+{{ m.csrf() }}{% set cfg = (get_setting('home_reels') if get_setting is defined else {}) %}
+<label class="check"><input type="checkbox" name="enabled" value="1" {% if reels_cfg.get('enabled', True) %}checked{% endif %}> Show reels section on home page</label>
+<label class="field">Maximum reels <input type="number" name="max_count" min="1" max="20" value="{{ reels_cfg.get('max_count', 8) }}"></label>
+<p class="hint">Select reels to display. Leave all unchecked to include every active reel.</p>
+{% for reel in items %}<label class="check"><input type="checkbox" name="selected_ids" value="{{ reel.id }}" {% if reel.id in reels_cfg.get('selected_ids', []) %}checked{% endif %}> {{ reel.title }}</label>{% endfor %}
+<button class="btn" type="submit">Save display settings</button></form></section>
+{% endif %}
+<div class="filters"><input type="search" id="content-search" placeholder="Search {{ title|lower }}..." aria-label="Search {{ title|lower }}">
+<label class="field">Status <select id="content-status"><option value="">All</option><option value="active">Active / Published</option><option value="inactive">Inactive / Draft</option></select></label>
+<label class="field">Sort by <select id="content-sort"><option value="title">Title</option><option value="status">Status</option><option value="order">Display order</option></select></label>
+<label class="field">Rows per page <select id="content-page-size"><option>10</option><option>25</option><option>50</option></select></label></div>
+<div class="table-wrap"><table class="table" id="content-table"><thead><tr><th>Title</th><th>Preview</th><th>Status</th><th>Order</th><th>Actions</th></tr></thead><tbody>
+{% for item in items %}<tr>
+<td data-label="Title" class="cell-main">{{ item.title if kind != 'bundles' else item.name }}</td>
+<td data-label="Preview">{% if item.thumbnail_url is defined and item.thumbnail_url %}<img class="thumb" src="{{ item.thumbnail_url }}" alt="">{% elif item.image_url is defined and item.image_url %}<img class="thumb" src="{{ item.image_url }}" alt="">{% else %}—{% endif %}</td>
+<td data-label="Status"><span class="badge {{ 'badge--ok' if (item.is_active if kind == 'reels' else item.is_published if kind == 'recipes' else item.is_active) else 'badge--warn' }}">{{ 'Published' if (item.is_active if kind == 'reels' else item.is_published if kind == 'recipes' else item.is_active) else 'Hidden' }}</span></td>
+<td data-label="Order">{{ item.sort_order if kind == 'reels' else '—' }}</td>
+<td data-label="Actions" class="cell-actions">
+<a class="btn btn--sm" href="{{ url_for('admin.' + ('reel_form' if kind == 'reels' else 'recipe_form' if kind == 'recipes' else 'bundle_form'), item_id=item.id) }}">Edit</a>
+<form method="post" action="{{ url_for('admin.' + ('reel_delete' if kind == 'reels' else 'recipe_delete' if kind == 'recipes' else 'bundle_delete'), item_id=item.id) }}" onsubmit="return confirm('Delete this item?')">{{ m.csrf() }}<button class="btn btn--danger btn--sm" type="submit">Delete</button></form>
+</td></tr>{% else %}<tr><td colspan="5">No {{ title|lower }} yet. Add your first one to get started.</td></tr>{% endfor %}
+</tbody></table></div>
+<nav class="row" aria-label="Table pagination"><button class="btn btn--ghost btn--sm" id="content-prev" type="button">Previous</button><span id="content-page-label" class="hint" aria-live="polite"></span><button class="btn btn--ghost btn--sm" id="content-next" type="button">Next</button></nav>
+<script src="{{ url_for('static', filename='js/admin-content-table.js') }}" defer></script>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "shop/layout.html" %}
+{% block title %}Compare products | RR FOODS{% endblock %}
+{% block robots %}noindex,nofollow{% endblock %}
+{% block content %}
+<div class="container">
+  <h1 class="pg-h">Compare products</h1>
+  {% if products|length < 1 %}
+    <div class="empty"><h2>Nothing to compare yet</h2><p class="muted">Open a product and tap “Compare” to add it here (up to 4).</p><a class="btn" href="{{ url_for('shop.listing') }}">Browse products</a></div>
+  {% else %}
+  <div class="table-scroll">
+  <table class="cmp">
+    <thead><tr><th scope="col"><span class="sr">Feature</span></th>
+      {% for p in products %}{% set im = p.primary_image %}<th scope="col">
+        <a href="{{ url_for('shop.product', slug=p.slug) }}">{% if im %}<img src="{{ im.thumb_url or im.url }}" alt="" width="120" height="120" loading="lazy">{% endif %}<span>{{ p.name }}</span></a>
+        <form method="post" action="{{ url_for('shop.compare_toggle') }}">{{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="/compare"><button class="linkish linkish--bad" type="submit">Remove</button></form>
+      </th>{% endfor %}</tr></thead>
+    <tbody>
+      <tr><th scope="row">Price</th>{% for p in products %}<td><b>{{ s.inr(p.final_price) }}</b>{% if p.mrp > p.final_price %} <s class="muted">{{ s.inr(p.mrp) }}</s>{% endif %}</td>{% endfor %}</tr>
+      <tr><th scope="row">Discount</th>{% for p in products %}{% set pct = s.off_pct(p.mrp, p.final_price)|int %}<td>{{ pct ~ '% off' if pct else '—' }}</td>{% endfor %}</tr>
+      <tr><th scope="row">Rating</th>{% for p in products %}<td>{% if p.review_count %}{{ '%.1f'|format(p.avg_rating) }} ★ ({{ p.review_count }}){% else %}—{% endif %}</td>{% endfor %}</tr>
+      <tr><th scope="row">Brand</th>{% for p in products %}<td>{{ p.brand or '—' }}</td>{% endfor %}</tr>
+      <tr><th scope="row">Pack size</th>{% for p in products %}<td>{{ p.pack_size or '—' }}</td>{% endfor %}</tr>
+      <tr><th scope="row">Availability</th>{% for p in products %}<td>{{ s.stock_note(available_qty(p), p.low_stock_threshold) }}</td>{% endfor %}</tr>
+      {% for k in spec_keys %}<tr><th scope="row">{{ k }}</th>{% for p in products %}<td>{{ (p.specifications or {}).get(k, '—') }}</td>{% endfor %}</tr>{% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

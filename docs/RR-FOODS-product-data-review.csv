@@ -1,0 +1,33 @@
+﻿Product ID,Product Category,Product Name,Variant,Selling Price (₹),MRP (₹),Net Weight (g),Pack Size,Ingredients,Ingredient Quantity,Recipe / Preparation Method,Preparation Time,Cooking Instructions,Shelf Life,Storage Instructions,Allergen Information,Nutritional Information,Barcode,FSSAI Licence Details,Things to be mentioned,Product Status
+RR-MN-001,Millet Instant Noodles,Barnyard Millet Instant Noodles,Classic,119.0,129.0,180gm,,,,,,,12month,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-MN-002,Millet Instant Noodles,Foxtail Millet Instant Noodles,Classic,119.0,129.0,180gm,,,,,,,12month,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-MN-003,Millet Instant Noodles,Kodo Millet Instant Noodles,Classic,119.0,129.0,180gm,,,,,,,12month,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-MN-004,Millet Instant Noodles,Little Millet Instant Noodles,Classic,119.0,129.0,180gm,,,,,,,12month,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-MN-005,Millet Instant Noodles,Multi Millet Instant Noodles,Classic,119.0,129.0,180gm,,,,,,,12month,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-MV-001,Millet Vermicelli,Barnyard Vermicelli,Classic,89.0,99.0,200gm,,,,,,,12month,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-MV-002,Millet Vermicelli,Foxtail Millet Vermicelli,Classic,89.0,99.0,200gm,,,,,,,12month,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-MV-003,Millet Vermicelli,Kodo Millet Vermicelli,Classic,89.0,99.0,200gm,,,,,,,12month,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-MV-004,Millet Vermicelli,Little Millet Vermicelli,Classic,89.0,99.0,200gm,,,,,,,12month,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-MV-005,Millet Vermicelli,Mapillai Samba Rice Vermicelli,Heritage Rice,89.0,99.0,200gm,,,,,,,12month,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-MV-006,Millet Vermicelli,Multi Millet Vermicelli,Classic,89.0,99.0,200gm,,,,,,,12month,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-PCB-002,"Pasta, Cookies & Breakfast",Multi Millet Muesli ,Multipack,139.0,149.0,200gm,,,,,,,6month,,,,,,"breakfast,kids friendly,consumed with hot milk&snacking for diabetic,weight management,dry fruits goodness",Active
+RR-PCB-003,"Pasta, Cookies & Breakfast",Millet Penne Pasta Sample ,Penne Sample,119.0,129.0,180gm,180 g sample pack,,,,,,12month,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-PCB-004,"Pasta, Cookies & Breakfast",Millet Pasta Sample ,Pasta Sample,119.0,129.0,180gm,180 g sample pack,,,,,,12month,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-PCB-005,"Pasta, Cookies & Breakfast",Beetroot Pasta,Beetroot Infused,119.0,129.0,180gm,,,,,,,,,,,,,"low glymeic index,dyabeteic and weight management,no maida,easy to make",Active
+RR-BTM-001,Breakfast & Traditional Mixes,Multi Millet Chapati Mix,Flour Mix,119.0,129.0,500gm,,,,,,,,,,,,,"Protein rich,low glymeic index,dyabeteic and weight management",Active
+RR-BTM-003,Breakfast & Traditional Mixes,Idli Podi -inipu ellu idli podi,Standard,189.0,199.0,300gm,,,,,,,,,,,,,"iron and protein rich,bachelor special,kids special",Active
+RR-BTM-004,Breakfast & Traditional Mixes,Traditional Tirunelveli-style Idli Podi,Tirunelveli Regional,189.0,199.0,300gm,,,,,,,,,,,,,"iron and protein rich,bachelor special",Active
+RR-BTM-005,Breakfast & Traditional Mixes,Moringa Leaf Soup Mix,Herbal Soup,270.0,299.0,300gm,,,,,,,,,,,,,"iron defincincy,hair growth,good for weight management,cold & cough,consider as a night meal,Immunity booster",Active
+RR-BTM-006,Breakfast & Traditional Mixes,Soup Base Mix,Base Mix,230.0,249.0,300gm,,,,,,,,,,,,,"good for weight management,cold & cough,consider as a night meal,Immunity booster",Active
+RR-BTM-007,Breakfast & Traditional Mixes,Men's Wellness Powder,Wellness Blend,1400.0,1499.0,300gm,,,,,,,,,,,,,available in the sample label,Active
+RR-TP-001,Thokku & Pickles,Amla Thokku,Gooseberry,89.0,99.0,200gm,,,,,,,,,,,,,made with homemade spcies and bachelors special,Active
+RR-TP-002,Thokku & Pickles,Karuvadu Thokku,Dry Fish,139.0,149.0,200gm,,,,,,,,,,,,,made with homemade spcies and bachelors special,Active
+RR-TP-003,Thokku & Pickles,Prawn Thokku,Seafood,139.0,149.0,200gm,,,,,,,,,,,,,made with homemade spcies and bachelors special,Active
+RR-TP-004,Thokku & Pickles,Chicken Thokku,Poultry,139.0,149.0,200gm,,,,,,,,,,,,,made with homemade spcies and bachelors special,Active
+RR-TP-005,Thokku & Pickles,Lemon Pickle,Citrus,89.0,99.0,200gm,,,,,,,,,,,,,made with homemade spcies and bachelors special,Active
+RR-TP-007,Thokku & Pickles,Narthangai Pickle,Citron,89.0,99.0,200gm,,,,,,,,,,,,,made with homemade spcies and bachelors special,Active
+RR-TNF-001,Traditional Tamil Nadu Foods,Manathakkali Vathal kolapu,Sun-Dried Berry,89.0,99.0,200gm,,,,,,,,,,,,,made with homemade spcies and bachelors special,Active
+RR-TNF-002,Traditional Tamil Nadu Foods,Vathal Kuzhambu Mix,Spice Gravy Mix,89.0,99.0,200gm,,,,,,,,,,,,,made with homemade spcies and bachelors special,Active
+RR-TNF-003,Traditional Tamil Nadu Foods,Pregancy Kuzhambu with Karuvadu — Pre-booking,Pre-booking Special,480.0,500.0,500gm,,,,,,,,,,,,,"both gender,milk segreation for lactive mothers,back pain, body bain,relive digestive problems,boost immunity",Active
+RR-TNF-004,Traditional Tamil Nadu Foods,Karuppu Kavuni+ karupu uluthu kanji mix,Heritage Black Rice,199.0,199.0,300gm,,,,,,,,,,,,,"best for back pain,immunity booster",Active
+RR-TNF-005,Traditional Tamil Nadu Foods,Biotin Laddu,Workout friendly,139.0,149.0,6 pieces,,,,,,,,,,,,,"Hair growth,protein supplement,school snack,skin beauty,immunity booster,weight management,Workout friendly",Active

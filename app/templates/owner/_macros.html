@@ -1,0 +1,18 @@
+{% macro inr(v) %}₹{{ '{:,.2f}'.format(v or 0) }}{% endmacro %}
+
+{% macro status_badge(status) %}
+{%- set cls = {'placed': 'badge--warn', 'confirmed': 'badge--ok', 'packed': 'badge--ok', 'shipped': 'badge--ok', 'delivered': 'badge--ok',
+               'rejected': 'badge--bad', 'cancelled': 'badge--bad', 'return_requested': 'badge--warn', 'returned': 'badge--bad', 'refunded': 'badge--bad'}.get(status, '') -%}
+<span class="badge {{ cls }}">{{ {'placed': 'New', 'confirmed': 'Confirmed', 'packed': 'Packed', 'shipped': 'Shipped', 'delivered': 'Delivered', 'rejected': 'Rejected',
+  'cancelled': 'Cancelled', 'return_requested': 'Return requested', 'returned': 'Returned', 'refunded': 'Refunded'}.get(status, status) }}</span>
+{%- endmacro %}
+
+{% macro stock_badge(qty, threshold) %}
+{%- if qty <= 0 %}<span class="badge badge--bad" data-state-badge>Out of stock</span>
+{%- elif qty <= threshold %}<span class="badge badge--warn" data-state-badge>Low stock</span>
+{%- else %}<span class="badge badge--ok" data-state-badge>In stock</span>{% endif -%}
+{% endmacro %}
+
+{% macro pay_badge(order) %}
+<span class="badge {{ 'badge--ok' if order.payment_status == 'paid' else 'badge--warn' if order.payment_status == 'pending' else 'badge--bad' }}">{{ {'cod': 'Cash on delivery', 'online': 'Online', 'upi_manual': 'UPI'}.get(order.payment_method, order.payment_method) }} · {{ order.payment_status }}</span>
+{% endmacro %}

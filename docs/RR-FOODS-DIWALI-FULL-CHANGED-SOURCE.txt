@@ -1,0 +1,1291 @@
+RR FOODS — DIWALI FEATURES AND BUNDLES FIX — FULL CHANGED SOURCE CODE
+This file contains the complete contents of the changed files listed below.
+
+
+====================================================================================================
+FILE: app/shop/content.py
+====================================================================================================
+from datetime import datetime, timezone
+from decimal import Decimal, ROUND_HALF_UP
+from flask import abort, flash, g, redirect, render_template, request, url_for
+from sqlalchemy import select
+from ..extensions import db
+from ..models import Bundle, CartItem, Product, RecipeVideo
+from ..services.storefront import active_variants
+from . import bp
+
+@bp.get("/about")
+def about():
+    quality_stages = [
+        {"number": 1, "title": "Sourcing", "icon": "sprout", "description": "Handpicked millets, grains and nuts from trusted farmers.", "promise": "Carefully chosen ingredients, from the very beginning.", "stat_value": 0, "stat_suffix": "", "stat_label": ""},
+        {"number": 2, "title": "Cleaning and Sorting", "icon": "sieve", "description": "Stone, dust and visible impurities are removed before processing.", "promise": "A clean start for every batch.", "stat_value": 0, "stat_suffix": "", "stat_label": ""},
+        {"number": 3, "title": "Traditional Processing", "icon": "grind", "description": "Traditional stone-ground or slow-roasted methods, as suited to the product.", "promise": "Thoughtful processing; no preservatives are added to our recipes.", "stat_value": 0, "stat_suffix": "", "stat_label": "preservatives added"},
+        {"number": 4, "title": "Quality Testing", "icon": "check", "description": "Batch checks for moisture, purity and freshness.", "promise": "Quality checks before a product moves forward.", "stat_value": 0, "stat_suffix": "", "stat_label": ""},
+        {"number": 5, "title": "Hygienic Packaging", "icon": "package", "description": "Sealed, food-grade packs with batch identification.", "promise": "Packed carefully to protect freshness and traceability.", "stat_value": 0, "stat_suffix": "", "stat_label": ""},
+        {"number": 6, "title": "Delivery", "icon": "truck", "description": "Packed orders make their way fresh to your doorstep.", "promise": "Handled with care from our hands to your home.", "stat_value": 6, "stat_suffix": "/6", "stat_label": "journey stages"},
+    ]
+    return render_template("shop/about.html", quality_stages=quality_stages)
+
+@bp.get("/recipes")
+def recipes():
+    q = request.args.get("q", "").strip()[:100]
+    category = request.args.get("category", "").strip()[:100]
+    stmt = select(RecipeVideo).where(RecipeVideo.is_published.is_(True))
+    if q: stmt = stmt.where(RecipeVideo.title.ilike(f"%{q}%"))
+    if category: stmt = stmt.where(RecipeVideo.category == category)
+    items = db.session.scalars(stmt.order_by(RecipeVideo.published_at.desc(), RecipeVideo.id.desc())).all()
+    categories = db.session.scalars(select(RecipeVideo.category).where(RecipeVideo.is_published.is_(True), RecipeVideo.category.is_not(None)).distinct()).all()
+    return render_template("shop/recipes.html", items=items, categories=categories, q=q, category=category)
+
+@bp.get("/recipes/<slug>")
+def recipe_detail(slug):
+    item = db.session.scalar(select(RecipeVideo).where(RecipeVideo.slug == slug, RecipeVideo.is_published.is_(True)))
+    if not item: abort(404)
+    products = [db.session.get(Product, int(pid)) for pid in (item.linked_product_ids or [])]
+    products = [p for p in products if p and p.is_active and not p.is_deleted]
+    embed_url = None
+    if item.youtube_url:
+        from urllib.parse import urlparse, parse_qs
+        parsed = urlparse(item.youtube_url)
+        video_id = (parsed.path.strip("/").split("/")[-1] if parsed.netloc.endswith("youtu.be")
+                    else parse_qs(parsed.query).get("v", [""])[0])
+        if video_id and all(ch.isalnum() or ch in "_-" for ch in video_id):
+            embed_url = f"https://www.youtube-nocookie.com/embed/{video_id}"
+    return render_template("shop/recipe_detail.html", item=item, products=products, embed_url=embed_url)
+
+@bp.get("/bundles")
+def bundles():
+    now = datetime.now(timezone.utc)
+    items = db.session.scalars(select(Bundle).where(Bundle.is_active.is_(True),
+        (Bundle.starts_at.is_(None)) | (Bundle.starts_at <= now),
+        (Bundle.ends_at.is_(None)) | (Bundle.ends_at > now)).order_by(Bundle.created_at.desc())).all()
+    products = {p.id: p for p in db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all()}
+    originals = {}
+    bundle_prices = {}
+    for bundle in items:
+        originals[bundle.id] = sum((Decimal(str(products[int(line.get("product_id", 0))].final_price)) * int(line.get("quantity", 1))
+            for line in (bundle.product_quantities or []) if int(line.get("product_id", 0)) in products), Decimal("0"))
+        # Normalize database numeric values before template comparisons/subtraction.
+        bundle_prices[bundle.id] = Decimal(str(bundle.bundle_price)).quantize(Decimal("0.01"))
+    return render_template("shop/bundles.html", items=items, products=products, originals=originals, bundle_prices=bundle_prices)
+
+@bp.post("/bundles/<int:bundle_id>/add")
+def add_bundle(bundle_id):
+    if not g.get("user") or g.user.role != "user":
+        return redirect(url_for("auth.login", next=url_for("shop.bundles")))
+    now = datetime.now(timezone.utc)
+    bundle = db.session.get(Bundle, bundle_id)
+    if not bundle or not bundle.is_active or (bundle.starts_at and bundle.starts_at > now) or (bundle.ends_at and bundle.ends_at <= now):
+        abort(404)
+    lines = []
+    for entry in bundle.product_quantities or []:
+        product = db.session.get(Product, int(entry.get("product_id", 0)))
+        qty = int(entry.get("quantity", 1))
+        if not product or not product.is_active or product.is_deleted or active_variants(product) or qty < 1 or product.stock_qty < qty:
+            flash("A bundle product is unavailable or has insufficient stock.", "error")
+            return redirect(url_for("shop.bundles"))
+        lines.append((product, qty))
+    regular_total = sum((Decimal(product.final_price) * qty for product, qty in lines), Decimal("0"))
+    bundle_total = Decimal(str(bundle.bundle_price)).quantize(Decimal("0.01"))
+    if not lines or regular_total <= 0 or bundle_total <= 0 or bundle_total > regular_total:
+        flash("This bundle price is not configured correctly. Please contact the shop.", "error")
+        return redirect(url_for("shop.bundles"))
+    allocated = Decimal("0")
+    for index, (product, qty) in enumerate(lines):
+        line_total = (bundle_total - allocated) if index == len(lines)-1 else (bundle_total * (Decimal(product.final_price) * qty / regular_total)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        allocated += line_total
+        unit_price = (line_total / qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        item = db.session.scalar(select(CartItem).where(CartItem.user_id == g.user.id, CartItem.product_id == product.id,
+            CartItem.variant_id.is_(None), CartItem.bundle_id == bundle.id, CartItem.saved_for_later.is_(False)))
+        if item:
+            if item.quantity + qty > product.stock_qty:
+                db.session.rollback()
+                flash(f"Not enough stock to add another {bundle.name}.", "error")
+                return redirect(url_for("shop.bundles"))
+            item.quantity += qty
+            item.line_total_override = (item.unit_price_override or unit_price) * item.quantity
+        else:
+            db.session.add(CartItem(user_id=g.user.id, product_id=product.id, variant_id=None, bundle_id=bundle.id,
+                unit_price_override=unit_price, line_total_override=line_total, quantity=qty))
+    db.session.commit()
+    flash(f"Added {bundle.name} to your cart at its bundle price.", "success")
+    return redirect(url_for("shop.cart"))
+
+@bp.post("/recipes/<int:recipe_id>/add-ingredients")
+def add_recipe_ingredients(recipe_id):
+    if not g.get("user") or g.user.role != "user":
+        return redirect(url_for("auth.login", next=url_for("shop.recipes")))
+    recipe = db.session.get(RecipeVideo, recipe_id)
+    if not recipe or not recipe.is_published: abort(404)
+    from .cart import _add_one
+    added = 0
+    for pid in recipe.linked_product_ids or []:
+        product = db.session.get(Product, int(pid))
+        if product and product.is_active and not product.is_deleted:
+            _, ok = _add_one(g.user, product.id, None, 1)
+            added += int(ok)
+    flash(f"Added {added} linked ingredient product(s) to your cart." if added else "No linked products could be added.", "success" if added else "error")
+    return redirect(url_for("shop.cart"))
+
+@bp.get("/help")
+def help_page():
+    return render_template("shop/help.html")
+
+====================================================================================================
+FILE: app/templates/shop/bundles.html
+====================================================================================================
+{% extends "shop/layout.html" %}{% block title %}Product bundles | RR FOODS{% endblock %}
+{% block content %}<div class="container page"><header class="content-head"><p class="eyebrow">Curated savings</p><h1>Product bundles</h1><p class="muted">Useful combinations selected by our kitchen team.</p></header>
+<div class="content-grid">{% for bundle in items %}<article class="content-card">{% if bundle.image_url %}<img src="{{ bundle.image_url }}" alt="" loading="lazy">{% else %}<div class="content-placeholder">Bundle</div>{% endif %}<div class="content-card__body"><h2>{{ bundle.name }}</h2><p>{{ bundle.description or '' }}</p><ul>{% for line in bundle.product_quantities or [] %}<li>{{ products[line.get('product_id')].name if line.get('product_id') in products else 'Unavailable product' }} × {{ line.get('quantity', 1) }}</li>{% endfor %}</ul><p><del>₹{{ '%.2f'|format(originals[bundle.id]) }}</del> <b>Bundle price: ₹{{ '%.2f'|format(bundle_prices[bundle.id]) }}</b></p>{% if originals[bundle.id] > bundle_prices[bundle.id] %}<small class="good">You save ₹{{ '%.2f'|format(originals[bundle.id] - bundle_prices[bundle.id]) }}</small>{% endif %}<form method="post" action="{{ url_for('shop.add_bundle', bundle_id=bundle.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn" type="submit">Add bundle to cart</button></form></div></article>{% else %}<p class="empty muted">No bundles are available right now.</p>{% endfor %}</div></div>{% endblock %}
+
+====================================================================================================
+FILE: app/shop/catalog.py
+====================================================================================================
+import re
+from decimal import Decimal
+from datetime import timezone
+
+from flask import abort, jsonify, make_response, render_template, request, url_for
+from sqlalchemy import select
+from sqlalchemy.orm import joinedload
+
+from ..extensions import db, limiter
+from flask import g
+from ..models import Category, Coupon, DeliveryZone, Product, ProductQuestion, Review, ReviewVote
+from ..services import reviews as review_svc
+from ..models.base import utcnow
+from ..services import header_banners, storefront
+from ..services.storefront import Filters, active_variants, available_qty, in_stock_sql
+from . import bp
+
+HEX = re.compile(r"^#[0-9a-fA-F]{3,8}$")
+
+
+@bp.get("/")
+def home():
+    from ..models import Reel, SiteSetting
+    setting = db.session.get(SiteSetting, "home_reels")
+    cfg = setting.value if setting and isinstance(setting.value, dict) else {}
+    selected = cfg.get("selected_ids") or []
+    stmt = select(Reel).where(Reel.is_active.is_(True)).order_by(Reel.sort_order, Reel.id)
+    if selected: stmt = stmt.where(Reel.id.in_(selected))
+    reels = db.session.scalars(stmt.limit(max(1, min(20, int(cfg.get("max_count", 8)))))).all()
+    return render_template("shop/home.html", rows=storefront.home_rows(), carousel=header_banners.cached_payload(),
+                           recent=storefront.recently_viewed(), now=utcnow(), home_reels=reels,
+                           reels_enabled=cfg.get("enabled", True))
+
+
+@bp.get("/banner-colors.css")
+def banner_colors():
+    """Per-banner colours as real CSS rules. The site's CSP forbids style="" attributes, and this keeps the first paint correct without JavaScript."""
+    rules = []
+    for b in header_banners.cached_payload()["banners"]:
+        bg = b["bg_color"] if b.get("bg_color") and HEX.match(b["bg_color"]) else "#1b5e3b"
+        fg = b["text_color"] if b.get("text_color") and HEX.match(b["text_color"]) else "#ffffff"
+        rules.append(f".hb-{int(b['id'])}{{--hb-bg:{bg};--hb-fg:{fg}}}")
+    resp = make_response("\n".join(rules) or "/* no banners */")
+    resp.mimetype = "text/css"
+    resp.headers["Cache-Control"] = "public, max-age=60"
+    return resp
+
+
+def _render_listing(*, slug=None, bestseller_only=False):
+    f = Filters.from_args(request.args)
+    if slug:
+        f.category = slug
+    page, cat, brands = storefront.listing(f, bestseller_only=bestseller_only)
+    if f.category and cat is None:
+        abort(404)
+
+    # Keep all active filters in links and pagination; never carry a page number
+    # into a newly submitted filter form.
+    query_args = {k: v for k, v in request.args.lists()
+                  if k not in ("page", "bestsellers", "category") and any(v)}
+    if cat:
+        if slug:
+            query_args["slug"] = cat.slug
+        else:
+            query_args["category"] = cat.slug
+
+    if bestseller_only:
+        title = "Our Bestsellers"
+        crumbs = [("Home", "/"), ("Bestsellers", None)]
+        endpoint = "shop.bestsellers"
+        canonical = url_for("shop.bestsellers", _external=True)
+    elif cat:
+        title = cat.name
+        crumbs = storefront.breadcrumb_for(cat)
+        endpoint = "shop.category_listing"
+        canonical = url_for("shop.category_listing", slug=cat.slug, _external=True)
+    elif f.q:
+        title = f"Search results for “{f.q}”"
+        crumbs = [("Home", "/"), ("Search results", None)]
+        endpoint = "shop.listing"
+        canonical = url_for("shop.listing", _external=True)
+    else:
+        title = "Shop All Products"
+        crumbs = [("Home", "/"), ("Shop All", None)]
+        endpoint = "shop.listing"
+        canonical = url_for("shop.listing", _external=True)
+
+    clear_args = {"q": f.q} if f.q else {}
+    clean = not (f.q or f.active_count() or request.args.get("sort"))
+    subcats = (db.session.scalars(
+        select(Category).where(Category.parent_id == cat.id, Category.is_deleted.is_(False),
+                               Category.is_active.is_(True)).order_by(Category.sort_order, Category.name)
+    ).all() if cat else [])
+    return render_template(
+        "shop/listing.html", f=f, page=page, cat=cat, brands=brands,
+        sorts=storefront.SORTS, crumbs=crumbs, title=title, listing_endpoint=endpoint,
+        listing_args=query_args, canonical=canonical, clear_args=clear_args,
+        listing_url=(url_for(endpoint, slug=cat.slug) if cat and endpoint == "shop.category_listing"
+                     else url_for(endpoint)),
+        clear_url=(url_for(endpoint, slug=cat.slug, **clear_args) if cat and endpoint == "shop.category_listing"
+                   else url_for(endpoint, category=cat.slug, **clear_args) if cat
+                   else url_for(endpoint, **clear_args)),
+        index_ok=clean and f.page == 1, subcats=subcats,
+        bestseller_only=bestseller_only,
+    )
+
+
+@bp.get("/shop")
+@limiter.limit("120 per minute")
+def listing():
+    return _render_listing()
+
+
+@bp.get("/bestsellers")
+@limiter.limit("120 per minute")
+def bestsellers():
+    return _render_listing(bestseller_only=True)
+
+
+@bp.get("/category/<slug>")
+@limiter.limit("120 per minute")
+def category_listing(slug):
+    return _render_listing(slug=slug)
+
+
+@bp.get("/product/<slug>")
+def product(slug):
+    p = storefront.get_product(slug)
+    if p is None:
+        abort(404)
+    storefront.remember_view(p.id)
+    now = utcnow()
+    offers = [o for o in p.offers if o.is_active and (not o.starts_at or o.starts_at <= now) and (not o.ends_at or o.ends_at > now)]
+    coupons = db.session.scalars(select(Coupon).where(Coupon.is_active.is_(True), (Coupon.expires_at.is_(None)) | (Coupon.expires_at > now)).order_by(Coupon.id).limit(3)).all()
+    reviews = db.session.scalars(select(Review).where(Review.product_id == p.id, Review.status == "approved", Review.is_deleted.is_(False))
+                                 .options(joinedload(Review.user)).order_by(Review.helpful_count.desc(), Review.created_at.desc()).limit(10)).all()
+    questions = db.session.scalars(select(ProductQuestion).where(ProductQuestion.product_id == p.id, ProductQuestion.is_deleted.is_(False), ProductQuestion.answer.is_not(None))
+                                   .order_by(ProductQuestion.created_at.desc()).limit(10)).all()
+    shopper = g.get("user") is not None and g.user.role == "user"
+    can_review = bool(shopper and review_svc.purchase_for(g.user.id, p.id))
+    my_review = db.session.scalar(select(Review).where(Review.user_id == g.user.id, Review.product_id == p.id, Review.is_deleted.is_(False))) if shopper else None
+    voted = set(db.session.scalars(select(ReviewVote.review_id).where(ReviewVote.user_id == g.user.id, ReviewVote.review_id.in_([r.id for r in reviews] or [0])))) if shopper else set()
+    cat = db.session.get(Category, p.category_id) if p.category_id else None
+    crumbs = storefront.breadcrumb_for(cat)
+    if cat:
+        crumbs[-1] = (cat.name, f"/shop?category={cat.slug}")
+    crumbs.append((p.name, None))
+    variants = active_variants(p)
+    together = storefront.bought_together(p)
+    from ..models import Bundle
+    bundles = db.session.scalars(select(Bundle).where(Bundle.is_active.is_(True))).all()
+    product_bundles = [b for b in bundles if any(int(x.get("product_id", 0)) == p.id for x in (b.product_quantities or []))]
+    return render_template("shop/product.html", p=p, variants=variants, stock=available_qty(p), offers=offers, coupons=coupons, reviews=reviews,
+                           questions=questions, crumbs=crumbs, together=together, together_ids=[t.id for t in together if not active_variants(t)],
+                           similar=storefront.you_may_like(p), shopper=shopper, can_review=can_review, my_review=my_review, voted=voted, recent=storefront.recently_viewed(exclude=p.id), now=now, product_bundles=product_bundles)
+
+
+@bp.get("/offers")
+def offers():
+    now = utcnow()
+    coupons = db.session.scalars(select(Coupon).where(Coupon.is_active.is_(True), (Coupon.expires_at.is_(None)) | (Coupon.expires_at > now)).order_by(Coupon.id)).all()
+    from ..models import Bundle, Combo, Offer, SiteSetting
+    active_offers = db.session.scalars(select(Offer).where(Offer.is_active.is_(True),
+        (Offer.starts_at.is_(None)) | (Offer.starts_at <= now),
+        (Offer.ends_at.is_(None)) | (Offer.ends_at > now)).order_by(Offer.name)).all()
+    bundles = db.session.scalars(select(Bundle).where(Bundle.is_active.is_(True),
+        (Bundle.starts_at.is_(None)) | (Bundle.starts_at <= now),
+        (Bundle.ends_at.is_(None)) | (Bundle.ends_at > now)).order_by(Bundle.created_at.desc())).all()
+    products = {p.id: p for p in db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all()}
+    originals = {b.id: sum((Decimal(str(products[int(line.get("product_id", 0))].final_price)) * int(line.get("quantity", 1))
+        for line in (b.product_quantities or []) if int(line.get("product_id", 0)) in products), Decimal("0")) for b in bundles}
+    combos = db.session.scalars(select(Combo).where(Combo.is_active.is_(True), Combo.festival_tag == "diwali").order_by(Combo.created_at.desc())).all()
+    combo_products = {p.id: p for p in db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all()}
+    end_setting = db.session.get(SiteSetting, "diwali_end_at")
+    diwali_end_at = end_setting.value if end_setting and isinstance(end_setting.value, str) else "2026-11-12T23:59:00+05:30"
+    return render_template("shop/offers.html", coupons=coupons, highlight=(request.args.get("coupon") or "").upper()[:40],
+        rows=storefront.home_rows(), active_offers=active_offers, bundles=bundles, products=products, originals=originals,
+        diwali_combos=combos, combo_products=combo_products, diwali_end_at=diwali_end_at)
+
+
+# ---------------------------------------------------------------- JSON helpers for the page scripts
+@bp.get("/api/suggest")
+@limiter.limit("90 per minute")
+def api_suggest():
+    resp = jsonify(storefront.suggest(request.args.get("q", "")))
+    resp.headers["Cache-Control"] = "public, max-age=30"
+    return resp
+
+
+@bp.get("/api/pincode/<pin>")
+@limiter.limit("60 per minute")
+def api_pincode(pin):
+    if not re.fullmatch(r"\d{6}", pin):
+        return jsonify(ok=False, message="Enter a 6 digit pincode."), 422
+    zone = db.session.get(DeliveryZone, pin)
+    if zone is None or not zone.is_serviceable:
+        return jsonify(ok=True, deliverable=False, message=f"Sorry, we do not deliver to {pin} yet.")
+    days = zone.eta_days or 3
+    fee = float(zone.delivery_fee or 0)
+    return jsonify(ok=True, deliverable=True, eta_days=days, fee=fee,
+                   message=f"Delivery to {pin} in about {days} day{'s' if days != 1 else ''}" + (" (free delivery)." if fee == 0 else f" (delivery ₹{fee:,.0f})."))
+
+
+# ---------------------------------------------------------------- SEO
+@bp.get("/robots.txt")
+def robots():
+    body = "User-agent: *\nDisallow: /admin\nDisallow: /owner\nDisallow: /account\nDisallow: /cart\nDisallow: /checkout\nDisallow: /api\nAllow: /\n" \
+           f"Sitemap: {url_for('shop.sitemap', _external=True)}\n"
+    resp = make_response(body)
+    resp.mimetype = "text/plain"
+    return resp
+
+
+@bp.get("/sitemap.xml")
+def sitemap():
+    urls = [url_for("shop.home", _external=True), url_for("shop.listing", _external=True),
+            url_for("shop.bestsellers", _external=True)]
+    urls += [url_for("shop.category_listing", slug=s, _external=True) for s in db.session.scalars(select(Category.slug).where(Category.is_deleted.is_(False), Category.is_active.is_(True)))]
+    for slug in db.session.scalars(select(Product.slug).where(storefront.LIVE).order_by(Product.id).limit(20000)):
+        urls.append(url_for("shop.product", slug=slug, _external=True))
+    from markupsafe import escape
+    xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + "".join(f"<url><loc>{escape(u)}</loc></url>\n" for u in urls) + "</urlset>\n"
+    resp = make_response(xml)
+    resp.mimetype = "application/xml"
+    return resp
+
+====================================================================================================
+FILE: app/models/content.py
+====================================================================================================
+from datetime import datetime
+
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Numeric, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from .base import JsonType, TimestampMixin, db
+
+
+class Banner(TimestampMixin, db.Model):
+    """Home page sections other than the header carousel: hero slider, featured categories, deals strip."""
+
+    __tablename__ = "banners"
+    __table_args__ = (CheckConstraint("section in ('hero','featured_categories','deals_strip')", name="ck_banners_section"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    section: Mapped[str] = mapped_column(String(30), index=True)
+    title: Mapped[str] = mapped_column(String(150))
+    subtitle: Mapped[str | None] = mapped_column(String(250))
+    image: Mapped[str | None] = mapped_column(String(500))
+    link_url: Mapped[str | None] = mapped_column(String(500))
+    sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class HeaderBanner(TimestampMixin, db.Model):
+    """Header offer carousel on the main dashboard (admin managed, scheduled)."""
+
+    __tablename__ = "header_banners"
+    __table_args__ = (
+        CheckConstraint("link_type in ('category','product','coupon','url')", name="ck_header_banners_link_type"),
+        CheckConstraint("end_at is null or start_at is null or end_at > start_at", name="ck_header_banners_window"),
+        Index("ix_header_banners_active_order", "is_active", "sort_order"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(150))
+    subtitle: Mapped[str | None] = mapped_column(String(250))
+    badge_text: Mapped[str | None] = mapped_column(String(40))
+    desktop_image: Mapped[str | None] = mapped_column(String(500))
+    mobile_image: Mapped[str | None] = mapped_column(String(500))
+    bg_color: Mapped[str] = mapped_column(String(9), default="#1b5e3b", server_default="#1b5e3b")
+    text_color: Mapped[str] = mapped_column(String(9), default="#ffffff", server_default="#ffffff")
+    button_text: Mapped[str | None] = mapped_column(String(40))
+    link_type: Mapped[str] = mapped_column(String(10), default="url", server_default="url")
+    link_target: Mapped[str | None] = mapped_column(String(500))
+    start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    countdown_enabled: Mapped[bool] = mapped_column(default=False, server_default="false")
+    sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+
+
+class SiteSetting(db.Model):
+    """Key/value settings edited in admin (carousel interval, delivery threshold, tax, ...)."""
+
+    __tablename__ = "site_settings"
+
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value: Mapped[dict | list | str | int | float | bool | None] = mapped_column(JsonType)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class AuditLog(db.Model):
+    __tablename__ = "audit_logs"
+    __table_args__ = (Index("ix_audit_entity", "entity_type", "entity_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    action: Mapped[str] = mapped_column(String(60))  # product.create, banner.delete, user.block ...
+    entity_type: Mapped[str] = mapped_column(String(40))
+    entity_id: Mapped[str | None] = mapped_column(String(40))
+    before: Mapped[dict | None] = mapped_column(JsonType)
+    after: Mapped[dict | None] = mapped_column(JsonType)
+    ip_address: Mapped[str | None] = mapped_column(String(45))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    actor = relationship("User", foreign_keys=[actor_id])
+
+
+class Reel(TimestampMixin, db.Model):
+    """Short product video displayed only in the home-page reels rail."""
+    __tablename__ = "reels"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(160))
+    video_url: Mapped[str] = mapped_column(String(500))
+    thumbnail_url: Mapped[str | None] = mapped_column(String(500))
+    linked_product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id", ondelete="SET NULL"))
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true", index=True)
+    sort_order: Mapped[int] = mapped_column(default=0, server_default="0", index=True)
+    product = relationship("Product")
+
+
+class RecipeVideo(TimestampMixin, db.Model):
+    """Published cooking recipe with either an uploaded video or a YouTube URL."""
+    __tablename__ = "recipe_videos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(180))
+    slug: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    video_url: Mapped[str | None] = mapped_column(String(500))
+    youtube_url: Mapped[str | None] = mapped_column(String(500))
+    thumbnail_url: Mapped[str | None] = mapped_column(String(500))
+    category: Mapped[str | None] = mapped_column(String(100), index=True)
+    ingredients: Mapped[list] = mapped_column(JsonType, default=list)
+    linked_product_ids: Mapped[list] = mapped_column(JsonType, default=list)
+    is_published: Mapped[bool] = mapped_column(default=False, server_default="false", index=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Bundle(TimestampMixin, db.Model):
+    """A curated group of existing products with a fixed bundle price."""
+    __tablename__ = "bundles"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(180))
+    slug: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(String(500))
+    product_quantities: Mapped[list] = mapped_column(JsonType, default=list)
+    bundle_price: Mapped[float] = mapped_column(default=0)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true", index=True)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Combo(TimestampMixin, db.Model):
+    """Admin-managed festival combo, linked to a Bundle for discounted cart pricing."""
+    __tablename__ = "combos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(180))
+    slug: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    items: Mapped[list] = mapped_column(JsonType, default=list)
+    price: Mapped[float] = mapped_column(Numeric(10, 2))
+    original_price: Mapped[float] = mapped_column(Numeric(10, 2))
+    image: Mapped[str | None] = mapped_column(String(500))
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true", index=True)
+    festival_tag: Mapped[str] = mapped_column(String(40), default="diwali", server_default="diwali", index=True)
+    bundle_id: Mapped[int] = mapped_column(ForeignKey("bundles.id", ondelete="CASCADE"), unique=True)
+    bundle = relationship("Bundle")
+
+====================================================================================================
+FILE: app/models/__init__.py
+====================================================================================================
+from .base import db
+from .catalog import Category, Coupon, CouponUsage, Offer, Product, ProductImage, ProductVariant, product_offers, product_related
+from .content import AuditLog, Banner, HeaderBanner, SiteSetting, Reel, RecipeVideo, Bundle, Combo
+from .engagement import InventoryLog, Notification, ProductQuestion, Review, ReviewVote
+from .orders import CartItem, Order, OrderItem, OrderStatusHistory, Payment, WishlistItem
+from .user import Address, DeliveryZone, User
+
+__all__ = [
+    "db", "User", "Address", "DeliveryZone", "Category", "Product", "ProductImage", "ProductVariant", "Offer",
+    "Coupon", "CouponUsage", "CartItem", "WishlistItem", "Order", "OrderItem", "OrderStatusHistory", "Payment",
+    "Review", "ReviewVote", "ProductQuestion", "InventoryLog", "Notification", "Banner", "HeaderBanner",
+    "SiteSetting", "AuditLog", "Reel", "RecipeVideo", "Bundle", "Combo", "product_offers", "product_related",
+]
+
+====================================================================================================
+FILE: app/admin/combos.py
+====================================================================================================
+from decimal import Decimal
+from flask import abort, flash, redirect, render_template, request, url_for
+from sqlalchemy import select
+
+from ..extensions import db
+from ..models import Bundle, Combo, Product, SiteSetting
+from ..services.storefront import active_variants
+from . import bp
+from .helpers import checked, clean, log, to_decimal, unique_slug
+
+
+def _products():
+    rows = db.session.scalars(select(Product).where(Product.is_deleted.is_(False), Product.is_active.is_(True), Product.stock_qty > 0).order_by(Product.name)).all()
+    return [p for p in rows if not active_variants(p)]
+
+
+def _save(combo=None):
+    errors = {}
+    products = _products()
+    if request.method == "POST":
+        name = clean(request.form.get("name"), 180)
+        description = clean(request.form.get("description"), 1000) or None
+        image = clean(request.form.get("image"), 500) or None
+        festival = clean(request.form.get("festival_tag"), 40).lower() or "diwali"
+        price = to_decimal(request.form.get("price"), "price", errors, min_=Decimal("0.01"), max_=Decimal("1000000"))
+        original = to_decimal(request.form.get("original_price"), "original_price", errors, min_=Decimal("0.01"), max_=Decimal("1000000"))
+        ids = []
+        for raw in request.form.getlist("product_ids")[:12]:
+            if raw.isdigit() and int(raw) not in ids:
+                ids.append(int(raw))
+        selected = [p for p in products if p.id in ids]
+        if len(name) < 3: errors["name"] = "Enter a combo name."
+        if not selected: errors["items"] = "Choose at least one active product."
+        if price and original and price >= original: errors["price"] = "Combo price must be lower than original price."
+        end_date = clean(request.form.get("diwali_end_at"), 30)
+        if end_date:
+            from datetime import datetime
+            try: datetime.fromisoformat(end_date)
+            except ValueError: errors["diwali_end_at"] = "Enter a valid date and time."
+        if not errors:
+            is_new = combo is None
+            if is_new:
+                slug = unique_slug(Combo, name)
+                bundle = Bundle(name=name, slug=unique_slug(Bundle, f"{slug}-cart"), description=description,
+                                product_quantities=[{"product_id": p.id, "quantity": 1} for p in selected],
+                                bundle_price=float(price), is_active=checked("is_active"))
+                db.session.add(bundle)
+                db.session.flush()
+                combo = Combo(name=name, slug=slug, bundle=bundle)
+                db.session.add(combo)
+            else:
+                bundle = combo.bundle
+                bundle.name, bundle.description = name, description
+                bundle.product_quantities = [{"product_id": p.id, "quantity": 1} for p in selected]
+                bundle.bundle_price = float(price)
+                bundle.is_active = checked("is_active")
+            combo.name, combo.description, combo.items = name, description, [{"product_id": p.id, "quantity": 1} for p in selected]
+            combo.price, combo.original_price = price, original
+            combo.image, combo.festival_tag, combo.is_active = image, festival, checked("is_active")
+            if end_date:
+                setting = db.session.get(SiteSetting, "diwali_end_at") or SiteSetting(key="diwali_end_at", value=end_date)
+                setting.value = end_date
+                db.session.add(setting)
+            elif is_new and db.session.get(SiteSetting, "diwali_end_at") is None:
+                db.session.add(SiteSetting(key="diwali_end_at", value="2026-11-12T23:59"))
+            db.session.flush()
+            log("combo.create" if is_new else "combo.update", "combo", combo.id,
+                after={"name": name, "price": str(price), "is_active": combo.is_active})
+            db.session.commit()
+            flash(f"{name} saved.", "success")
+            return redirect(url_for("admin.combos"))
+        f = {"name": name, "description": description or "", "image": image or "", "festival_tag": festival,
+             "price": request.form.get("price", ""), "original_price": request.form.get("original_price", ""),
+             "is_active": checked("is_active"), "selected_ids": ids, "diwali_end_at": end_date}
+        return render_template("admin/combo_form.html", combo=combo, f=f, products=products, errors=errors), 422
+
+    setting = db.session.get(SiteSetting, "diwali_end_at")
+    if combo:
+        selected_ids = [int(x.get("product_id")) for x in (combo.items or []) if str(x.get("product_id", "")).isdigit()]
+        f = {"name": combo.name, "description": combo.description or "", "image": combo.image or "",
+             "festival_tag": combo.festival_tag, "price": str(combo.price), "original_price": str(combo.original_price),
+             "is_active": combo.is_active, "selected_ids": selected_ids,
+             "diwali_end_at": setting.value if setting and isinstance(setting.value, str) else ""}
+    else:
+        f = {"name": "", "description": "", "image": "", "festival_tag": "diwali", "price": "",
+             "original_price": "", "is_active": True, "selected_ids": [],
+             "diwali_end_at": setting.value if setting and isinstance(setting.value, str) else "2026-11-12T23:59"}
+    return render_template("admin/combo_form.html", combo=combo, f=f, products=products, errors=errors)
+
+
+@bp.get("/combos")
+def combos():
+    rows = db.session.scalars(select(Combo).order_by(Combo.created_at.desc())).all()
+    return render_template("admin/combos.html", rows=rows)
+
+
+@bp.route("/combos/new", methods=["GET", "POST"])
+def combo_new():
+    return _save()
+
+
+@bp.route("/combos/<int:combo_id>/edit", methods=["GET", "POST"])
+def combo_edit(combo_id):
+    return _save(db.session.get(Combo, combo_id) or abort(404))
+
+
+@bp.post("/combos/<int:combo_id>/delete")
+def combo_delete(combo_id):
+    combo = db.session.get(Combo, combo_id) or abort(404)
+    log("combo.delete", "combo", combo.id, before={"name": combo.name})
+    db.session.delete(combo)
+    db.session.commit()
+    flash("Combo deleted.", "success")
+    return redirect(url_for("admin.combos"))
+
+====================================================================================================
+FILE: app/admin/__init__.py
+====================================================================================================
+from flask import Blueprint
+
+from ..auth.decorators import roles_required
+
+bp = Blueprint("admin", __name__, url_prefix="/admin")
+
+
+@bp.before_request
+@roles_required("admin")
+def _guard():
+    """Every route in this blueprint is admin-only, including ones added in later steps."""
+
+
+# Importing the modules registers their routes on `bp`.
+from . import account, dashboard, categories, products, bulk, offers, coupons, banners, users, audit, reviews, content, combos  # noqa: E402,F401
+
+====================================================================================================
+FILE: app/cli.py
+====================================================================================================
+import click
+
+from .extensions import db
+
+
+def register_cli(app):
+    _register_diwali_seed(app)
+    @app.cli.command("seed")
+    def seed_command():
+        """Create sample admin, owner, customer, categories, products, coupon, banners and settings."""
+        from .seed import seed_all
+
+        result = seed_all()
+        click.echo(f"Products: {result['products']}  Header banners added: {result['header_banners']}")
+        click.echo("Accounts (save these passwords now, they are not shown again):")
+        for email, pw in result["passwords"].items():
+            click.echo(f"  {email}  {pw}")
+
+    @app.cli.command("import-products-csv")
+    @click.argument("path", required=False)
+    def import_csv_command(path):
+        """Import products from the old site's CSV (default: app/seed_data/products.csv)."""
+        from .seed import import_products_csv
+
+        click.echo(import_products_csv(path))
+
+    @app.cli.command("import-rr-foods")
+    @click.option("--path", default="app/seed_data/seed_products.csv", show_default=True,
+                  type=click.Path(exists=True, dir_okay=False, readable=True))
+    @click.option("--yes", is_flag=True, help="Skip the confirmation prompt.")
+    def import_rr_foods_command(path, yes):
+        """Import the supplied RR FOODS catalogue into the configured database."""
+        from pathlib import Path
+        from .admin.csvio import import_csv
+        raw = Path(path).read_bytes()
+        if not yes:
+            click.confirm("Import the RR FOODS product records? Existing matching SKUs will be updated.", abort=True)
+        result = import_csv(raw, create_categories=True, default_stock=0)
+        if result.errors:
+            db.session.rollback()
+            for error in result.errors:
+                click.echo(f"ERROR: {error}", err=True)
+            raise click.ClickException("No products were imported. Fix the CSV errors and retry.")
+        db.session.commit()
+        click.echo(f"RR FOODS import complete: {result.created} created, {result.updated} updated.")
+        click.echo("All imported stock quantities are zero; enter verified inventory before enabling sales.")
+
+    @app.cli.command("create-user")
+    @click.argument("email")
+    @click.argument("name")
+    @click.option("--role", type=click.Choice(["user", "owner", "admin"]), default="user")
+    @click.password_option()
+    def create_user_command(email, name, role, password):
+        """Create one account."""
+        from .models import User
+        from .models.base import utcnow
+        from .security import hash_password
+
+        db.session.add(User(email=email, name=name, role=role, password_hash=hash_password(password), email_verified_at=utcnow()))
+        db.session.commit()
+        click.echo(f"Created {role} {email}")
+
+
+def register_settings_cli(app):
+    @app.cli.command("set-setting")
+    @click.argument("key")
+    @click.argument("value")
+    def set_setting_command(key, value):
+        """Change a site setting. VALUE is JSON: flask set-setting tax_percent 5 | free_delivery_min_cart 499 | header_carousel_autoplay true"""
+        import json
+
+        from .models import SiteSetting
+
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            parsed = value
+        row = db.session.get(SiteSetting, key)
+        if row is None:
+            db.session.add(SiteSetting(key=key, value=parsed))
+        else:
+            row.value = parsed
+        db.session.commit()
+        click.echo(f"{key} = {parsed!r}")
+
+
+def register_mail_cli(app):
+    @app.cli.command("send-emails")
+    def send_emails_command():
+        """Send queued emails (order updates, password resets). Run every minute from cron: * * * * * flask send-emails"""
+        from .services.mailer import deliver_pending
+
+        sent, failed = deliver_pending()
+        click.echo(f"sent {sent}, failed {failed}")
+
+
+def register_check_cli(app):
+    @app.cli.command("check-config")
+    def check_config_command():
+        """Check .env for unsafe production settings. Exit code 1 if something must be fixed."""
+        from .prodcheck import config_problems, example_accounts_advice, is_production
+
+        fatal, advice = config_problems(app)
+        try:
+            extra = example_accounts_advice()
+            if extra:
+                advice.append(extra)
+        except Exception as exc:  # noqa: BLE001  database may not be reachable yet
+            advice.append(f"Could not look for example accounts ({type(exc).__name__}). Is the database reachable and migrated?")
+        if not is_production(app):
+            click.echo("Note: FLASK_ENV is not 'production', so these are what WOULD be refused in production.")
+        for m in fatal:
+            click.echo(f"[FIX]    {m}")
+        for m in advice:
+            click.echo(f"[ADVICE] {m}")
+        click.echo(f"{len(fatal)} to fix, {len(advice)} advice.")
+        raise SystemExit(1 if fatal else 0)
+
+
+def _register_diwali_seed(app):
+    @app.cli.command("seed-diwali-combos")
+    def seed_diwali_combos():
+        """Create three sample Diwali combo records using existing active catalogue products."""
+        from decimal import Decimal
+        from sqlalchemy import select
+        from .models import Bundle, Combo, Product, SiteSetting
+        from .seed import slugify
+        from .services.storefront import active_variants
+        rows = db.session.scalars(select(Product).where(Product.is_active.is_(True), Product.is_deleted.is_(False), Product.final_price > 0, Product.stock_qty > 0).order_by(Product.name)).all()
+        products = [p for p in rows if not active_variants(p)]
+        if len(products) < 2:
+            raise click.ClickException("Import and activate at least two products before seeding Diwali combos.")
+        if db.session.scalar(select(Combo.id).limit(1)):
+            click.echo("Diwali combos already exist; no duplicate samples were created.")
+            return
+        plans = [
+            ("Biotin Laddu Festive Box", "A festive RR FOODS laddu selection.", ("laddu",)),
+            ("Healthy Snack Combo", "A shareable mix of millet and wholesome pantry favourites.", ("muesli", "moringa", "soup")),
+            ("Traditional Pantry Gift Hamper", "Traditional RR FOODS pantry favourites, curated for gifting.", ("idli podi", "pickle", "vathal")),
+        ]
+        used_ids = set()
+        for name, description, keywords in plans:
+            chosen = []
+            for keyword in keywords:
+                match = next((p for p in products if keyword in p.name.lower() and p.id not in used_ids), None)
+                if match and len(chosen) < 3:
+                    chosen.append(match); used_ids.add(match.id)
+            if not chosen:
+                chosen = [p for p in products if p.id not in used_ids][:2]
+                used_ids.update(p.id for p in chosen)
+            if not chosen:
+                chosen = products[:2]
+            original = sum((Decimal(str(p.final_price)) for p in chosen), Decimal("0"))
+            if original <= 0: original = Decimal("200.00")
+            price = (original * Decimal("0.85")).quantize(Decimal("0.01"))
+            slug = slugify(name)
+            from .admin.helpers import unique_slug
+            bundle = Bundle(name=name, slug=unique_slug(Bundle, f"diwali-{slug}-cart"), description=description,
+                product_quantities=[{"product_id": p.id, "quantity": 1} for p in chosen], bundle_price=float(price), is_active=True)
+            db.session.add(bundle); db.session.flush()
+            db.session.add(Combo(name=name, slug=f"diwali-{slug}", description=description,
+                items=[{"product_id": p.id, "quantity": 1} for p in chosen], price=price,
+                original_price=original, festival_tag="diwali", is_active=True, bundle=bundle))
+        setting = db.session.get(SiteSetting, "diwali_end_at")
+        if not setting: db.session.add(SiteSetting(key="diwali_end_at", value="2026-11-12T23:59"))
+        db.session.commit()
+        click.echo("Created 3 Diwali combos using existing active catalogue products.")
+
+
+====================================================================================================
+FILE: app/templates/admin/layout.html
+====================================================================================================
+{% import "admin/_macros.html" as m %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#183D2B">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}Admin{% endblock %} | RR FOODS</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-design.css') }}">
+  <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
+</head>
+<body>
+{% set here = request.endpoint %}
+{% macro item(endpoint, label, ic, prefix) %}
+  <li><a href="{{ url_for(endpoint) }}" {% if here and here.startswith(prefix) %}aria-current="page"{% endif %}>{{ m.icon(ic) }}<span class="label">{{ label }}</span></a></li>
+{% endmacro %}
+<div class="adm">
+  <aside class="adm__side" id="adm-side" aria-label="Admin menu">
+    <a class="adm__brand" href="{{ url_for('admin.dashboard') }}">{{ m.icon('home') }}<span class="label">RR FOODS admin</span></a>
+    <nav>
+      <ul class="nav">
+        {{ item('admin.dashboard', 'Dashboard', 'home', 'admin.dashboard') }}
+        {{ item('admin.products', 'Products', 'box', 'admin.product') }}
+        {{ item('admin.orders', 'Orders', 'package', 'admin.orders') }}
+        {{ item('admin.categories', 'Categories', 'grid', 'admin.categor') }}
+        {{ item('admin.offers', 'Offers', 'tag', 'admin.offer') }}
+        {{ item('admin.combos', 'Diwali Combos', 'package', 'admin.combo') }}
+        {{ item('admin.coupons', 'Coupons', 'ticket', 'admin.coupon') }}
+        {{ item('admin.bundles', 'Combo Offers', 'package', 'admin.bundle') }}
+        {{ item('admin.reels', 'Reels', 'video', 'admin.reel') }}
+        {{ item('admin.recipes', 'Recipes', 'book-open', 'admin.recipe') }}
+        {{ item('admin.banners', 'Header banners', 'image', 'admin.banner') }}
+        {{ item('admin.reviews', 'Reviews', 'log', 'admin.review') }}
+        {{ item('admin.users', 'Users', 'users', 'admin.user') }}
+        {{ item('admin.audit', 'Audit log', 'log', 'admin.audit') }}
+        <li class="nav__sep" role="separator"></li>
+        {{ item('admin.password', 'Change password', 'key', 'admin.password') }}
+        <li><a href="/" target="_blank" rel="noopener">{{ m.icon('globe') }}<span class="label">View site</span></a></li>
+        <li><form method="post" action="{{ url_for('auth.logout') }}">{{ m.csrf() }}<button type="submit">{{ m.icon('out') }}<span class="label">Sign out</span></button></form></li>
+        <li class="adm__collapse"><button type="button" id="nav-collapse" aria-pressed="false">{{ m.icon('chevrons') }}<span class="label">Collapse menu</span></button></li>
+      </ul>
+    </nav>
+  </aside>
+  <div class="adm__backdrop" id="nav-backdrop"></div>
+  <div class="adm__content">
+    <header class="adm__top">
+      <button class="icon-btn" id="nav-toggle" type="button" aria-label="Open menu" aria-controls="adm-side" aria-expanded="false">{{ m.icon('menu') }}</button>
+      <h1>{% block heading %}Admin{% endblock %}</h1>
+      <span class="hint">{{ current_user.name }}</span>
+    </header>
+    <main class="adm__main" id="main">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}<div class="alert alert--{{ category }}" role="status">{{ message }}</div>{% endfor %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% block after %}{% endblock %}
+</body>
+</html>
+
+====================================================================================================
+FILE: app/templates/admin/combos.html
+====================================================================================================
+{% extends "admin/layout.html" %}
+{% block title %}Diwali combos{% endblock %}
+{% block heading %}Diwali combos{% endblock %}
+{% block content %}
+<div class="pagehead"><div><h2>Festival combo cards</h2><p class="hint">Manage combo products, prices, visibility and the Diwali countdown.</p></div><a class="btn" href="{{ url_for('admin.combo_new') }}">Add combo</a></div>
+<div class="table-wrap"><table class="table"><thead><tr><th>Combo</th><th>Festival</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+{% for c in rows %}<tr><td class="cell-main">{{ c.name }}</td><td>{{ c.festival_tag }}</td><td>₹{{ '%.2f'|format(c.price) }} <del>₹{{ '%.2f'|format(c.original_price) }}</del></td><td>{% if c.is_active %}<span class="badge badge--ok">Active</span>{% else %}<span class="badge badge--warn">Off</span>{% endif %}</td><td class="cell-actions"><a class="btn btn--ghost btn--sm" href="{{ url_for('admin.combo_edit', combo_id=c.id) }}">Edit</a><form class="inline" method="post" action="{{ url_for('admin.combo_delete', combo_id=c.id) }}">{{ m.csrf() }}<button class="btn btn--danger btn--sm" data-confirm="Delete this combo?" type="submit">Delete</button></form></td></tr>
+{% else %}<tr><td colspan="5">No combos yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}
+
+====================================================================================================
+FILE: app/templates/admin/combo_form.html
+====================================================================================================
+{% extends "admin/layout.html" %}
+{% block title %}{{ 'Edit' if combo else 'New' }} combo{% endblock %}
+{% block heading %}{{ 'Edit' if combo else 'Add' }} Diwali combo{% endblock %}
+{% block content %}
+<form method="post" class="panel form" novalidate>{{ m.csrf() }}
+  <div class="grid-2">
+    {{ m.field('name','Combo name',f.name,errors=errors,required=true,maxlength='180') }}
+    {{ m.field('festival_tag','Festival tag',f.festival_tag,errors=errors,required=true,maxlength='40') }}
+    <div class="span-2">{{ m.textarea('description','Description',f.description,errors=errors,rows=3,maxlength='1000') }}</div>
+    {{ m.field('price','Discounted price (₹)',f.price,'number',errors,required=true,step='0.01') }}
+    {{ m.field('original_price','Original price (₹)',f.original_price,'number',errors,required=true,step='0.01') }}
+    <div class="span-2">{{ m.field('image','Image URL (optional)',f.image,errors=errors,maxlength='500') }}</div>
+    <div class="span-2 field"><span>Items included</span><div class="checks">{% for p in products %}<label class="check"><input type="checkbox" name="product_ids" value="{{ p.id }}" {% if p.id in f.selected_ids %}checked{% endif %}> <span>{{ p.name }} · ₹{{ '%.2f'|format(p.final_price) }}</span></label>{% endfor %}</div>{% if errors.get('items') %}<small class="error">{{ errors.get('items') }}</small>{% endif %}</div>
+    <div>{{ m.checkbox('is_active','Active on storefront',f.is_active) }}</div>
+    <div>{{ m.field('diwali_end_at','Diwali countdown ends (shop local time)',f.diwali_end_at,'datetime-local',errors,hint='This date controls the countdown shown on the Offers page.') }}</div>
+  </div>
+  <div class="formbar"><button class="btn" type="submit">Save combo</button><a class="btn btn--ghost" href="{{ url_for('admin.combos') }}">Cancel</a></div>
+</form>
+{% endblock %}
+
+====================================================================================================
+FILE: app/templates/shop/about.html
+====================================================================================================
+{% extends "shop/layout.html" %}
+{% block title %}About RR FOODS — A Mother's Dream, A Healthier Tomorrow{% endblock %}
+{% block head_extra %}
+<meta name="description" content="Discover the story behind RR FOODS: traditional roots, modern taste and a vision for a healthier tomorrow.">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-journey.css') }}">
+<script src="{{ url_for('static', filename='js/quality-journey.js') }}" defer></script>
+{% endblock %}
+{% block content %}
+<section class="about-hero">
+  <p class="eyebrow">Our story</p>
+  <h1>A Mother's Dream. A Healthier Tomorrow.</h1>
+  <p class="about-lead">Traditional Roots. Modern Taste. A Healthier Tomorrow.</p>
+</section>
+<article class="about-copy">
+  <p>Throughout my years as a medical professional, I have witnessed countless patients from different walks of life struggling with health challenges — diabetes, obesity, heart conditions, respiratory difficulties, digestive problems and many more. Seeing their struggles made me realise how deeply our changing lifestyles and everyday food habits can affect our well-being.</p>
+  <p>But beyond my professional experience, I was also a mother concerned about the health of the next generation.</p>
+  <p>I wanted my children to enjoy the goodness of traditional millets and wholesome ingredients. Yet, I knew that simply asking them to give up their favourite modern foods wasn't the answer.</p>
+  <p>That made me ask myself:</p>
+  <blockquote>“Why can't healthy food be just as enjoyable, convenient and exciting as the food we already love?”</blockquote>
+  <p>I began dreaming of bringing the goodness of our traditional ingredients into modern favourites — creating food that children would enjoy, families could trust and every generation could embrace.</p>
+  <p>That dream became <strong>RR FOODS</strong>.</p>
+  <p>Today, my vision is bigger than creating food products. I want to inspire families to rediscover traditional goodness, make thoughtful food choices and embrace a healthier way of living.</p>
+  <p class="about-signoff">Because I believe that a healthier tomorrow begins with the choices we make today.</p>
+</article>
+
+<section class="quality-journey" data-quality-journey aria-labelledby="quality-journey-title">
+  <header class="quality-journey__head">
+    <p class="eyebrow">Care at every step</p>
+    <h2 id="quality-journey-title">Our Quality Journey</h2>
+    <p>From carefully selected ingredients to the moment your order reaches home, quality guides every stage.</p>
+  </header>
+  <div class="quality-journey__track" data-journey-track>
+    <span class="quality-journey__line" aria-hidden="true"></span>
+    <span class="quality-journey__progress" data-journey-progress aria-hidden="true"></span>
+    <span class="quality-journey__traveller" data-journey-traveller aria-hidden="true">✦</span>
+    <ol class="quality-journey__list">
+      {% for stage in quality_stages %}
+      <li class="quality-stage" data-quality-stage>
+        <span class="quality-stage__dot" aria-hidden="true">{{ stage.number }}</span>
+        <article class="quality-stage__card">
+          <div class="quality-stage__icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              {% if stage.icon == 'sprout' %}<path d="M24 41V19M24 27C12 27 8 20 9 11c9-1 16 4 15 16ZM24 22c0-10 6-16 16-16 1 10-5 17-16 17"/><path d="M15 41h18"/>
+              {% elif stage.icon == 'sieve' %}<path d="M7 13h34L27 32H21L7 13Z"/><path d="M15 17l7 10m2-10 4 10m2-10 1 7M21 32l-4 8m10-8 4 8"/><path d="M11 9h26"/>
+              {% elif stage.icon == 'grind' %}<ellipse cx="24" cy="31" rx="17" ry="8"/><path d="M7 31v5c0 5 8 8 17 8s17-3 17-8v-5M13 23c2-7 8-11 15-11 5 0 9 2 12 6l-7 5H13Z"/><path d="M21 12 18 7m10 4 2-6"/>
+              {% elif stage.icon == 'check' %}<path d="M24 5 39 11v11c0 10-7 17-15 21C16 39 9 32 9 22V11l15-6Z"/><path d="m16 24 5 5 11-12"/><circle cx="35" cy="12" r="3"/>
+              {% elif stage.icon == 'package' %}<path d="m24 5 17 9v20l-17 9-17-9V14l17-9Z"/><path d="m7 14 17 9 17-9M24 23v20M16 10l17 9"/>
+              {% else %}<path d="M5 16h25v18H5zM30 22h7l6 7v5H30z"/><circle cx="14" cy="36" r="4"/><circle cx="35" cy="36" r="4"/><path d="M10 16V9h15v7M35 22v7h8"/>{% endif %}
+            </svg>
+          </div>
+          <p class="quality-stage__number">STEP {{ '%02d'|format(stage.number) }}</p>
+          <h3>{{ stage.title }}</h3>
+          <p>{{ stage.description }}</p>
+          <p class="quality-stage__promise">{{ stage.promise }}</p>
+          {% if stage.stat_label %}<div class="quality-stage__stat"><strong data-count="{{ stage.stat_value }}" data-suffix="{{ stage.stat_suffix }}">0</strong><span>{{ stage.stat_label }}</span></div>{% endif %}
+        </article>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+  <div class="quality-journey__finish" data-journey-finish><span aria-hidden="true">✓</span><strong>100% Quality Assured</strong><small>Our promise at every step</small></div>
+</section>
+
+<section class="about-cta">
+  <h2>Discover RR FOODS</h2>
+  <p>Explore our range of traditional-inspired food products.</p>
+  <a class="btn" href="{{ url_for('shop.listing') }}">Explore products</a>
+</section>
+{% endblock %}
+
+====================================================================================================
+FILE: app/templates/shop/offers.html
+====================================================================================================
+{% extends "shop/layout.html" %}
+{% block title %}Offers &amp; combo deals | RR FOODS{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/diwali.css') }}">
+<script src="{{ url_for('static', filename='js/diwali-fireworks.js') }}" defer></script>
+{% endblock %}
+{% block content %}
+<div class="container offers-page">
+  <header class="offers-hero">
+    <p class="eyebrow">Fresh savings from our kitchen</p>
+    <h1 class="pg-h">Offers &amp; combo deals</h1>
+    <p>Discover product offers, save with coupon codes and get more value with curated RR FOODS combos.</p>
+    <a class="btn" href="{{ url_for('shop.bundles') }}">Explore combo offers</a>
+  </header>
+
+  {% if diwali_combos %}
+  <section class="diwali" data-diwali-section aria-labelledby="diwali-title">
+    <canvas class="diwali__canvas" data-fireworks aria-hidden="true"></canvas>
+    <div class="diwali__sparkles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="diwali__lamp" aria-hidden="true">🪔</div>
+    <header class="diwali__head">
+      <span class="diwali__eyebrow">✦ Festival of lights · RR FOODS ✦</span>
+      <h2 id="diwali-title"><span aria-hidden="true">🪔</span> Diwali Special Combos</h2>
+      <p>Share the joy of festive flavours with thoughtfully curated RR FOODS hampers.</p>
+      <div class="diwali__countdown" data-diwali-countdown data-end="{{ diwali_end_at }}">
+        <span>Limited time Diwali offer</span><strong data-countdown-value>Loading offer timer…</strong>
+      </div>
+      <button class="btn diwali__celebrate" type="button" data-celebrate>✦ Celebrate!</button>
+    </header>
+    <div class="diwali__grid">
+      {% for combo in diwali_combos %}
+      {% set pct = (((combo.original_price - combo.price) * 100 / combo.original_price)|round(0,'floor')|int) if combo.original_price else 0 %}
+      <article class="diwali-card">
+        <div class="diwali-card__media">
+          {% if combo.image %}<img src="{{ combo.image }}" alt="{{ combo.name }}" loading="lazy">{% else %}<div class="diwali-card__art" aria-hidden="true">🪔<span>RR FOODS</span>✦</div>{% endif %}
+          <span class="diwali-card__ribbon">{{ pct }}% OFF</span>
+        </div>
+        <div class="diwali-card__body">
+          <p class="diwali-card__tag">DIWALI FESTIVE PICK</p>
+          <h3>{{ combo.name }}</h3>
+          <p class="diwali-card__desc">{{ combo.description or 'A festive selection made for sharing.' }}</p>
+          <ul>{% for line in combo.items or [] %}{% set product = combo_products.get(line.get('product_id')|int) %}{% if product %}<li>{{ product.name }}{% if line.get('quantity',1)|int > 1 %} × {{ line.get('quantity') }}{% endif %}</li>{% endif %}{% endfor %}</ul>
+          <div class="diwali-card__price"><del>₹{{ '%.2f'|format(combo.original_price) }}</del><strong>₹{{ '%.2f'|format(combo.price) }}</strong><span>You save ₹{{ '%.2f'|format(combo.original_price - combo.price) }}</span></div>
+          <form method="post" action="{{ url_for('shop.add_bundle', bundle_id=combo.bundle_id) }}">
+            {{ s.csrf() }}<button class="btn btn--block diwali-card__add" type="submit">Add to Cart · ₹{{ '%.2f'|format(combo.price) }}</button>
+          </form>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    <p class="diwali__footnote">Combo contents and prices are managed by RR FOODS. Availability is subject to stock.</p>
+  </section>
+  {% endif %}
+
+  {% if active_offers %}<section class="sec"><h2 class="sec__h">Product promotions</h2><div class="promotion-grid">{% for offer in active_offers %}<article class="promotion-card"><span class="promotion-card__icon">✦</span><div><h3>{{ offer.name }}</h3><p>{{ offer.description or offer.tag }}</p><span class="tagchip">{{ offer.tag }}</span></div></article>{% endfor %}</div></section>{% endif %}
+
+  <section class="sec"><h2 class="sec__h">Coupon codes</h2>
+    {% if coupons %}<ul class="coupons">{% for c in coupons %}<li class="couponcard {% if c.code|upper == highlight %}couponcard--on{% endif %}"><b class="couponcard__code">{{ c.code }}</b><span>{{ c.description or ((c.discount_value|int ~ '% off') if c.discount_type == 'percent' else ('₹' ~ c.discount_value|int ~ ' off')) }}</span><span class="muted small">{% if c.min_cart_value %}On orders above ₹{{ c.min_cart_value|int }}. {% endif %}{% if c.expires_at %}Valid till {{ c.expires_at|local_display }}.{% endif %}</span></li>{% endfor %}</ul><p class="muted">Enter the code in your cart to use it.</p>{% else %}<p class="muted">No coupon codes are active right now.</p>{% endif %}
+  </section>
+  {% if rows.deals %}<section class="sec"><div class="offers-section-head"><h2 class="sec__h">Products on sale</h2><a class="text-link" href="{{ url_for('shop.listing', sort='discount') }}">Shop all discounts →</a></div>{{ s.grid(rows.deals) }}</section>{% endif %}
+  {% if not diwali_combos and not active_offers and not coupons and not rows.deals %}<div class="empty"><h2>New offers are coming soon</h2><p class="muted">Check back for special RR FOODS deals.</p><a class="btn" href="{{ url_for('shop.listing') }}">Browse products</a></div>{% endif %}
+</div>
+{% endblock %}
+
+====================================================================================================
+FILE: app/static/css/rr-foods-journey.css
+====================================================================================================
+.quality-journey{--journey-green:#1f5c3a;--journey-gold:#f5a623;max-width:1180px;margin:clamp(3rem,7vw,6rem) auto;padding:clamp(1.25rem,4vw,3rem);overflow:clip;background:linear-gradient(145deg,#f7f8f3,#fff);border:1px solid #e5eadf;border-radius:26px;color:#24342a}
+.quality-journey__head{text-align:center;max-width:660px;margin:0 auto 2.5rem}.quality-journey__head h2{font-size:clamp(1.9rem,4vw,2.8rem);color:var(--journey-green);margin:.2rem 0 .7rem}.quality-journey__head p:last-child{color:#66736a;line-height:1.65}
+.quality-journey__track{position:relative}.quality-journey__line,.quality-journey__progress{position:absolute;z-index:0;background:#dce6dc;border-radius:99px}.quality-journey__line{left:23px;top:25px;bottom:25px;width:3px}.quality-journey__progress{left:23px;top:25px;width:3px;height:calc(100% - 50px);transform:scaleY(var(--journey-progress,0));transform-origin:top;background:linear-gradient(#a7c77c,var(--journey-green));transition:transform .15s linear}.quality-journey__traveller{position:absolute;z-index:3;left:12px;top:25px;transform:translate(-50%,-50%);display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#fff5d9;color:#b87509;box-shadow:0 0 0 5px #f5a62326;font-size:17px;pointer-events:none}
+.quality-journey__list{list-style:none;margin:0;padding:0;display:grid;gap:1.25rem}.quality-stage{position:relative;z-index:1;padding-left:58px;transition:opacity .65s ease,transform .65s cubic-bezier(.2,.75,.25,1)}.quality-journey--motion .quality-stage{opacity:0;transform:translateY(24px)}.quality-stage.is-visible{opacity:1;transform:none}.quality-stage__dot{position:absolute;left:7px;top:23px;display:grid;place-items:center;width:34px;height:34px;border:3px solid #fff;border-radius:50%;background:var(--journey-green);color:#fff;font-weight:800;box-shadow:0 0 0 2px #b8cdb9;animation:journey-pulse 2.2s ease-in-out infinite}.quality-stage__card{padding:1.25rem 1.35rem;background:#fff;border:1px solid #e6ece4;border-radius:17px;box-shadow:0 10px 28px #183d2b0b}.quality-stage__icon{width:48px;height:48px;display:grid;place-items:center;color:var(--journey-green);background:#eaf2e8;border-radius:14px}.quality-stage__icon svg{width:35px;height:35px}.quality-stage__number{font-size:.7rem;letter-spacing:.15em;font-weight:800;color:#b47a19;margin:.9rem 0 .2rem}.quality-stage__card h3{margin:0 0 .5rem;color:#183d2b;font-size:1.2rem}.quality-stage__card p{margin:.4rem 0;line-height:1.6;color:#647168}.quality-stage__card .quality-stage__promise{color:#245c3a;font-weight:650}.quality-stage__stat{display:flex;align-items:baseline;gap:.45rem;margin-top:.85rem;padding-top:.7rem;border-top:1px solid #edf0ea}.quality-stage__stat strong{font-size:1.55rem;color:#1f5c3a;font-variant-numeric:tabular-nums}.quality-stage__stat span{font-size:.82rem;color:#7a837c}
+.quality-journey__finish{display:flex;flex-direction:column;align-items:center;gap:.2rem;width:max-content;max-width:100%;margin:2rem auto 0;padding:.9rem 1.5rem;border:1px solid #c8dfc7;border-radius:999px;background:#e9f5e8;color:#1f5c3a;transition:opacity .5s ease,transform .5s cubic-bezier(.2,1.4,.4,1)}.quality-journey--motion .quality-journey__finish{opacity:0;transform:scale(.82)}.quality-journey__finish.is-visible{opacity:1;transform:scale(1)}.quality-journey__finish span{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#1f5c3a;color:#fff;font-weight:900}.quality-journey__finish strong{font-size:1.05rem}.quality-journey__finish small{color:#607666}
+@keyframes journey-pulse{50%{box-shadow:0 0 0 7px #1f5c3a16}}
+@media(min-width:900px){.quality-journey__track{container-type:size;min-height:480px}.quality-journey__line,.quality-journey__progress{left:5%;right:5%;top:27px;bottom:auto;width:auto;height:3px}.quality-journey__progress{transform:scaleX(var(--journey-progress,0));transform-origin:left}.quality-journey__traveller{left:calc(5% - 12px);top:16px;transform:translateX(calc((100cqw - 10%)*var(--journey-progress,0)))}.quality-journey__list{grid-template-columns:repeat(6,minmax(0,1fr));gap:.65rem;align-items:start}.quality-stage{padding:70px 0 0;transform:translateY(22px)}.quality-stage:nth-child(even){padding-top:150px}.quality-stage__dot{left:calc(50% - 17px);top:10px}.quality-stage:nth-child(even) .quality-stage__dot{top:90px}.quality-stage__card{height:100%;padding:1rem .85rem}.quality-stage:nth-child(even) .quality-stage__card{margin-top:80px}.quality-stage__card h3{font-size:1rem}.quality-stage__card>p{font-size:.86rem}.quality-stage__stat{display:block}.quality-stage__stat span{display:block}}
+@media(prefers-reduced-motion:reduce){.quality-stage,.quality-journey__progress,.quality-journey__finish{transition:none;transform:none;opacity:1}.quality-stage__dot{animation:none}.quality-journey__traveller{display:none}}
+
+====================================================================================================
+FILE: app/static/js/quality-journey.js
+====================================================================================================
+(function(){"use strict";var root=document.querySelector("[data-quality-journey]");if(!root)return;var stages=[].slice.call(root.querySelectorAll("[data-quality-stage]")),finish=root.querySelector("[data-journey-finish]"),track=root.querySelector("[data-journey-track]"),reduce=window.matchMedia("(prefers-reduced-motion: reduce)"),progress=root.querySelector("[data-journey-progress]");
+function count(el){if(el.dataset.counted)return;el.dataset.counted="1";var target=Number(el.dataset.count||0),suffix=el.dataset.suffix||"";if(reduce.matches||!target){el.textContent=String(target)+suffix;return;}var start=performance.now(),duration=900;function tick(now){var t=Math.min(1,(now-start)/duration);el.textContent=Math.round(target*(1-Math.pow(1-t,3)))+suffix;if(t<1)requestAnimationFrame(tick);}requestAnimationFrame(tick);}
+function reveal(el){el.classList.add("is-visible");el.querySelectorAll("[data-count]").forEach(count);}
+if(reduce.matches){stages.forEach(reveal);finish&&finish.classList.add("is-visible");if(progress)root.style.setProperty("--journey-progress","1");return;}
+root.classList.add("quality-journey--motion");if("IntersectionObserver"in window){var io=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){reveal(e.target);io.unobserve(e.target);}});},{threshold:.18});stages.forEach(function(el){io.observe(el);});if(finish){var fo=new IntersectionObserver(function(entries){if(entries[0].isIntersecting){finish.classList.add("is-visible");fo.disconnect();}},{threshold:.5});fo.observe(finish);}}else{stages.forEach(reveal);finish&&finish.classList.add("is-visible");}
+function update(){if(!track||!progress)return;var r=track.getBoundingClientRect(),vh=window.innerHeight||document.documentElement.clientHeight;var p=Math.max(0,Math.min(1,(vh*.72-r.top)/(r.height+vh*.15)));root.style.setProperty("--journey-progress",p.toFixed(3));if(traveller){if(window.matchMedia("(min-width:900px)").matches){traveller.style.left=(r.width*.05+(r.width*.90*p))+"px";traveller.style.top="27px";}else{traveller.style.left="23px";traveller.style.top=(25+(r.height-50)*p)+"px";}}}window.addEventListener("scroll",update,{passive:true});window.addEventListener("resize",update);update();})();
+
+====================================================================================================
+FILE: app/static/css/diwali.css
+====================================================================================================
+.diwali{--diwali-gold:#f5a623;--diwali-orange:#ef7d22;--diwali-red:#b3262d;--diwali-green:#1f5c3a;position:relative;isolation:isolate;overflow:hidden;margin:2.5rem 0 3rem;padding:clamp(1.1rem,3vw,2.5rem);border:1px solid #f0d9a6;border-radius:26px;background:radial-gradient(ellipse at 50% 0,#fff3d6 0,#fffaf0 48%,#f7f8f1 100%);box-shadow:0 18px 50px #7e4c1412}.diwali__canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}.diwali__head,.diwali__grid,.diwali__footnote{position:relative;z-index:2}.diwali__head{text-align:center;max-width:760px;margin:0 auto 2rem}.diwali__eyebrow{display:inline-block;padding:.4rem .8rem;border-radius:99px;background:#fff0ce;color:#99600b;font-weight:800;font-size:.76rem;letter-spacing:.12em}.diwali__head h2{font-size:clamp(1.8rem,4vw,3rem);color:#1f5c3a;margin:.85rem 0 .45rem}.diwali__head>p{color:#6b6252;line-height:1.6}.diwali__countdown{display:inline-flex;flex-direction:column;gap:.25rem;margin:.8rem auto;padding:.7rem 1.2rem;border:1px solid #f1d59b;border-radius:14px;background:#fffdf7;color:#88570c}.diwali__countdown strong{font-size:1.12rem;font-variant-numeric:tabular-nums;color:#1f5c3a}.diwali__celebrate{display:block;margin:.5rem auto 0;background:#1f5c3a;border-color:#1f5c3a;color:#fff}.diwali__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,235px),1fr));gap:1.1rem}.diwali-card{position:relative;z-index:2;overflow:hidden;border:1px solid #eddfc3;border-radius:19px;background:#fff;box-shadow:0 12px 32px #50350d12;transition:transform .25s ease,box-shadow .25s ease}.diwali-card:hover{transform:translateY(-4px);box-shadow:0 18px 38px #50350d20}.diwali-card__media{height:170px;position:relative;overflow:hidden;background:#fff1d4}.diwali-card__media img{width:100%;height:100%;object-fit:cover}.diwali-card__art{height:100%;display:flex;align-items:center;justify-content:center;gap:1rem;color:#b87916;font-size:3rem;background:radial-gradient(circle,#fff8e8,#fbe3ae)}.diwali-card__art span{font-size:.9rem;font-weight:900;letter-spacing:.18em;color:#1f5c3a}.diwali-card__ribbon{position:absolute;top:13px;right:-31px;transform:rotate(35deg);width:125px;text-align:center;padding:.35rem;background:#b3262d;color:#fff;font-size:.72rem;font-weight:900;letter-spacing:.08em;box-shadow:0 3px 10px #0002}.diwali-card__body{padding:1.1rem}.diwali-card__tag{font-size:.66rem;font-weight:900;letter-spacing:.13em;color:#b47a19;margin:0 0 .4rem}.diwali-card h3{font-size:1.2rem;color:#183d2b;margin:0 0 .4rem}.diwali-card__desc{font-size:.9rem;line-height:1.5;color:#68736a;min-height:2.7em}.diwali-card ul{padding-left:1.1rem;color:#526258;font-size:.86rem;line-height:1.6;min-height:3.4em}.diwali-card__price{display:flex;align-items:baseline;gap:.55rem;flex-wrap:wrap;margin:1rem 0}.diwali-card__price del{color:#899087}.diwali-card__price strong{font-size:1.45rem;color:#1f5c3a}.diwali-card__price span{font-size:.76rem;font-weight:750;color:#b3262d}.diwali-card__add{background:#1f5c3a;color:#fff;border-color:#1f5c3a}.diwali__footnote{text-align:center;font-size:.78rem;color:#817765;margin:1.2rem 0 0}.diwali__lamp{position:absolute;z-index:1;right:3%;top:22%;font-size:3.3rem;filter:drop-shadow(0 0 18px #f5a623aa);animation:diwali-glow 2.4s ease-in-out infinite alternate;pointer-events:none}.diwali__sparkles i{position:absolute;z-index:1;width:5px;height:5px;border-radius:50%;background:#f5a623;box-shadow:0 0 14px 4px #f5a62388;animation:diwali-twinkle 2s ease-in-out infinite}.diwali__sparkles i:nth-child(1){left:12%;top:17%}.diwali__sparkles i:nth-child(2){left:82%;top:12%;animation-delay:.5s}.diwali__sparkles i:nth-child(3){left:7%;top:60%;animation-delay:1s}.diwali__sparkles i:nth-child(4){right:9%;top:66%;animation-delay:.8s}.diwali__sparkles i:nth-child(5){left:48%;top:8%;animation-delay:1.3s}@keyframes diwali-glow{to{filter:drop-shadow(0 0 28px #f5a623);transform:translateY(-5px)}}@keyframes diwali-twinkle{50%{opacity:.25;transform:scale(.5)}}
+@media(max-width:600px){.diwali{margin:1.5rem -.25rem;padding:1rem;border-radius:18px}.diwali__lamp{top:4%;right:3%;font-size:2.1rem;opacity:.7}.diwali-card__media{height:145px}.diwali-card__desc,.diwali-card ul{min-height:0}}
+@media(prefers-reduced-motion:reduce){.diwali-card,.diwali__lamp,.diwali__sparkles i{animation:none;transition:none}.diwali-card:hover{transform:none}}
+
+====================================================================================================
+FILE: app/static/js/diwali-fireworks.js
+====================================================================================================
+(function(){"use strict";var section=document.querySelector("[data-diwali-section]");if(!section)return;var canvas=section.querySelector("[data-fireworks]"),ctx=canvas&&canvas.getContext("2d"),button=section.querySelector("[data-celebrate]"),timer=section.querySelector("[data-diwali-countdown]"),timerText=section.querySelector("[data-countdown-value]"),reduce=window.matchMedia("(prefers-reduced-motion: reduce)"),visible=false,raf=0,auto=null,last=0,particles=[],rockets=[],maxParticles=260,dpr=1,w=0,h=0;var colors=["#f5a623","#ff8a28","#d94135","#1f8a52","#ffd76b","#e65d43"];
+function resize(){if(!canvas||!ctx)return;var r=section.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,1.6);w=Math.max(1,r.width);h=Math.max(1,r.height);canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);canvas.style.width=w+"px";canvas.style.height=h+"px";ctx.setTransform(dpr,0,0,dpr,0,0);}
+function burst(x,y,big){var n=big?48:25;if(particles.length>maxParticles-n)particles.splice(0,particles.length-(maxParticles-n));for(var i=0;i<n;i++){var a=Math.PI*2*i/n+(Math.random()-.5)*.16,s=(big?2.2:1.5)+Math.random()*(big?4:2.8);particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1.1,life:55+Math.random()*35,max:90,r:1.2+Math.random()*2.2,color:colors[(Math.random()*colors.length)|0]});}}
+function launch(big){if(!ctx)return;var x=w*(.16+Math.random()*.68),y=h*(.16+Math.random()*.38);rockets.push({x:x,y:h+4,tx:x+(Math.random()-.5)*w*.22,ty:y,speed:big?9:7,color:colors[(Math.random()*colors.length)|0],big:!!big});}
+function frame(now){if(!visible||document.hidden||reduce.matches){stopFrame();return;}raf=requestAnimationFrame(frame);if(!ctx)return;ctx.globalCompositeOperation="destination-out";ctx.fillStyle="rgba(12,25,16,.20)";ctx.fillRect(0,0,w,h);ctx.globalCompositeOperation="lighter";rockets=rockets.filter(function(r){var dx=r.tx-r.x,dy=r.ty-r.y,d=Math.hypot(dx,dy)||1;r.x+=dx/d*r.speed;r.y+=dy/d*r.speed;ctx.beginPath();ctx.moveTo(r.x,r.y+8);ctx.lineTo(r.x-dx/d*12,r.y-dy/d*12);ctx.strokeStyle=r.color;ctx.lineWidth=2;ctx.stroke();if(d<r.speed+5){burst(r.tx,r.ty,r.big);return false;}return true;});particles=particles.filter(function(p){p.vy+=.055;p.x+=p.vx;p.y+=p.vy;p.vx*=.992;p.life--;ctx.globalAlpha=Math.max(0,p.life/p.max);ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=p.color;ctx.fill();return p.life>0&&p.y<h+20;});ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";}
+function startFrame(){if(!raf&&visible&&!document.hidden&&!reduce.matches)raf=requestAnimationFrame(frame);}function stopFrame(){if(raf)cancelAnimationFrame(raf);raf=0;}
+function start(){if(!visible||document.hidden||reduce.matches)return;startFrame();if(!auto)auto=setInterval(function(){if(visible&&!document.hidden&&particles.length<maxParticles-55)launch(false);},1200);}function stop(){if(auto)clearInterval(auto);auto=null;stopFrame();}
+function coords(e){var r=section.getBoundingClientRect();return{x:Math.max(0,Math.min(w,e.clientX-r.left)),y:Math.max(0,Math.min(h,e.clientY-r.top))};}
+if(canvas&&ctx){resize();window.addEventListener("resize",resize,{passive:true});section.addEventListener("click",function(e){if(e.target.closest("[data-celebrate]"))return;if(reduce.matches)return;var p=coords(e);burst(p.x,p.y,false);startFrame();});}
+if(button)button.addEventListener("click",function(){if(reduce.matches){button.textContent="Happy Diwali! ✦";return;}for(var i=0;i<3;i++)setTimeout(function(){launch(true);},i*180);startFrame();});
+if("IntersectionObserver"in window){var io=new IntersectionObserver(function(entries){visible=entries[0].isIntersecting;if(visible)start();else stop();},{threshold:.08});io.observe(section);}else{visible=true;start();}document.addEventListener("visibilitychange",function(){if(document.hidden)stop();else if(visible)start();});if(reduce.addEventListener)reduce.addEventListener("change",function(){if(reduce.matches)stop();else if(visible)start();});
+function countdown(){if(!timer||!timerText)return;var end=new Date(timer.dataset.end);if(!Number.isFinite(end.getTime())){timerText.textContent="Festive offers are live";return;}var ms=end.getTime()-Date.now();if(ms<=0){timerText.textContent="Offer period has ended";return;}var d=Math.floor(ms/86400000),h=Math.floor(ms%86400000/3600000),m=Math.floor(ms%3600000/60000),s=Math.floor(ms%60000/1000);timerText.textContent=(d?d+"d ":"")+String(h).padStart(2,"0")+"h "+String(m).padStart(2,"0")+"m "+String(s).padStart(2,"0")+"s";}countdown();var countdownId=window.setInterval(countdown,1000);window.addEventListener("pagehide",function(){stop();clearInterval(countdownId);});})();
+
+====================================================================================================
+FILE: migrations/versions/ef30c2a6d811_diwali_combos.py
+====================================================================================================
+"""Add admin-managed festival combos."""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+revision = "ef30c2a6d811"
+down_revision = "b7f1c9a4d203"
+branch_labels = None
+depends_on = None
+
+def json_type():
+    return sa.JSON().with_variant(postgresql.JSONB(), "postgresql")
+
+def upgrade():
+    op.create_table(
+        "combos",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("name", sa.String(180), nullable=False),
+        sa.Column("slug", sa.String(200), nullable=False, unique=True),
+        sa.Column("description", sa.Text()),
+        sa.Column("items", json_type(), nullable=False),
+        sa.Column("price", sa.Numeric(10, 2), nullable=False),
+        sa.Column("original_price", sa.Numeric(10, 2), nullable=False),
+        sa.Column("image", sa.String(500)),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column("festival_tag", sa.String(40), nullable=False, server_default="diwali"),
+        sa.Column("bundle_id", sa.Integer(), sa.ForeignKey("bundles.id", ondelete="CASCADE"), nullable=False, unique=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+    )
+    op.create_index("ix_combos_slug", "combos", ["slug"], unique=True)
+    op.create_index("ix_combos_is_active", "combos", ["is_active"])
+    op.create_index("ix_combos_festival_tag", "combos", ["festival_tag"])
+
+def downgrade():
+    op.drop_index("ix_combos_festival_tag", table_name="combos")
+    op.drop_index("ix_combos_is_active", table_name="combos")
+    op.drop_index("ix_combos_slug", table_name="combos")
+    op.drop_table("combos")
+
+====================================================================================================
+FILE: tests/test_diwali_features.py
+====================================================================================================
+from decimal import Decimal
+from sqlalchemy import select
+
+from app.extensions import db
+from app.models import Bundle, Combo, Product, SiteSetting
+
+
+def test_about_page_renders_quality_journey(app):
+    response = app.test_client().get("/about")
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    for stage in ("Sourcing", "Cleaning and Sorting", "Traditional Processing",
+                  "Quality Testing", "Hygienic Packaging", "Delivery"):
+        assert stage in html
+    assert "100% Quality Assured" in html
+
+
+def test_diwali_combo_is_rendered_from_database(app, session):
+    from app.models import Category
+    category = Category(name="Test foods", slug="test-foods", is_active=True)
+    session.add(category)
+    session.flush()
+    product = Product(sku="DIWALI-TEST-1", slug="diwali-test-product", name="Test Laddu",
+                      category_id=category.id, mrp=Decimal("100"), final_price=Decimal("100"),
+                      stock_qty=10, is_active=True)
+    session.add(product)
+    session.flush()
+    bundle = Bundle(name="Test Diwali", slug="test-diwali-cart", description="Test",
+                    product_quantities=[{"product_id": product.id, "quantity": 1}],
+                    bundle_price=80, is_active=True)
+    session.add(bundle)
+    session.flush()
+    combo = Combo(name="Test Diwali Combo", slug="test-diwali-combo", description="Festive test",
+                  items=[{"product_id": product.id, "quantity": 1}], price=Decimal("80"),
+                  original_price=Decimal("100"), festival_tag="diwali", is_active=True, bundle=bundle)
+    session.add(combo)
+    session.add(SiteSetting(key="diwali_end_at", value="2026-11-12T23:59"))
+    session.commit()
+    response = app.test_client().get("/offers")
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "Diwali Special Combos" in html
+    assert "Test Diwali Combo" in html
+    assert "Test Laddu" in html
+    assert "80.00" in html and "100.00" in html
+
+====================================================================================================
+FILE: docs/RR-FOODS-DIWALI-QUALITY-JOURNEY.md
+====================================================================================================
+# RR FOODS Quality Journey and Diwali Combos
+
+## About page
+`/about` now receives an editable `quality_stages` list from `app/shop/content.py`. The About template renders the six steps and inline SVG icons. `rr-foods-journey.css` provides the responsive vertical/mobile and horizontal/desktop timeline. `quality-journey.js` reveals cards with IntersectionObserver, counts the small verified numeric metrics, draws scroll progress and moves the marker. It honours `prefers-reduced-motion` and leaves content visible without JavaScript.
+
+The only numeric claims displayed are `0 preservatives added` (the supplied brand requirement) and `6 journey stages`. A previously unsupported `50+ quality checks` claim is deliberately not shown.
+
+## Diwali combos
+A new `Combo` table stores name, description, item/product list, discounted price, original price, image URL, active state, festival tag and its linked existing `Bundle`. The linked Bundle is used by the existing bundle/cart implementation, so cart pricing is allocated across the product lines at the combo price rather than merely adding full-price products.
+
+Admin routes are under `/admin/combos`: list, create, edit and delete. The form controls product selection, active state, image, prices, festival tag and the site-wide Diwali countdown end time stored in `site_settings` (key: `diwali_end_at`). Only active, in-stock products without active variants are selectable, matching the existing bundle-cart constraints.
+
+Run `flask seed-diwali-combos` after products are imported, active and stocked. It creates three sample combos from actual catalogue products and does not overwrite existing combos.
+
+## Fireworks
+`diwali-fireworks.js` uses a bounded canvas particle pool, gravity, fading trails and rocket bursts. Automatic launches run about every 1.2 seconds only while the section is visible and the tab is active. The section wrapper captures pointer clicks; canvas has `pointer-events:none`, leaving cards and forms usable. The Celebrate button fires a multi-burst show. There is no audio by default. Reduced-motion users get a static celebratory state without automatic animation.
+
+## Setup
+1. Back up the database and `.env`.
+2. Install project requirements in the project's virtual environment.
+3. Run `flask db upgrade` to create the `combos` table.
+4. Ensure catalogue products are active and have stock; then run `flask seed-diwali-combos` for sample records.
+5. Open `/admin/combos` to edit sample contents, prices, active state and countdown date.
+6. Verify `/about` and `/offers` on desktop and mobile.
+
+====================================================================================================
+FILE: docs/RR-FOODS-DIWALI-IMPLEMENTATION-TESTS.md
+====================================================================================================
+# RR FOODS feature test checklist
+
+## About / Our Quality Journey
+- Open `/about` on desktop and mobile.
+- Scroll the journey into view: six cards should reveal in sequence, the line should fill, the marker should travel and the final Quality Assured badge should appear.
+- Verify the stage order: Sourcing; Cleaning and Sorting; Traditional Processing; Quality Testing; Hygienic Packaging; Delivery.
+- Verify the count-up metrics (`0 preservatives added` and `6 journey stages`). Other quality-check quantities are intentionally not asserted because no verified number was supplied.
+- Emulate `prefers-reduced-motion: reduce`: all text should remain visible without the slide/pulse/count animation.
+- Disable JavaScript: all six stages should still be readable.
+
+## Diwali Offers / cart
+- Run `flask db upgrade`.
+- Ensure at least two active products have stock and do not require variants.
+- Run `flask seed-diwali-combos` once to create three sample database records.
+- Open `/admin/combos`; edit combo contents, original/discounted price, image, active state and countdown end time. Create and delete a test combo too.
+- Open `/offers`; verify only active Diwali-tagged Combo records render, actual product names appear, original prices are struck through, discounted prices and discount ribbons are correct.
+- Sign in as a customer, add a combo to cart and verify the existing bundle cart pricing equals the configured combo price.
+- Change the end date in Admin and verify the Offers countdown updates. Expired dates should display that the offer period has ended.
+
+## Fireworks / performance
+- Scroll the Diwali section into view: rockets should launch roughly every 1.2 seconds.
+- Click the section background or combo-card area: a burst should appear; Add to Cart and other controls must remain usable.
+- Click Celebrate!: multiple bursts should launch.
+- Scroll the section off-screen: animation should pause. Scroll back: it should resume.
+- Switch to another browser tab: animation should pause and resume on return.
+- Emulate reduced motion: automatic fireworks should be disabled; Celebrate changes to a static acknowledgement.
+- Confirm the canvas has pointer-events disabled and does not intercept cards or buttons.
+
+## Existing storefront regression
+- Check the Shop All and Bestsellers links, categories dropdown, search, filters, cart and checkout pages. No existing navbar or filter JavaScript was replaced.
+
+## Automated checks in the build workspace
+- Python source and migration AST parsing: passed.
+- Jinja template parsing: passed.
+- Node syntax checks for both new scripts and existing shop shell scripts: passed.
+- Flask/PostgreSQL integration tests could not be executed in the build container because Flask and its project dependencies are not installed there. Run `pytest` from the project's configured virtual environment after migrating the database.

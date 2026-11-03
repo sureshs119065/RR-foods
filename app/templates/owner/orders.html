@@ -1,0 +1,49 @@
+{% extends "owner/layout.html" %}
+{% import "owner/_macros.html" as o %}
+{% block title %}Orders{% endblock %}
+{% block heading %}Orders{% endblock %}
+{% block content %}
+<nav class="chips" aria-label="Order status">
+  {% for key, label, _ in tabs %}
+    <a class="chip {% if key == tab %}chip--on{% endif %}" href="{{ url_for('owner.orders', tab=key) }}" {% if key == tab %}aria-current="page"{% endif %}>{{ label }} <span class="chip__n">{{ tab_counts[key] }}</span></a>
+  {% endfor %}
+</nav>
+
+<form class="filters filters--one" method="get" role="search">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Search order number, name or phone" aria-label="Search orders" inputmode="search">
+  <button class="btn" type="submit">Search</button>
+</form>
+
+<div class="table-wrap">
+<table class="table">
+  <thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Items</th><th scope="col">Total</th><th scope="col">Payment</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
+  <tbody>
+  {% for ord in page.items %}
+    {% set addr = ord.shipping_address or {} %}
+    <tr>
+      <td class="cell-main"><a href="{{ url_for('owner.order_detail', order_id=ord.id) }}">{{ ord.order_number }}</a><br><span class="hint">{{ ord.created_at|local_display }}{% if ord.status == 'placed' %} · waiting {{ ord.created_at|ago }}{% endif %}</span></td>
+      <td data-label="Customer">{{ addr.get('full_name') or ord.user.name }}{% if addr.get('phone') %}<br><span class="hint">{{ addr.get('phone') }}</span>{% endif %}</td>
+      <td data-label="Items">{{ ord.items|sum(attribute='quantity') }}</td>
+      <td data-label="Total">{{ o.inr(ord.total) }}</td>
+      <td data-label="Payment">{{ o.pay_badge(ord) }}</td>
+      <td data-label="Status">{{ o.status_badge(ord.status) }}</td>
+      <td class="cell-actions">
+        {% set nxt = svc.next_step(ord.status) %}
+        {% if nxt and ord.status != 'return_requested' %}
+          <form class="inline" method="post" action="{{ url_for('owner.order_status', order_id=ord.id) }}" data-once>
+            {{ m.csrf() }}<input type="hidden" name="to" value="{{ nxt }}"><input type="hidden" name="from_status" value="{{ ord.status }}"><input type="hidden" name="next" value="{{ next_url }}">
+            <button class="btn btn--sm" type="submit">{{ svc.ACTION_LABELS[nxt] }}</button>
+          </form>
+        {% endif %}
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('owner.order_detail', order_id=ord.id) }}">{{ 'Review / reject' if svc.can_reject(ord.status) else ('Review return' if ord.status == 'return_requested' else 'View') }}</a>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td class="cell-main" colspan="7">No orders here{% if request.args.get('q') %} match your search{% endif %}.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ m.pager(page, 'owner.orders', args) }}
+{% endblock %}

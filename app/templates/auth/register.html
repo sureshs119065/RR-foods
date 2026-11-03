@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block robots %}noindex{% endblock %}
+{% block title %}Create account | RR FOODS{% endblock %}
+{% macro field(name, label, type="text", autocomplete="", inputmode="", hint="") %}
+  <label class="field {% if errors.get(name) %}field--error{% endif %}">
+    <span>{{ label }}</span>
+    <input type="{{ type }}" name="{{ name }}" {% if type != 'password' %}value="{{ form.get(name, '') }}"{% endif %}
+      autocomplete="{{ autocomplete }}" {% if inputmode %}inputmode="{{ inputmode }}"{% endif %}
+      {% if errors.get(name) %}aria-invalid="true" aria-describedby="{{ name }}-err"{% endif %}>
+    {% if hint and not errors.get(name) %}<small class="muted">{{ hint }}</small>{% endif %}
+    {% if errors.get(name) %}<small id="{{ name }}-err" class="error">{{ errors[name] }}</small>{% endif %}
+  </label>
+{% endmacro %}
+{% block content %}
+<section class="card narrow">
+  <h1>Create your account</h1>
+  <form method="post" class="form" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ field("name", "Full name", autocomplete="name") }}
+    {{ field("email", "Email", "email", "email", "email") }}
+    {{ field("phone", "Mobile number (optional)", "tel", "tel", "numeric", "10 digits, used only for delivery updates") }}
+    {{ field("password", "Password", "password", "new-password", hint="At least 8 characters with a letter and a number") }}
+    {{ field("confirm", "Confirm password", "password", "new-password") }}
+    <button class="btn btn--block" type="submit">Create account</button>
+  </form>
+  <p class="muted">Already registered? <a href="/login">Sign in</a></p>
+</section>
+{% endblock %}

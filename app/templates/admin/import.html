@@ -1,0 +1,26 @@
+{% extends "admin/layout.html" %}
+{% block title %}Import products{% endblock %}
+{% block heading %}Import products{% endblock %}
+{% block content %}
+<div class="panel">
+  <h2>Upload a CSV file</h2>
+  <p>Required columns: <code>sku</code>, <code>name</code>, <code>category</code>, <code>mrp</code>. The old columns <code>id</code> and <code>price</code> also work.
+     Optional: subcategory, brand, pack_size, discount_type (none, percent, flat), discount_value, stock_qty, low_stock_threshold, short_description,
+     description, ingredients, how_to_use, fssai, video_id, tags, is_active, is_bestseller, image_urls (separate several with |).</p>
+  <p>Products are matched by SKU: existing ones are updated, new ones are added. If any row has a problem, <strong>nothing</strong> is imported.
+     Tip: <a href="{{ url_for('admin.products_export') }}">export your products</a> to get a file in the right format.</p>
+  <form method="post" enctype="multipart/form-data" class="form narrow-form">
+    {{ m.csrf() }}
+    <label class="field"><span>CSV file (UTF-8, up to 2 MB)</span><input type="file" name="file" accept=".csv,text/csv"></label>
+    {{ m.field("default_stock", "Starting stock for new products", request.form.get('default_stock', '0'), "number", {}, hint="Used only when the file has no stock_qty column but says a product is in stock", inputmode="numeric") }}
+    {{ m.checkbox("create_categories", "Create categories that do not exist yet", request.form.get('create_categories') == '1') }}
+    <button class="btn" type="submit">Check and import</button>
+  </form>
+</div>
+{% if result and result.errors %}
+<div class="panel" role="alert">
+  <h2>Problems found ({{ result.errors|length }})</h2>
+  <ul>{% for e in result.errors %}<li class="error">{{ e }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+{% endblock %}

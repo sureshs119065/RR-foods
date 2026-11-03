@@ -1,0 +1,20 @@
+{% extends "shop/layout.html" %}
+{% block title %}My wishlist | RR FOODS{% endblock %}
+{% block robots %}noindex,nofollow{% endblock %}
+{% block content %}
+<div class="container">
+  <h1 class="pg-h">My wishlist <span class="muted">({{ products|length }})</span></h1>
+  {% if products %}
+  <div class="pgrid">
+    {% for p in products %}
+    <div class="wl">
+      {{ s.card(p) }}
+      {% if plain[p.id] and available_qty(p) > 0 %}
+      <form method="post" action="{{ url_for('shop.cart_add') }}" data-addcart>{{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="/account/wishlist"><button class="btn btn--block" type="submit">Add to cart</button></form>
+      {% else %}<a class="btn btn--ghost btn--block" href="{{ url_for('shop.product', slug=p.slug) }}">{{ 'Choose an option' if available_qty(p) > 0 else 'View product' }}</a>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}<div class="empty"><h2>Your wishlist is empty</h2><p class="muted">Tap the heart on a product to save it for later.</p><a class="btn" href="{{ url_for('shop.listing') }}">Browse products</a></div>{% endif %}
+</div>
+{% endblock %}

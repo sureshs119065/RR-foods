@@ -1,0 +1,37 @@
+{% extends "admin/layout.html" %}
+{% block title %}{{ 'Edit' if cat else 'New' }} category{% endblock %}
+{% block heading %}{{ 'Edit category' if cat else 'New category' }}{% endblock %}
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="panel form" novalidate>
+  {{ m.csrf() }}
+  <div class="grid-2">
+    {{ m.field("name", "Name", form.name, errors=errors, required=true, maxlength="120") }}
+    <label class="field {% if errors.get('parent_id') %}field--error{% endif %}">
+      <span>Parent category</span>
+      <select name="parent_id">
+        <option value="">None (top level)</option>
+        {% for r in roots %}<option value="{{ r.id }}" {% if form.parent and form.parent.id == r.id %}selected{% endif %}>{{ r.name }}</option>{% endfor %}
+      </select>
+      {% if errors.get('parent_id') %}<small class="error">{{ errors.parent_id }}</small>{% endif %}
+    </label>
+    <div class="span-2">{{ m.textarea("description", "Description", form.description, errors=errors, rows=3, maxlength="1000") }}</div>
+    {{ m.field("sort_order", "Sort order", form.sort_order, "number", errors, hint="Lower numbers show first. You can also use the Up and Down buttons on the list.", inputmode="numeric") }}
+    <div>{{ m.checkbox("is_active", "Visible in the shop", form.is_active) }}</div>
+    <div class="span-2">
+      <label class="field {% if errors.get('image') %}field--error{% endif %}">
+        <span>Image (JPG, PNG or WebP, up to 5 MB)</span>
+        <input type="file" name="image" accept="image/jpeg,image/png,image/webp">
+        {% if errors.get('image') %}<small class="error">{{ errors.image }}</small>{% endif %}
+      </label>
+      {% if cat and cat.image %}
+        <p><img class="thumb" src="{{ cat.image }}" alt="Current image of {{ cat.name }}"></p>
+        {{ m.checkbox("remove_image", "Remove the current image") }}
+      {% endif %}
+    </div>
+  </div>
+  <div class="formbar">
+    <button class="btn" type="submit">Save category</button>
+    <a class="btn btn--ghost" href="{{ url_for('admin.categories') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

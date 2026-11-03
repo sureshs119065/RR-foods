@@ -1,0 +1,10 @@
+{% extends "admin/layout.html" %}
+{% block title %}Diwali combos{% endblock %}
+{% block heading %}Diwali combos{% endblock %}
+{% block content %}
+<div class="pagehead"><div><h2>Festival combo cards</h2><p class="hint">Manage combo products, prices, visibility and the Diwali countdown.</p></div><a class="btn" href="{{ url_for('admin.combo_new') }}">Add combo</a></div>
+<div class="table-wrap"><table class="table"><thead><tr><th>Combo</th><th>Festival</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+{% for c in rows %}<tr><td class="cell-main">{{ c.name }}</td><td>{{ c.festival_tag }}</td><td>₹{{ '%.2f'|format(c.price) }} <del>₹{{ '%.2f'|format(c.original_price) }}</del></td><td>{% if c.is_active %}<span class="badge badge--ok">Active</span>{% else %}<span class="badge badge--warn">Off</span>{% endif %}</td><td class="cell-actions"><a class="btn btn--ghost btn--sm" href="{{ url_for('admin.combo_edit', combo_id=c.id) }}">Edit</a><form class="inline" method="post" action="{{ url_for('admin.combo_delete', combo_id=c.id) }}">{{ m.csrf() }}<button class="btn btn--danger btn--sm" data-confirm="Delete this combo?" type="submit">Delete</button></form></td></tr>
+{% else %}<tr><td colspan="5">No combos yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

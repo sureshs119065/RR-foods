@@ -1,0 +1,17 @@
+{% extends "shop/layout.html" %}
+{% block robots %}noindex,nofollow{% endblock %}
+{% block title %}My account | RR FOODS{% endblock %}
+{% block content %}
+<div class="container narrow2">
+<h1>Hello, {{ current_user.name }}</h1>
+<p class="muted">{{ current_user.email }}</p>
+<ul class="linklist">
+  <li><a href="{{ url_for('shop.orders') }}">My orders</a></li>
+  <li><a href="{{ url_for('shop.wishlist') }}">My wishlist</a></li>
+  <li><a href="{{ url_for('shop.notifications') }}">Notifications</a></li>
+  <li><a href="{{ url_for('shop.addresses') }}">My addresses</a></li>
+  <li><a href="/account/password">Change password</a></li>
+</ul>
+<p class="muted">Reviews are written from a delivered order's product page.</p>
+</div>
+{% endblock %}

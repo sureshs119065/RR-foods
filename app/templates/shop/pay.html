@@ -1,0 +1,16 @@
+{% extends "shop/layout.html" %}
+{% block title %}Pay for order {{ order.order_number }} | RR FOODS{% endblock %}
+{% block robots %}noindex,nofollow{% endblock %}
+{% block content %}
+<div class="container narrow2">
+  <h1 class="pg-h">Pay {{ s.inr(order.total) }}</h1>
+  <p>Order <b>{{ order.order_number }}</b> is placed. Complete the payment to confirm it.</p>
+  {% if stub %}
+    <div class="notice"><b>Test mode.</b> The online payment gateway is not connected yet, so no money moves. This button only marks the order as paid so you can test the flow.</div>
+    <form method="post" action="{{ url_for('shop.pay_simulate', order_number=order.order_number) }}">{{ s.csrf() }}<button class="btn btn--block" type="submit">Simulate successful payment</button></form>
+  {% else %}
+    <div class="notice">Online payment is not available right now. You can cancel this order and choose cash on delivery.</div>
+  {% endif %}
+  <p><a href="{{ url_for('shop.order_detail', order_number=order.order_number) }}">View order</a></p>
+</div>
+{% endblock %}

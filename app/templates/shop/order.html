@@ -1,0 +1,74 @@
+{% extends "shop/layout.html" %}
+{% block title %}Order {{ order.order_number }} | RR FOODS{% endblock %}
+{% block robots %}noindex,nofollow{% endblock %}
+{% block content %}
+{% set addr = order.shipping_address or {} %}
+<div class="container narrow2">
+  <p><a href="{{ url_for('shop.orders') }}">&larr; My orders</a></p>
+  <h1 class="pg-h">Order {{ order.order_number }}</h1>
+  <p class="muted">Placed {{ order.created_at|local_display }}</p>
+
+  {% if order.status in ('rejected', 'cancelled') %}
+    <div class="alert alert--error" role="status"><b>Order {{ labels[order.status]|lower }}.</b>
+      {% if order.status == 'rejected' and order.rejection_reason %} Reason: {{ order.rejection_reason }}{% endif %}
+      {% if order.payment_status == 'paid' %}<br>Your online payment will be refunded.{% endif %}</div>
+  {% else %}
+  <ol class="track" aria-label="Order progress">
+    {% for key, label in steps %}
+      <li class="{{ 'is-done' if loop.index0 <= current else '' }} {{ 'is-now' if loop.index0 == current else '' }}" {% if loop.index0 == current %}aria-current="step"{% endif %}>
+        <span class="track__dot" aria-hidden="true"></span><b>{{ label }}</b>
+        <span class="muted small">{% if key in when %}{{ when[key]|local_display }}{% else %}&nbsp;{% endif %}</span>
+      </li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+
+  {% if order.payment_method == 'online' and order.payment_status == 'pending' and order.status not in ('rejected', 'cancelled') %}
+    <p><a class="btn" href="{{ url_for('shop.pay', order_number=order.order_number) }}">Complete payment</a></p>
+  {% endif %}
+
+  <section class="panel2"><h2 class="h3">Items</h2>
+    <ul class="mini">{% for it in order.items %}<li><span>{{ it.name }} × {{ it.quantity }}<br><span class="muted small">{{ s.inr(it.unit_price) }} each</span></span><b>{{ s.inr(it.line_total) }}</b></li>{% endfor %}</ul>
+    <dl class="totals">
+      <div><dt>Items</dt><dd>{{ s.inr(order.subtotal) }}</dd></div>
+      {% if order.discount_total %}<div class="good"><dt>Coupon {{ order.coupon_code or '' }}</dt><dd>− {{ s.inr(order.discount_total) }}</dd></div>{% endif %}
+      <div><dt>Delivery</dt><dd>{{ s.inr(order.delivery_fee) if order.delivery_fee else 'Free' }}</dd></div>
+      {% if order.tax_total %}<div class="muted"><dt>Includes tax</dt><dd>{{ s.inr(order.tax_total) }}</dd></div>{% endif %}
+      <div class="totals__grand"><dt>Total</dt><dd>{{ s.inr(order.total) }}</dd></div>
+    </dl>
+    <p class="muted small">Payment: {{ {'cod': 'Cash on delivery', 'online': 'Online'}.get(order.payment_method, order.payment_method) }} · {{ order.payment_status }}</p>
+  </section>
+
+  <section class="panel2"><h2 class="h3">Delivering to</h2>
+    <address class="addr"><b>{{ addr.get('full_name') }}</b><br>{{ addr.get('phone') }}<br>{{ addr.get('line1', '') }}{% if addr.get('line2') %}, {{ addr.get('line2') }}{% endif %}<br>{{ addr.get('city', '') }}, {{ addr.get('state', '') }} {{ addr.get('pincode', '') }}</address>
+  </section>
+
+  {% if order.status in ('return_requested', 'returned', 'refunded') %}
+    <div class="alert alert--info" role="status"><b>{{ labels[order.status] }}.</b>
+      {% if order.status == 'return_requested' %} The shop is reviewing your request{% if return_note %} ({{ return_note }}){% endif %}.{% endif %}
+      {% if order.status == 'returned' %} We have received your return. Your refund will follow.{% endif %}
+      {% if order.status == 'refunded' %} Your refund has been issued. It can take a few days to show in your account.{% endif %}</div>
+  {% endif %}
+  {% if can_return %}
+  <div class="acc"><button class="acc__h" type="button" aria-expanded="false">Return this order</button>
+    <div class="acc__p"><div class="acc__i"><div class="acc__b">
+      <p class="muted small">You can request a return until {{ return_deadline|local_display }}.</p>
+      <form method="post" action="{{ url_for('shop.order_return', order_number=order.order_number) }}" class="form" data-once>{{ s.csrf() }}
+        <label class="field"><span>Reason</span><select name="reason" required><option value="">Choose a reason</option>{% for r in return_reasons %}<option>{{ r }}</option>{% endfor %}</select></label>
+        <label class="field"><span>Tell us more (optional)</span><textarea name="note" rows="2" maxlength="300"></textarea></label>
+        <button class="btn btn--danger" type="submit">Request return</button>
+      </form>
+    </div></div></div>
+  </div>
+  {% endif %}
+
+  <div class="actions">
+    {% if can_invoice %}<a class="btn btn--ghost" href="{{ url_for('shop.order_invoice', order_number=order.order_number) }}">Download invoice (PDF)</a>{% endif %}
+    <form method="post" action="{{ url_for('shop.order_reorder', order_number=order.order_number) }}">{{ s.csrf() }}<button class="btn" type="submit">Reorder</button></form>
+    {% if can_cancel %}
+    <form method="post" action="{{ url_for('shop.order_cancel', order_number=order.order_number) }}" data-once>{{ s.csrf() }}<button class="btn btn--danger" type="submit" data-confirm="Cancel order {{ order.order_number }}? This cannot be undone.">Cancel order</button></form>
+    {% endif %}
+  </div>
+  <p class="muted small">You can cancel until the order is shipped. </p>
+</div>
+{% endblock %}
