@@ -1,6 +1,6 @@
 # Deploying on Render
 
-1. Push this folder to GitHub (`.env` is gitignored).
+1. In this folder run: git init -b main; git add -A; git commit -m "NK platform"; then add your NEW empty GitHub repo as origin and git push -u origin main (.env is gitignored).
 2. Render > New > PostgreSQL. Copy the *Internal Database URL* (the app accepts `postgresql://` as-is).
 3. Render > New > Web Service > your repo, Python runtime:
    - Build command: `pip install -r requirements.txt`
