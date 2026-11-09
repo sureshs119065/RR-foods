@@ -1,6 +1,0 @@
-<nav class="offers-section-nav" aria-label="Offer management sections">
-  <a href="{{ url_for('admin.offers') }}" {% if request.endpoint and request.endpoint.startswith('admin.offer') %}aria-current="page"{% endif %}>Product offers</a>
-  <a href="{{ url_for('admin.combos') }}" {% if request.endpoint and request.endpoint.startswith('admin.combo') %}aria-current="page"{% endif %}>Festival &amp; special events</a>
-  <a href="{{ url_for('admin.coupons') }}" {% if request.endpoint and request.endpoint.startswith('admin.coupon') %}aria-current="page"{% endif %}>Coupons</a>
-  <a href="{{ url_for('admin.bundles') }}" {% if request.endpoint and request.endpoint.startswith('admin.bundle') %}aria-current="page"{% endif %}>Combo bundles</a>
-</nav>
