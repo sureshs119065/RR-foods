@@ -1,6 +1,6 @@
 # Deploying on Render
 
-1. In this folder run: git init -b main; git add -A; git commit -m "NK platform"; then add your NEW empty GitHub repo as origin and git push -u origin main (.env is gitignored).
+1. Push this folder to GitHub (`.env` is gitignored).
 2. Render > New > PostgreSQL. Copy the *Internal Database URL* (the app accepts `postgresql://` as-is).
 3. Render > New > Web Service > your repo, Python runtime:
    - Build command: `pip install -r requirements.txt`
@@ -18,3 +18,9 @@
    `flask create-user you@example.com "Your Name" --role admin --password 'StrongPassword'`
    Do not run `flask seed` on a live shop.
 7. Optional Cron Jobs (same env vars): `flask send-emails` every minute, `flask send-stock-alerts` every 5 minutes (needs `MAIL_MODE=smtp` + MAIL_* settings).
+
+## Product images and catalogue
+- 19 product images are bundled in `app/static/img/products/` and linked in `app/seed_data/seed_products.csv`. They ship with the code, so they survive restarts on any plan.
+- Load the 32 products once (Render Shell, or temporarily in the start command): `flask import-rr-foods --yes`. Imported stock is 0: set real stock in Admin before selling.
+- Images you upload in Admin go to `UPLOAD_DIR` (`/var/data/uploads` with a paid Disk mounted at `/var/data`). Without a Disk they are lost on restart.
+- Products without a bundled image (13) get theirs via Admin > Products > edit > Images.

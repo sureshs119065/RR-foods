@@ -23,7 +23,7 @@ ALIASES = {"id": "sku", "price": "mrp", "weight": "pack_size", "shortdescription
            "videoid": "video_id", "image": "image_urls", "images": "image_urls", "instock": "in_stock"}
 MAX_ROWS = 2000
 MAX_BYTES = 2 * 1024 * 1024
-URL_OK = re.compile(r"^(/uploads/|/images/|https://)[^\s]+$")
+URL_OK = re.compile(r"^(/uploads/|/images/|/static/img/products/|https://)[^\s]+$")
 
 
 def safe_cell(value):
@@ -126,7 +126,7 @@ def import_csv(raw: bytes, *, create_categories: bool, default_stock: int) -> Im
         urls = [u.strip() for u in row.get("image_urls", "").split("|") if u.strip()]
         bad = [u for u in urls if not URL_OK.match(u)]
         if bad:
-            errs["image_urls"] = f"image link not allowed: {bad[0][:60]} (use /images/..., /uploads/... or https://...)"
+            errs["image_urls"] = f"image link not allowed: {bad[0][:60]} (use /static/img/products/..., /uploads/... or https://...)"
         cat_name = " ".join(row["category"].split())
         category = db.session.scalar(select(Category).where(func.lower(Category.name) == cat_name.lower(), Category.parent_id.is_(None), Category.is_deleted.is_(False))) if cat_name else None
         if not cat_name:
