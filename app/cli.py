@@ -94,6 +94,15 @@ def register_mail_cli(app):
         click.echo(f"sent {sent}, failed {failed}")
 
 
+def register_stock_alert_cli(app):
+    @app.cli.command("send-stock-alerts")
+    def send_stock_alerts_command():
+        """Tell customers when a product they asked about is back in stock. Run every 5 minutes from cron (catches every way stock can change)."""
+        from .services.stock_alerts import notify_restocked
+
+        click.echo(f"notified {notify_restocked()}")
+
+
 def register_check_cli(app):
     @app.cli.command("check-config")
     def check_config_command():

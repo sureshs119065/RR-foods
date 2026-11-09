@@ -56,7 +56,7 @@ def address_id(session, user):
     return session.scalar(select(Address.id).where(Address.user_id == user.id))
 
 
-def checkout(c, session, user, method="cod", **extra):
+def checkout(c, session, user, method="upi_manual", **extra):
     return post(c, "/checkout", {"address_id": address_id(session, user), "method": method, **extra}, page="/")
 
 
@@ -460,8 +460,8 @@ def test_checkout_places_order_and_everything_changes_together(cust, session, ca
     assert r.status_code == 302
     session.expire_all()
     o = session.scalar(select(Order))
-    assert r.headers["Location"] == f"/account/orders/{o.order_number}"
-    assert o.status == "placed" and o.payment_method == "cod" and o.payment_status == "pending" and o.user_id == cust.user.id
+    assert r.headers["Location"] == f"/order-placed/{o.order_number}"
+    assert o.status == "placed" and o.payment_method == "upi_manual" and o.payment_status == "pending" and o.user_id == cust.user.id
     assert (o.subtotal, o.discount_total, o.delivery_fee, o.total) == (Decimal("240.00"), Decimal("24.00"), Decimal("40.00"), Decimal("256.00"))
     assert o.coupon_code == "TEN" and o.customer_notes == "Call me"
     assert o.shipping_address["pincode"] == "641001" and o.shipping_address["full_name"] == "Asha Rao"
@@ -473,10 +473,10 @@ def test_checkout_places_order_and_everything_changes_together(cust, session, ca
     assert session.get(Coupon, cp.id).used_count == 1 and session.scalar(select(CouponUsage)).order_id == o.id
     assert session.scalar(select(func.count(CartItem.id))) == 0
     assert [(h.from_status, h.to_status) for h in session.scalars(select(OrderStatusHistory))] == [(None, "placed")]
-    assert o.payments[0].amount == Decimal("256.00") and o.payments[0].provider == "cod"
+    assert o.payments[0].amount == Decimal("256.00") and o.payments[0].provider == "upi_manual"
     assert "placed" in session.scalar(select(Notification.title))
     assert session.scalar(select(AuditLog).where(AuditLog.action == "order.place"))
-    assert "Order " + o.order_number in cust.get(r.headers["Location"]).get_data(as_text=True)
+    assert o.order_number in cust.get(r.headers["Location"]).get_data(as_text=True)
     # a coupon with per_user_limit 1 cannot be used a second time
     add(cust, p, 1)
     assert "already used" in post(cust, "/cart/coupon", {"code": "TEN"}, page="/cart", follow=True).get_data(as_text=True)
@@ -518,7 +518,7 @@ def test_last_item_cannot_be_sold_twice(app, cust, session, catalog):
     add(cust, p)
     add(other, p)
     checkout(cust, session, cust.user)
-    r = post(other, "/checkout", {"address_id": address_id(session, second), "method": "cod"}, page="/")
+    r = post(other, "/checkout", {"address_id": address_id(session, second), "method": "upi_manual"}, page="/")
     session.expire_all()
     assert session.scalar(select(func.count(Order.id))) == 1 and session.get(Product, p.id).stock_qty == 0
     assert "out of stock" in other.get("/cart").get_data(as_text=True).lower()
@@ -533,8 +533,8 @@ def test_checkout_address_rules(app, cust, session, catalog):
     session.add_all([foreign, far])
     session.commit()
     for aid in (foreign.id, far.id, 0, 99999):
-        post(cust, "/checkout", {"address_id": aid, "method": "cod"}, page="/checkout")
-    post(cust, "/checkout", {"method": "cod"}, page="/checkout")
+        post(cust, "/checkout", {"address_id": aid, "method": "upi_manual"}, page="/checkout")
+    post(cust, "/checkout", {"method": "upi_manual"}, page="/checkout")
     post(cust, "/checkout", {"address_id": address_id(session, cust.user), "method": "bitcoin"}, page="/checkout")
     assert session.scalar(select(Order)) is None and session.scalar(select(CartItem)) is not None
     assert "do not deliver" in cust.get("/checkout").get_data(as_text=True)
@@ -553,7 +553,7 @@ def test_double_submit_creates_one_order(cust, session, catalog):
     _, p = catalog
     add(cust, p, 2)
     checkout(cust, session, cust.user)
-    r = post(cust, "/checkout", {"address_id": address_id(session, cust.user), "method": "cod"}, page="/", follow=True)
+    r = post(cust, "/checkout", {"address_id": address_id(session, cust.user), "method": "upi_manual"}, page="/", follow=True)
     assert session.scalar(select(func.count(Order.id))) == 1 and session.get(Product, p.id).stock_qty == 8
     assert "Check My orders" in r.get_data(as_text=True)
 
@@ -573,35 +573,34 @@ def test_saved_for_later_items_stay_after_checkout(cust, session, catalog):
     assert session.get(Product, q.id).stock_qty == 10
 
 
-def test_online_payment_stub(app, cust, session, catalog):
+def test_only_whatsapp_ordering_is_offered(app, cust, session, catalog):
     _, p = catalog
     add(cust, p)
-    assert "Pay online" in cust.get("/checkout").get_data(as_text=True)
-    r = checkout(cust, session, cust.user, method="online")
-    o = session.scalar(select(Order))
-    assert r.headers["Location"] == f"/pay/{o.order_number}" and o.payments[0].provider == "razorpay"
-    assert "Test mode" in cust.get(f"/pay/{o.order_number}").get_data(as_text=True)
-    post(cust, f"/pay/{o.order_number}/simulate", {}, page=f"/pay/{o.order_number}")
-    session.expire_all()
-    assert session.scalar(select(Order.payment_status)) == "paid" and session.scalar(select(Order)).payments[0].status == "paid"
-
-
-def test_online_payment_hidden_and_stub_disabled_in_production_mode(app, cust, session, catalog):
-    _, p = catalog
-    add(cust, p)
-    app.config["ONLINE_PAYMENT_MODE"] = "off"
-    try:
-        assert "Pay online" not in cust.get("/checkout").get_data(as_text=True)
-        post(cust, "/checkout", {"address_id": address_id(session, cust.user), "method": "online"}, page="/checkout")
+    html = cust.get("/checkout").get_data(as_text=True)
+    assert "Order and pay on WhatsApp" in html and "Pay online" not in html and "Cash on delivery" not in html
+    for old_method in ("online", "cod"):  # the old payment options are gone
+        post(cust, "/checkout", {"address_id": address_id(session, cust.user), "method": old_method}, page="/checkout")
         assert session.scalar(select(Order)) is None
-        app.config["ONLINE_PAYMENT_MODE"] = "stub"
-        checkout(cust, session, cust.user, method="online")
+    assert cust.get("/pay/NK-1").status_code == 404
+
+
+def test_order_placed_page_opens_whatsapp_with_the_order(app, cust, session, catalog):
+    _, p = catalog
+    app.config["ADMIN_WHATSAPP_NUMBER"] = "919876500000"
+    try:
+        add(cust, p, 2)
+        r = checkout(cust, session, cust.user, notes="Call me")
         o = session.scalar(select(Order))
-        app.config["ONLINE_PAYMENT_MODE"] = "off"
-        assert post(cust, f"/pay/{o.order_number}/simulate", {}, page="/").status_code == 404   # never fakes a payment in production
-        assert session.scalar(select(Order.payment_status)) == "pending"
+        html = cust.get(r.headers["Location"]).get_data(as_text=True)
+        assert "https://wa.me/919876500000?text=" in html and "Send order on WhatsApp" in html
+        assert o.order_number in html and "Millet Soup Mix" in html and "Call me" in html and "Please confirm my order" in html
+        assert "Test mode" not in html and "Razorpay" not in html
+        app.config["ADMIN_WHATSAPP_NUMBER"] = ""
+        assert "not set up yet" in cust.get(r.headers["Location"]).get_data(as_text=True)
+        other = app.test_client()
+        assert other.get(r.headers["Location"]).status_code == 302          # signed-out visitors are sent to sign in
     finally:
-        app.config["ONLINE_PAYMENT_MODE"] = "stub"
+        app.config["ADMIN_WHATSAPP_NUMBER"] = ""
 
 
 # ================================================================ my orders, cancel, reorder
@@ -617,7 +616,7 @@ def test_order_list_and_detail_are_private(app, cust, session, catalog):
     html = cust.get("/account/orders").get_data(as_text=True)
     assert o.order_number in html and "Millet Soup Mix" in html
     det = cust.get(f"/account/orders/{o.order_number}").get_data(as_text=True)
-    assert "Placed" in det and "Confirmed" in det and "Cancel order" in det and "12 Lake Road" in det
+    assert "Order placed" in det and "Order confirmed" in det and "Cancel order" in det and "12 Lake Road" in det
     make_user(session, "user", "peek@x.com")
     other = app.test_client()
     other.post("/login", data={"email": "peek@x.com", "password": "Sup3rSecret!", "csrf_token": token(other, "/login")})
@@ -639,7 +638,7 @@ def test_tracking_timeline_follows_owner_actions(app, cust, session, catalog):
         session.refresh(o)
         post(ow, f"/owner/orders/{o.id}/status", {"to": step, "from_status": o.status}, page="/owner/orders")
     html = cust.get(f"/account/orders/{o.order_number}").get_data(as_text=True)
-    assert html.count("is-done") >= 3 and 'aria-current="step"' in html
+    assert html.count("is-done") >= 2 and 'aria-current="step"' in html and "Packed, waiting for the courier" in html  # packed is shown inside Confirmed
     n = session.scalars(select(Notification).where(Notification.user_id == cust.user.id)).all()
     assert any(f"/account/orders/{o.order_number}" == x.link for x in n)
     assert cust.get(n[-1].link).status_code == 200                      # the notification link from Step 5 now works

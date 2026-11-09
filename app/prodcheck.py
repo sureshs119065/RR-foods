@@ -24,9 +24,6 @@ def config_problems(app) -> tuple[list[str], list[str]]:
     uri = str(c.get("SQLALCHEMY_DATABASE_URI") or "")
     if any(p in uri for p in EXAMPLE_PASSWORDS):
         fatal.append("DATABASE_URL still uses the example database password. Create a real database user with a strong password.")
-    if c.get("ONLINE_PAYMENT_MODE") == "stub":
-        fatal.append("ONLINE_PAYMENT_MODE=stub lets anyone mark an order as paid without paying. Use off (cash on delivery only) "
-                     "or razorpay once it is wired in app/services/payments.py.")
     if not c.get("SESSION_COOKIE_SECURE"):
         fatal.append("SESSION_COOKIE_SECURE is off. Set FLASK_ENV=production and serve the site over HTTPS.")
     if c.get("DEBUG"):
@@ -44,6 +41,9 @@ def config_problems(app) -> tuple[list[str], list[str]]:
         advice.append("MAIL_MODE is not smtp, so password-reset and order emails will not be delivered.")
     elif not c.get("MAIL_SERVER"):
         advice.append("MAIL_MODE=smtp but MAIL_SERVER is empty.")
+    if not (c.get("ADMIN_WHATSAPP_NUMBER") or c.get("WHATSAPP_NUMBER")):
+        advice.append("ADMIN_WHATSAPP_NUMBER is empty. Customers cannot send their order to the shop on WhatsApp. "
+                      "Set it with the country code, digits only, for example ADMIN_WHATSAPP_NUMBER=919876543210.")
     if not os.path.isabs(str(c.get("UPLOAD_DIR", ""))):
         advice.append("UPLOAD_DIR is relative. Use an absolute path on a disk that is backed up.")
     return fatal, advice

@@ -1,0 +1,25 @@
+{% extends "owner/layout.html" %}
+{% block title %}Offers{% endblock %}
+{% block heading %}Offers{% endblock %}
+{% block content %}
+<div class="pagehead"><h2>Offer labels</h2><a class="btn" href="{{ url_for('owner.offer_new') }}">Add offer</a></div>
+<p class="hint">Offer labels such as “Deal of the Day” or “Buy 1 Get 1”. Attach them to products in the product form.</p>
+<div class="table-wrap"><table class="table">
+  <thead><tr><th>Label</th><th>Name</th><th>Products</th><th>Runs</th><th>Status</th><th>Actions</th></tr></thead>
+  <tbody>
+  {% for o, n in rows %}
+    <tr>
+      <td class="cell-main">{{ o.tag }}</td>
+      <td data-label="Name">{{ o.name }}</td>
+      <td data-label="Products">{{ n }}</td>
+      <td data-label="Runs">{% if o.starts_at or o.ends_at %}{{ o.starts_at|local_display or 'any time' }} to {{ o.ends_at|local_display or 'no end' }}{% else %}Always{% endif %}</td>
+      <td data-label="Status">{% if o.is_active %}<span class="badge badge--ok">Active</span>{% else %}<span class="badge badge--warn">Off</span>{% endif %}</td>
+      <td class="cell-actions">
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('owner.offer_edit', offer_id=o.id) }}">Edit</a>
+        <form class="inline" method="post" action="{{ url_for('owner.offer_delete', offer_id=o.id) }}">{{ m.csrf() }}<button class="btn btn--danger btn--sm" type="submit" data-confirm="Delete this offer? It will be removed from {{ n }} product(s).">Delete</button></form>
+      </td>
+    </tr>
+  {% else %}<tr><td class="cell-main" colspan="6">No offers yet.</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}

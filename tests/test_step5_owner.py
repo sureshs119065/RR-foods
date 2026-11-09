@@ -314,16 +314,25 @@ def test_stale_page_cannot_double_confirm(owner, session, shop):
     assert len(session.scalars(select(OrderStatusHistory)).all()) == 1
 
 
-def test_reject_needs_reason_then_restores_stock_and_tells_customer(owner, session, shop):
+def test_reject_reason_is_optional_and_customer_is_notified(owner, session, shop):
     customer, product = shop
     product.stock_qty = 8  # 10 on the shelf, 2 taken by this order at checkout
     session.commit()
     order = mk_order(session, customer, product, qty=2)
-    for reason in ("", "no", "   x   "):
-        move(owner, order, "rejected", reason=reason)
+    move(owner, order, "rejected", reason="")
     session.expire_all()
-    assert session.get(Order, order.id).status == "placed" and session.get(Product, product.id).stock_qty == 8
+    saved = session.get(Order, order.id)
+    assert saved.status == "rejected" and saved.rejection_reason is None
+    assert session.get(Product, product.id).stock_qty == 10
+    note = session.scalar(select(Notification))
+    assert note and "could not fulfil this order" in note.body and "Reason:" not in note.body
 
+
+def test_reject_with_reason_restores_stock_and_tells_customer(owner, session, shop):
+    customer, product = shop
+    product.stock_qty = 8
+    session.commit()
+    order = mk_order(session, customer, product, qty=2)
     move(owner, order, "rejected", reason="Item is out of stock.")
     session.expire_all()
     o = session.get(Order, order.id)

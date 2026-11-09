@@ -2,16 +2,17 @@ import re
 from decimal import Decimal
 from datetime import timezone
 
-from flask import abort, jsonify, make_response, render_template, request, url_for
-from sqlalchemy import select
+from flask import abort, jsonify, make_response, redirect, render_template, request, url_for
+from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
 from ..extensions import db, limiter
 from flask import g
-from ..models import Category, Coupon, DeliveryZone, Product, ProductQuestion, Review, ReviewVote
+from ..models import Category, Coupon, DeliveryZone, Product, ProductQuestion, Review, ReviewVote, User
 from ..services import reviews as review_svc
 from ..models.base import utcnow
 from ..services import header_banners, storefront
+from ..services import stock_alerts
 from ..services.storefront import Filters, active_variants, available_qty, in_stock_sql
 from . import bp
 
@@ -27,9 +28,27 @@ def home():
     stmt = select(Reel).where(Reel.is_active.is_(True)).order_by(Reel.sort_order, Reel.id)
     if selected: stmt = stmt.where(Reel.id.in_(selected))
     reels = db.session.scalars(stmt.limit(max(1, min(20, int(cfg.get("max_count", 8)))))).all()
+    # Only approved, non-deleted reviews and answered product questions are
+    # featured publicly. Moderation remains in Admin > Reviews; answers remain
+    # managed by the Shop Owner > Questions workflow.
+    featured_reviews = db.session.execute(
+        select(Review, Product.name, User.name)
+        .join(Product, Product.id == Review.product_id)
+        .join(User, User.id == Review.user_id)
+        .where(Review.status == "approved", Review.is_deleted.is_(False), Product.is_deleted.is_(False))
+        .order_by(Review.created_at.desc()).limit(6)
+    ).all()
+    featured_questions = db.session.execute(
+        select(ProductQuestion, Product.name, User.name)
+        .join(Product, Product.id == ProductQuestion.product_id)
+        .join(User, User.id == ProductQuestion.user_id)
+        .where(ProductQuestion.answer.is_not(None), ProductQuestion.is_deleted.is_(False), Product.is_deleted.is_(False))
+        .order_by(ProductQuestion.answered_at.desc(), ProductQuestion.created_at.desc()).limit(4)
+    ).all()
     return render_template("shop/home.html", rows=storefront.home_rows(), carousel=header_banners.cached_payload(),
                            recent=storefront.recently_viewed(), now=utcnow(), home_reels=reels,
-                           reels_enabled=cfg.get("enabled", True))
+                           reels_enabled=cfg.get("enabled", True), featured_reviews=featured_reviews,
+                           featured_questions=featured_questions)
 
 
 @bp.get("/banner-colors.css")
@@ -134,6 +153,9 @@ def product(slug):
     coupons = db.session.scalars(select(Coupon).where(Coupon.is_active.is_(True), (Coupon.expires_at.is_(None)) | (Coupon.expires_at > now)).order_by(Coupon.id).limit(3)).all()
     reviews = db.session.scalars(select(Review).where(Review.product_id == p.id, Review.status == "approved", Review.is_deleted.is_(False))
                                  .options(joinedload(Review.user)).order_by(Review.helpful_count.desc(), Review.created_at.desc()).limit(10)).all()
+    dist_rows = db.session.execute(select(Review.rating, func.count()).where(Review.product_id == p.id, Review.status == "approved", Review.is_deleted.is_(False)).group_by(Review.rating)).all()
+    rating_dist = {n: 0 for n in range(5, 0, -1)}  # stars -> number of approved reviews, for the 5-to-1 bars
+    rating_dist.update({int(r): int(c) for r, c in dist_rows})
     questions = db.session.scalars(select(ProductQuestion).where(ProductQuestion.product_id == p.id, ProductQuestion.is_deleted.is_(False), ProductQuestion.answer.is_not(None))
                                    .order_by(ProductQuestion.created_at.desc()).limit(10)).all()
     shopper = g.get("user") is not None and g.user.role == "user"
@@ -146,13 +168,14 @@ def product(slug):
         crumbs[-1] = (cat.name, f"/shop?category={cat.slug}")
     crumbs.append((p.name, None))
     variants = active_variants(p)
+    alert_on = bool(shopper and stock_alerts.has_alert(g.user.id, p.id))
     together = storefront.bought_together(p)
     from ..models import Bundle
     bundles = db.session.scalars(select(Bundle).where(Bundle.is_active.is_(True))).all()
     product_bundles = [b for b in bundles if any(int(x.get("product_id", 0)) == p.id for x in (b.product_quantities or []))]
     return render_template("shop/product.html", p=p, variants=variants, stock=available_qty(p), offers=offers, coupons=coupons, reviews=reviews,
                            questions=questions, crumbs=crumbs, together=together, together_ids=[t.id for t in together if not active_variants(t)],
-                           similar=storefront.you_may_like(p), shopper=shopper, can_review=can_review, my_review=my_review, voted=voted, recent=storefront.recently_viewed(exclude=p.id), now=now, product_bundles=product_bundles)
+                           similar=storefront.you_may_like(p), shopper=shopper, can_review=can_review, my_review=my_review, voted=voted, recent=storefront.recently_viewed(exclude=p.id), rating_dist=rating_dist, alert_on=alert_on, now=now, product_bundles=product_bundles)
 
 
 @bp.get("/offers")
@@ -169,7 +192,7 @@ def offers():
     products = {p.id: p for p in db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all()}
     originals = {b.id: sum((Decimal(str(products[int(line.get("product_id", 0))].final_price)) * int(line.get("quantity", 1))
         for line in (b.product_quantities or []) if int(line.get("product_id", 0)) in products), Decimal("0")) for b in bundles}
-    combos = db.session.scalars(select(Combo).where(Combo.is_active.is_(True), Combo.festival_tag == "diwali").order_by(Combo.created_at.desc())).all()
+    combos = db.session.scalars(select(Combo).where(Combo.is_active.is_(True)).order_by(Combo.created_at.desc())).all()
     combo_products = {p.id: p for p in db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all()}
     end_setting = db.session.get(SiteSetting, "diwali_end_at")
     diwali_end_at = end_setting.value if end_setting and isinstance(end_setting.value, str) else "2026-11-12T23:59:00+05:30"
@@ -202,6 +225,11 @@ def api_pincode(pin):
 
 
 # ---------------------------------------------------------------- SEO
+@bp.get("/favicon.ico")
+def favicon():
+    return redirect(url_for("static", filename="img/rr-foods-icon-192.png"), 301)
+
+
 @bp.get("/robots.txt")
 def robots():
     body = "User-agent: *\nDisallow: /admin\nDisallow: /owner\nDisallow: /account\nDisallow: /cart\nDisallow: /checkout\nDisallow: /api\nAllow: /\n" \
@@ -213,13 +241,13 @@ def robots():
 
 @bp.get("/sitemap.xml")
 def sitemap():
-    urls = [url_for("shop.home", _external=True), url_for("shop.listing", _external=True),
-            url_for("shop.bestsellers", _external=True)]
-    urls += [url_for("shop.category_listing", slug=s, _external=True) for s in db.session.scalars(select(Category.slug).where(Category.is_deleted.is_(False), Category.is_active.is_(True)))]
-    for slug in db.session.scalars(select(Product.slug).where(storefront.LIVE).order_by(Product.id).limit(20000)):
-        urls.append(url_for("shop.product", slug=slug, _external=True))
     from markupsafe import escape
-    xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + "".join(f"<url><loc>{escape(u)}</loc></url>\n" for u in urls) + "</urlset>\n"
+    entries = [(url_for(e, _external=True), None) for e in ("shop.home", "shop.listing", "shop.bestsellers", "shop.about", "shop.bundles", "shop.recipes")]
+    entries += [(url_for("shop.category_listing", slug=s, _external=True), None) for s in db.session.scalars(select(Category.slug).where(Category.is_deleted.is_(False), Category.is_active.is_(True)))]
+    for slug, changed in db.session.execute(select(Product.slug, Product.updated_at).where(storefront.LIVE).order_by(Product.id).limit(20000)):
+        entries.append((url_for("shop.product", slug=slug, _external=True), changed))
+    rows = "".join(f"<url><loc>{escape(u)}</loc>" + (f"<lastmod>{d:%Y-%m-%d}</lastmod>" if d else "") + "</url>\n" for u, d in entries)
+    xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + rows + "</urlset>\n"
     resp = make_response(xml)
     resp.mimetype = "application/xml"
     return resp

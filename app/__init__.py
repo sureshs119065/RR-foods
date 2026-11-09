@@ -2,12 +2,17 @@ from dotenv import load_dotenv
 from flask import Flask, g, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from .config import Config
+# Load this project's own .env before Config class attributes are evaluated.
+from pathlib import Path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(dotenv_path=PROJECT_ROOT / ".env", override=False)
+
+from .config import Config, BASE_DIR
 from .extensions import csrf, db, limiter, migrate
 
 
 def create_app(config_object=None):
-    load_dotenv()
+    load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
     app = Flask(__name__)
     app.config.from_object(config_object or Config)
     if app.config.get("TRUST_PROXY"):
@@ -41,10 +46,11 @@ def create_app(config_object=None):
     from .api import bp as api_bp
     app.register_blueprint(api_bp)
 
-    from .cli import register_check_cli, register_cli, register_mail_cli, register_settings_cli
+    from .cli import register_check_cli, register_cli, register_mail_cli, register_settings_cli, register_stock_alert_cli
     register_cli(app)
     register_settings_cli(app)
     register_mail_cli(app)
+    register_stock_alert_cli(app)
     register_check_cli(app)
 
     @app.before_request
@@ -58,6 +64,10 @@ def create_app(config_object=None):
     from .services.storefront import active_variants, available_qty
     app.jinja_env.globals["available_qty"] = available_qty
     app.jinja_env.globals["active_variants"] = active_variants  # usable inside imported macros
+    from .services import whatsapp as wa
+    app.jinja_env.globals["wa_owner_link"] = wa.owner_link          # customer -> owner: order already written
+    app.jinja_env.globals["wa_order_text"] = wa.order_message
+    app.jinja_env.globals["wa_customer_link"] = wa.customer_link    # owner -> customer: status message already written
 
     @app.context_processor
     def _inject():
@@ -69,6 +79,9 @@ def create_app(config_object=None):
         resp.headers.setdefault("X-Frame-Options", "DENY")
         resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         resp.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
+        resp.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
+        if request.is_secure and not app.config.get("TESTING"):  # only meaningful (and only valid) over HTTPS
+            resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         resp.headers.setdefault("Content-Security-Policy", "default-src 'self'; img-src 'self' data: https:; style-src 'self'; script-src 'self'; frame-src https://www.youtube-nocookie.com; frame-ancestors 'none'; form-action 'self'")
         # pages behind a login must never be stored by the browser or a shared cache
         if g.get("user") is not None or request.path.startswith(("/admin", "/owner", "/account")):

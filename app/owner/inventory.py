@@ -6,6 +6,7 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from ..auth.service import audit, safe_next
 from ..extensions import db
+from ..services.stock_alerts import notify_restocked
 from ..models import Category, InventoryLog, Product, ProductVariant
 from ..services import inventory as stock
 from ..services.inventory import MAX_QTY, StockError
@@ -100,6 +101,7 @@ def inventory_stock(kind, row_id):
         audit("stock.set", entity_type="product", entity_id=product.id, actor_id=g.user.id,
               before={"qty": old}, after={"qty": qty, **({"variant_id": row_id} if kind == "variant" else {})})
     db.session.commit()
+    notify_restocked()  # tell customers waiting for a product that is back
     msg = f"Saved: {product.name}{' (' + row.option_value + ')' if kind == 'variant' else ''} is now {qty}." if old != qty else "No change."
     return _reply(True, msg, **_state_payload(qty, product.low_stock_threshold))
 
@@ -119,6 +121,7 @@ def inventory_threshold(product_id):
         product.low_stock_threshold = value
         audit("stock.threshold", entity_type="product", entity_id=product.id, actor_id=g.user.id, before={"threshold": old}, after={"threshold": value})
     db.session.commit()
+    notify_restocked()  # tell customers waiting for a product that is back
     return _reply(True, f"You will be warned when {product.name} reaches {value} or fewer.", **_state_payload(product.stock_qty, value), threshold=value)
 
 
@@ -177,6 +180,7 @@ def inventory_bulk():
             p.low_stock_threshold = value
         audit("stock.bulk_threshold", entity_type="product", actor_id=g.user.id, after={"ids": pids, "threshold": value})
         db.session.commit()
+        notify_restocked()  # tell customers waiting for a product that is back
         flash(f"Alert level set to {value} on {len(products)} product{'s' if len(products) != 1 else ''}.", "success")
         return redirect(back)
 
@@ -200,6 +204,7 @@ def inventory_bulk():
             changed += 1
     audit(f"stock.bulk_{action}", entity_type="product", actor_id=g.user.id, after={"products": pids, "variants": vids, "value": value, "changed": changed})
     db.session.commit()
+    notify_restocked()  # tell customers waiting for a product that is back
     flash(f"Stock updated on {changed} of {len(plan)} item{'s' if len(plan) != 1 else ''}." if changed != len(plan) else f"Stock updated on {changed} item{'s' if changed != 1 else ''}.", "success")
     return redirect(back)
 

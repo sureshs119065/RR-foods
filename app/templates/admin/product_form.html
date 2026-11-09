@@ -86,7 +86,7 @@
       <div class="span-2">{{ m.textarea("how_to_use", "How to use", f.how_to_use, errors=errors, rows=3, maxlength="2000") }}</div>
       <div class="span-2">{{ m.textarea("specifications", "Specifications", f.specifications, errors=errors, rows=5, hint="One per line, like  Shelf life: 6 months") }}</div>
       {{ m.field("fssai", "FSSAI licence number", f.fssai, errors=errors, maxlength="30") }}
-      {{ m.field("video_id", "YouTube video id", f.video_id, errors=errors, maxlength="20", hint="The 11 characters after v= in a YouTube link") }}
+      {{ m.field("video_id", "Recipe video (YouTube ID)", f.video_id, errors=errors, maxlength="20", hint="Optional. Enter the 11-character YouTube video ID from the video URL (the value after v=). It appears inside this product description.") }}
       <div class="span-2">{{ m.field("tags", "Tags", f.tags, errors=errors, hint="Separate with commas, for example low sugar, millet") }}</div>
     </div>
   {% endcall %}
@@ -106,7 +106,7 @@
     <fieldset class="field"><legend>Offer labels</legend>
       <div class="checks">
         {% for o in offers %}<label class="check"><input type="checkbox" name="offer_ids" value="{{ o.id }}" {% if o.id in f.offer_ids %}checked{% endif %}> <span>{{ o.tag }}</span></label>
-        {% else %}<span class="hint">No offers yet. <a href="{{ url_for('admin.offers') }}">Create offer labels</a>.</span>{% endfor %}
+        {% else %}<span class="hint">No offers yet. Offer labels are managed in the Shop Owner panel.</span>{% endfor %}
       </div>
     </fieldset>
     <label class="field"><span>Related / similar products</span>

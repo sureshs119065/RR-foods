@@ -1,8 +1,10 @@
-from flask import render_template
+from flask import jsonify, render_template, request, url_for
 from sqlalchemy import func, select
 
 from ..extensions import db
 from ..models import Category, Coupon, HeaderBanner, Product, User
+from ..admin.helpers import shop_tz
+from ..services.analytics import build_sales_analytics
 from . import bp
 
 
@@ -21,4 +23,16 @@ def dashboard():
         "coupons": count(select(func.count(Coupon.id)).where(Coupon.is_active.is_(True))),
         "users": count(select(func.count(User.id)).where(User.role == "user", User.is_deleted.is_(False))),
     }
-    return render_template("admin/dashboard.html", stats=stats)
+    sales_analytics = build_sales_analytics(
+        request.args.get("range"), request.args.get("start_date"), request.args.get("end_date"), shop_tz()
+    )
+    return render_template("admin/dashboard.html", stats=stats, sales_analytics=sales_analytics,
+                           analytics_refresh_url=url_for("admin.analytics_data"))
+
+
+@bp.get("/analytics-data")
+def analytics_data():
+    """Fresh store-wide metrics for the dashboard's background refresh."""
+    return jsonify(build_sales_analytics(
+        request.args.get("range"), request.args.get("start_date"), request.args.get("end_date"), shop_tz()
+    ))

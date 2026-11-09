@@ -51,6 +51,14 @@
     <span class="pc__price"><b>{{ inr(p.final_price) }}</b>{% if pct %} <s class="muted">{{ inr(p.mrp) }}</s>{% endif %}</span>
     {% if p.pack_size %}<span class="pc__pack muted">{{ p.pack_size }}</span>{% endif %}
   </a>
+  {% if left > 0 and not active_variants(p) %}
+  <form class="pc__add" method="post" action="{{ url_for('shop.cart_add') }}" data-quickadd>{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="qty" value="1"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+    <button class="btn btn--ghost btn--sm" type="submit" aria-label="Add {{ p.name }} to cart">Add to cart</button></form>
+  {% elif left <= 0 %}
+  <a class="pc__add pc__opts btn btn--ghost btn--sm" href="{{ url_for('shop.product', slug=p.slug) }}#notify">Notify me</a>
+  {% elif left > 0 %}
+  <a class="pc__add pc__opts btn btn--ghost btn--sm" href="{{ url_for('shop.product', slug=p.slug) }}">Choose option</a>
+  {% endif %}
 </article>
 {% endmacro %}
 
@@ -95,7 +103,6 @@
       {% if left <= 0 %}<button class="btn btn--block" type="button" disabled>Sold out</button>
       {% elif opts %}<a class="btn btn--block" href="{{ url_for('shop.product', slug=p.slug) }}">Choose options</a>
       {% else %}<form method="post" action="{{ url_for('shop.cart_add') }}" data-addcart data-name="{{ p.name }}">{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="qty" value="1"><button class="btn btn--block" type="submit" aria-label="Add {{ p.name }} to cart">Add to cart</button></form>{% endif %}
-      <form method="post" action="{{ url_for('shop.compare_toggle') }}" data-compare>{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="/"><button class="linkish rc__cmp" type="submit">+ Compare</button></form>
     </div>
   </div>
 </li>

@@ -23,11 +23,11 @@ class CheckoutError(Exception):
     """Safe to show to the customer. Nothing was saved."""
 
 
+WHATSAPP_METHOD = "upi_manual"  # stored on the order; payment is settled with the owner on WhatsApp, then marked paid in the owner panel
+
+
 def payment_methods() -> list[tuple[str, str, str]]:
-    out = [("cod", "Cash on delivery", "Pay when your order arrives.")]
-    if current_app.config.get("ONLINE_PAYMENT_MODE", "off") in ("stub", "razorpay"):
-        out.append(("online", "Pay online (UPI, card, netbanking)", "You will be taken to a secure payment page."))
-    return out
+    return [(WHATSAPP_METHOD, "Order and pay on WhatsApp", "No payment now. Send your order on WhatsApp and the shop will confirm it and share payment details.")]
 
 
 def zone_for(pincode: str) -> DeliveryZone | None:
@@ -44,6 +44,18 @@ def new_order_number() -> str:
         if not db.session.scalar(select(Order.id).where(Order.order_number == n)):
             return n
     raise CheckoutError("We could not create an order number. Please try again.")
+
+
+def _check_bundle_still_valid(item: CartItem, product: Product) -> None:
+    """A bundle price is saved in the cart when the customer adds the bundle. Before it is charged, make sure the bundle is still
+    live and was not edited since (a changed price, product list or schedule means the saved price may be wrong)."""
+    from ..models.content import Bundle
+    bundle = db.session.get(Bundle, item.bundle_id) if item.bundle_id else None
+    now = utcnow()
+    if bundle is None or not bundle.is_active or (bundle.starts_at and bundle.starts_at > now) or (bundle.ends_at and bundle.ends_at <= now):
+        raise CheckoutError(f"The bundle offer for “{product.name}” has ended. Remove it from your cart and try again.")
+    if bundle.updated_at and item.created_at and bundle.updated_at > item.created_at:
+        raise CheckoutError(f"The bundle offer for “{product.name}” was updated. Remove it from your cart and add the bundle again to get the new price.")
 
 
 def place_order(user, address_id: int, method: str, coupon_code: str | None, note: str | None) -> Order:
@@ -75,6 +87,8 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
             raise CheckoutError(f"Choose an option for “{p.name}” on its product page.")
         if v is not None and (v.is_deleted or not v.is_active or v.product_id != p.id):
             raise CheckoutError(f"That option of “{p.name}” is no longer available. Remove it and try again.")
+        if it.bundle_id or it.unit_price_override is not None:
+            _check_bundle_still_valid(it, p)
         stock = v.stock_qty if v else p.stock_qty
         name = p.name + (f" ({v.option_value})" if v else "")
         if it.quantity > MAX_LINE_QTY:
@@ -104,7 +118,7 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
         order.items.append(OrderItem(product_id=l.product.id, variant_id=l.variant.id if l.variant else None,
                                      name=l.product.name + (f" ({l.variant.option_value})" if l.variant else ""), sku=l.sku, pack_size=l.product.pack_size,
                                      unit_price=l.unit_price, mrp=l.mrp, quantity=l.qty, line_total=l.total))
-    order.payments.append(Payment(provider="cod" if method == "cod" else "razorpay", amount=t.total, status="pending"))
+    order.payments.append(Payment(provider="upi_manual", amount=t.total, status="pending"))
     db.session.add(order)
     db.session.flush()
     db.session.add(OrderStatusHistory(order_id=order.id, from_status=None, to_status="placed", changed_by=user.id, note=None))
@@ -117,6 +131,6 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
     for it in items:
         db.session.delete(it)
 
-    notify(user.id, "order_status", f"Order {order.order_number} placed", "Thanks! The shop will confirm it shortly.", link=f"/account/orders/{order.order_number}")
+    notify(user.id, "order_status", f"Order {order.order_number} placed", "Thanks! Send the order on WhatsApp so the shop can confirm it and share payment details.", link=f"/account/orders/{order.order_number}")
     audit("order.place", entity_type="order", entity_id=order.id, actor_id=user.id, after={"order_number": order.order_number, "total": str(order.total), "method": method})
     return order

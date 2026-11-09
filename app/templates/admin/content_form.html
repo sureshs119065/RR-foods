@@ -1,7 +1,8 @@
 {% extends "admin/layout.html" %}
 {% import "admin/_macros.html" as m %}
 {% block title %}{{ 'Edit' if item.id else 'Add' }} {{ title }}{% endblock %}{% block heading %}{{ 'Edit' if item.id else 'Add' }} {{ title }}{% endblock %}
-{% block content %}<script src="{{ url_for('static', filename='js/content-upload.js') }}" defer></script>
+{% block content %}
+{% if kind == 'bundles' %}{% include "admin/_offers_nav.html" %}{% endif %}<script src="{{ url_for('static', filename='js/content-upload.js') }}" defer></script>
 <form method="post" enctype="multipart/form-data" class="panel form">
 {{ m.csrf() }}
 {% if kind == 'reels' %}

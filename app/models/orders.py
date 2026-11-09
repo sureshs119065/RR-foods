@@ -6,9 +6,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import JsonType, Money, TimestampMixin, db
 
-# Tracking timeline: placed -> confirmed -> packed -> shipped -> delivered
+# Tracking timeline: placed -> confirmed -> packed -> shipped -> out_for_delivery -> delivered
 ORDER_STATUSES = (
-    "placed", "confirmed", "rejected", "packed", "shipped", "delivered",
+    "placed", "confirmed", "rejected", "packed", "shipped", "out_for_delivery", "delivered",
     "cancelled", "return_requested", "returned", "refunded",
 )
 PAYMENT_METHODS = ("cod", "online", "upi_manual")
