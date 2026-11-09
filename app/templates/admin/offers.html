@@ -1,8 +1,10 @@
 {% extends "admin/layout.html" %}
+{% import "admin/_macros.html" as m %}
 {% block title %}Offers{% endblock %}
 {% block heading %}Offers{% endblock %}
 {% block content %}
-<div class="pagehead"><h2>Offer labels</h2><a class="btn" href="{{ url_for('admin.offer_new') }}">Add offer</a></div>
+{% include "admin/_offers_nav.html" %}
+<div class="pagehead"><div><h2>Product offer labels</h2><p class="hint">Manage every promotion from this Offers section: product labels, festival events, coupons and combo bundles.</p></div><a class="btn" href="{{ url_for('admin.offer_new') }}">Add offer</a></div>
 <p class="hint">Offer labels such as “Deal of the Day” or “Buy 1 Get 1”. Attach them to products in the product form.</p>
 <div class="table-wrap"><table class="table">
   <thead><tr><th>Label</th><th>Name</th><th>Products</th><th>Runs</th><th>Status</th><th>Actions</th></tr></thead>

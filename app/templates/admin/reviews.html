@@ -3,24 +3,46 @@
 {% block heading %}Reviews{% endblock %}
 {% block content %}
 <div class="pagehead"><h2>Customer reviews <span class="hint">({{ page.total }})</span></h2></div>
+
+<div class="stats">
+  <div class="stat"><b>{{ counts.get('pending', 0) }}</b>Waiting for approval</div>
+  <div class="stat"><b>{{ counts.get('approved', 0) }}</b>Visible</div>
+  <div class="stat"><b>{{ counts.get('hidden', 0) }}</b>Rejected / hidden</div>
+  <div class="stat"><b>{{ '%.1f'|format(avg) if avg else '–' }} ★</b>Average rating</div>
+</div>
+
+<form method="post" action="{{ url_for('admin.review_moderation') }}" class="panel row">
+  {{ m.csrf() }}<input type="hidden" name="on" value="{{ '0' if moderation else '1' }}">
+  <span><b>Approval before publishing:</b> {{ 'ON. New reviews wait for you to approve them.' if moderation else 'OFF. New reviews appear straight away.' }}</span>
+  <button class="btn btn--sm btn--ghost" type="submit">{{ 'Turn off' if moderation else 'Turn on' }}</button>
+</form>
+
 <form class="filters filters--one" method="get" role="search">
   <input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Search product or review text" aria-label="Search reviews">
-  <select name="show" aria-label="Show">{% for v, t in [("", "All reviews"), ("hidden", "Hidden only")] %}<option value="{{ v }}" {% if show == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+  <select name="show" aria-label="Show">{% for v, t in [("", "All reviews"), ("pending", "Waiting for approval"), ("approved", "Visible"), ("hidden", "Rejected / hidden")] %}<option value="{{ v }}" {% if show == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
   <button class="btn" type="submit">Apply</button>
 </form>
 <div class="table-wrap"><table class="table">
-  <thead><tr><th scope="col">Product</th><th scope="col">Rating</th><th scope="col">Review</th><th scope="col">By</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
+  <thead><tr><th scope="col">Product</th><th scope="col">Rating</th><th scope="col">Review</th><th scope="col">By</th><th scope="col">Date</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
   <tbody>
   {% for r in page.items %}
+    {% set pr = products.get(r.product_id) %}
     <tr>
-      <td class="cell-main"><a href="{{ url_for('shop.product', slug=products[r.product_id].slug) if r.product_id in products else '#' }}">{{ products[r.product_id].name if r.product_id in products else 'Deleted product' }}</a></td>
+      <td class="cell-main"><a href="{{ url_for('shop.product', slug=pr.slug) if pr else '#' }}">{{ pr.name if pr else 'Deleted product' }}</a>{% if pr and pr.review_count %}<br><span class="hint">Product rating {{ '%.1f'|format(pr.avg_rating) }} ★ ({{ pr.review_count }})</span>{% endif %}</td>
       <td data-label="Rating">{{ r.rating }} ★</td>
       <td data-label="Review"><b>{{ r.title or '' }}</b> {{ (r.body or '')[:160] }}{% if r.photos %} <span class="hint">({{ r.photos|length }} photo{{ '' if r.photos|length == 1 else 's' }})</span>{% endif %}</td>
-      <td data-label="By">{{ r.user.name if r.user else '—' }}</td>
-      <td data-label="Status"><span class="badge {{ 'badge--ok' if r.status == 'approved' else 'badge--bad' }}">{{ 'Visible' if r.status == 'approved' else 'Hidden' }}</span></td>
-      <td class="cell-actions"><form method="post" action="{{ url_for('admin.review_toggle', review_id=r.id) }}">{{ m.csrf() }}<input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}"><button class="btn btn--sm {{ 'btn--ghost' if r.status == 'approved' else '' }}" type="submit">{{ 'Hide' if r.status == 'approved' else 'Show again' }}</button></form></td>
+      <td data-label="By">{{ r.user.name if r.user else '—' }}{% if r.order_item_id and orders.get(r.order_item_id) %}<br><span class="hint">Order {{ orders[r.order_item_id] }}</span>{% endif %}</td>
+      <td data-label="Date">{{ r.created_at|local_display }}</td>
+      <td data-label="Status"><span class="badge {{ 'badge--ok' if r.status == 'approved' else ('badge--warn' if r.status == 'pending' else 'badge--bad') }}">{{ {'approved': 'Visible', 'pending': 'Waiting', 'hidden': 'Rejected'}.get(r.status, r.status) }}</span></td>
+      <td class="cell-actions">
+        {% for act, label, ghost in (('approve', 'Approve', false), ('reject', 'Reject', true)) %}
+          {% if (act == 'approve' and r.status != 'approved') or (act == 'reject' and r.status != 'hidden') %}
+          <form class="inline" method="post" action="{{ url_for('admin.review_set', review_id=r.id) }}">{{ m.csrf() }}<input type="hidden" name="action" value="{{ act }}"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}"><button class="btn btn--sm {{ 'btn--ghost' if ghost else '' }}" type="submit">{{ label }}</button></form>
+          {% endif %}
+        {% endfor %}
+      </td>
     </tr>
-  {% else %}<tr><td class="cell-main" colspan="6">No reviews yet.</td></tr>{% endfor %}
+  {% else %}<tr><td class="cell-main" colspan="7">No reviews yet.</td></tr>{% endfor %}
   </tbody>
 </table></div>
 {{ m.pager(page, 'admin.reviews', args) }}

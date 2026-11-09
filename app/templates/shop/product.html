@@ -3,11 +3,16 @@
 {% set im = p.primary_image %}{% set pct = s.off_pct(p.mrp, p.final_price)|int %}
 {% set desc = (p.short_description or p.description or ('Buy ' ~ p.name ~ ' online from RR FOODS.'))|striptags|replace('\n', ' ') %}
 {% block title %}{{ p.name }}{% if p.pack_size %} ({{ p.pack_size }}){% endif %} | RR FOODS{% endblock %}
+{% block social %}
+  <meta property="og:site_name" content="RR FOODS">
+  <meta property="og:type" content="product"><meta property="og:title" content="{{ p.name }}"><meta property="og:description" content="{{ desc[:155] }}">
+  <meta property="og:url" content="{{ url_for('shop.product', slug=p.slug, _external=True) }}">
+  {% if im %}<meta property="og:image" content="{{ im.url if im.url.startswith('http') else request.host_url.rstrip('/') ~ im.url }}">{% endif %}
+  <meta name="twitter:card" content="summary_large_image">
+{% endblock %}
 {% block head_extra %}
   <meta name="description" content="{{ desc[:155] }}">
   <link rel="canonical" href="{{ url_for('shop.product', slug=p.slug, _external=True) }}">
-  <meta property="og:type" content="product"><meta property="og:title" content="{{ p.name }}"><meta property="og:description" content="{{ desc[:155] }}">
-  {% if im %}<meta property="og:image" content="{{ im.url if im.url.startswith('http') else request.host_url.rstrip('/') ~ im.url }}">{% endif %}
   <script type="application/ld+json">{{ {
     "@context": "https://schema.org", "@type": "Product", "name": p.name, "sku": p.sku, "description": desc[:300],
     "image": ([request.host_url.rstrip('/') ~ im.url] if im and not im.url.startswith('http') else ([im.url] if im else [])),
@@ -38,9 +43,7 @@
       <div class="buy__tools">
         <form method="post" action="{{ url_for('shop.wishlist_toggle') }}" data-wish>{{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.path }}">
           <button class="btn btn--ghost btn--sm wishbtn {{ 'is-on' if in_wishlist(p.id) else '' }}" type="submit" aria-pressed="{{ 'true' if in_wishlist(p.id) else 'false' }}"><span aria-hidden="true">♥</span> <span data-wish-label>{{ 'Saved' if in_wishlist(p.id) else 'Wishlist' }}</span></button></form>
-        <form method="post" action="{{ url_for('shop.compare_toggle') }}" data-compare>{{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.path }}">
-          <button class="btn btn--ghost btn--sm" type="submit">Compare</button></form>
-        {% if compare_count() %}<a class="small" href="{{ url_for('shop.compare') }}">View compare ({{ compare_count() }})</a>{% endif %}
+        <button class="btn btn--ghost btn--sm" type="button" data-share data-share-title="{{ p.name }}" data-share-url="{{ url_for('shop.product', slug=p.slug, _external=True) }}"><span aria-hidden="true">↗</span> Share</button>
       </div>
       {% if p.brand %}<p class="muted buy__brand">by <a href="{{ url_for('shop.listing', brand=p.brand) }}">{{ p.brand }}</a></p>{% endif %}
       {% if p.review_count %}<p><a class="stars" href="#reviews">{{ '%.1f'|format(p.avg_rating) }} ★</a> <span class="muted">{{ p.review_count }} review{{ '' if p.review_count == 1 else 's' }}</span></p>{% endif %}
@@ -78,12 +81,25 @@
           <button class="btn" type="submit" name="buy_now" value="1" {% if not variants and stock <= 0 %}disabled{% endif %} data-buy>Buy now</button>
         </div>
       </form>
+      {% if stock <= 0 %}
+      <form class="notify" id="notify" method="post" action="{{ url_for('shop.stock_alert_toggle', slug=p.slug) }}" data-notify>
+        {{ s.csrf() }}<input type="hidden" name="next" value="{{ request.path }}#notify">
+        <p class="notify__t"><b>Currently unavailable</b><span class="muted">We can tell you the moment it is back.</span></p>
+        <button class="btn" type="submit" aria-pressed="{{ 'true' if alert_on else 'false' }}" data-notify-btn>{{ 'Alert on. Tap to cancel' if alert_on else 'Notify me when available' }}</button>
+      </form>
+      {% endif %}
 
       <form class="pin" id="pinform" data-pin autocomplete="off">
         <label for="pin">Delivery</label>
         <div class="pin__row"><input id="pin" name="pin" type="text" inputmode="numeric" maxlength="6" pattern="\d{6}" placeholder="Enter 6 digit pincode" autocomplete="postal-code"><button class="btn btn--ghost" type="submit">Check</button></div>
         <p class="pin__msg" id="pin-msg" role="status"></p>
       </form>
+
+      <ul class="pdp-trust" aria-label="Why order from us">
+        <li><b>Order on WhatsApp</b><span>The shop confirms every order with you</span></li>
+        <li><b>Track your order</b><span>See each stage from packed to delivered</span></li>
+        <li><b>Easy returns</b><span>Raise a return from your orders page</span></li>
+      </ul>
 
       {% if offers or coupons %}
       <div class="offers">
@@ -109,6 +125,22 @@
       </tbody></table>
     </div></div></div></div>
     {% endif %}
+    {% if p.description or p.video_id %}
+    <div class="acc" data-open>
+      <button class="acc__h" type="button" aria-expanded="true">Product description &amp; recipe</button>
+      <div class="acc__p"><div class="acc__i"><div class="acc__b">
+        {% if p.description %}<p>{{ p.description }}</p>{% endif %}
+        {% if p.video_id %}
+          <div class="product-recipe-video">
+            <h3>How to prepare {{ p.name }}</h3>
+            <div class="product-recipe-video__frame">
+              <iframe src="https://www.youtube-nocookie.com/embed/{{ p.video_id|e }}" title="Recipe video for {{ p.name|e }}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            </div>
+          </div>
+        {% endif %}
+      </div></div></div>
+    </div>
+    {% endif %}
     {% if p.ingredients %}<div class="acc"><button class="acc__h" type="button" aria-expanded="false">Ingredients</button><div class="acc__p"><div class="acc__i"><div class="acc__b"><p>{{ p.ingredients }}</p></div></div></div></div>{% endif %}
     {% if p.nutrition %}<div class="acc"><button class="acc__h" type="button" aria-expanded="false">Nutrition</button><div class="acc__p"><div class="acc__i"><div class="acc__b"><table class="specs"><tbody>{% for k, v in p.nutrition.items() %}<tr><th scope="row">{{ k }}</th><td>{{ v }}</td></tr>{% endfor %}</tbody></table></div></div></div></div>{% endif %}
     {% if p.how_to_use %}<div class="acc"><button class="acc__h" type="button" aria-expanded="false">How to use</button><div class="acc__p"><div class="acc__i"><div class="acc__b"><p>{{ p.how_to_use }}</p></div></div></div></div>{% endif %}
@@ -129,7 +161,9 @@
 
   <section class="sec" id="reviews" aria-labelledby="rev-h">
     <h2 id="rev-h" class="sec__h">Ratings &amp; reviews</h2>
-    {% if p.review_count %}<p><span class="stars">{{ '%.1f'|format(p.avg_rating) }} ★</span> <span class="muted">based on {{ p.review_count }} review{{ '' if p.review_count == 1 else 's' }}</span></p>{% endif %}
+    {% if p.review_count %}<p><span class="stars">{{ '%.1f'|format(p.avg_rating) }} ★</span> <span class="muted">based on {{ p.review_count }} review{{ '' if p.review_count == 1 else 's' }}</span></p>
+    {% set rtotal = rating_dist.values()|sum %}
+    {% if rtotal %}<ul class="rbars" aria-label="Ratings by star">{% for n, c in rating_dist.items() %}<li><span class="rbars__n">{{ n }} ★</span><progress class="rbars__bar" max="{{ rtotal }}" value="{{ c }}" aria-label="{{ n }} star: {{ c }} of {{ rtotal }} reviews">{{ c }}</progress><span class="rbars__c muted">{{ c }}</span></li>{% endfor %}</ul>{% endif %}{% endif %}
     {% if reviews %}
       <ul class="revs">
         {% for r in reviews %}
@@ -148,6 +182,7 @@
       </ul>
     {% else %}<p class="muted">No reviews yet.</p>{% endif %}
 
+    {% if my_review and my_review.status == 'pending' %}<p class="notice small">Your review is waiting for the shop's approval. It will appear here once approved.</p>{% endif %}
     {% if can_review %}
     <div class="acc" {% if not my_review %}data-open{% endif %}><button class="acc__h" type="button" aria-expanded="false">{{ 'Edit your review' if my_review else 'Write a review' }}</button>
       <div class="acc__p"><div class="acc__i"><div class="acc__b">

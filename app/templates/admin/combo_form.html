@@ -1,7 +1,9 @@
 {% extends "admin/layout.html" %}
+{% import "admin/_macros.html" as m %}
 {% block title %}{{ 'Edit' if combo else 'New' }} combo{% endblock %}
 {% block heading %}{{ 'Edit' if combo else 'Add' }} Diwali combo{% endblock %}
 {% block content %}
+{% include "admin/_offers_nav.html" %}
 <form method="post" class="panel form" novalidate>{{ m.csrf() }}
   <div class="grid-2">
     {{ m.field('name','Combo name',f.name,errors=errors,required=true,maxlength='180') }}

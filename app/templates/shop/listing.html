@@ -11,6 +11,15 @@
   <div class="lh">
     <h1 class="lh__t">{{ title }} <span class="muted lh__n">({{ page.total }})</span></h1>
   </div>
+  {% if not cat %}
+    <nav class="product-quick-filters" aria-label="Product collections">
+      <a class="chip" href="{{ url_for('shop.bestsellers') }}">Bestsellers</a>
+      <a class="chip" href="#category-filters">Categories</a>
+    </nav>
+    <div id="category-filters" class="product-category-filters" aria-label="Browse product categories">
+      {% for c in nav_categories() %}<a class="chip" href="{{ url_for('shop.category_listing', slug=c.slug) }}">{{ c.name }}</a>{% endfor %}
+    </div>
+  {% endif %}
   {% if subcats %}
     <ul class="chips2">{% for c in subcats %}<li><a class="chip" href="{{ url_for('shop.category_listing', slug=c.slug) }}">{{ c.name }}</a></li>{% endfor %}</ul>
   {% endif %}
@@ -99,6 +108,9 @@
           <h2>No products match your filters</h2>
           <p class="muted">Try changing your price range, rating or sorting options.</p>
           <a class="btn" href="{{ clear_url }}">Clear all filters</a>
+          <p class="muted small empty__more">Or browse a category</p>
+          <ul class="chips2">{% for c in nav_categories() %}<li><a class="chip" href="{{ url_for('shop.category_listing', slug=c.slug) }}">{{ c.name }}</a></li>{% endfor %}</ul>
+          {% if config.get('WHATSAPP_NUMBER') %}<p><a class="btn btn--ghost" href="https://wa.me/{{ config.get('WHATSAPP_NUMBER') }}?text={{ ('Hi, I could not find ' ~ (request.args.get('q') or 'a product') ~ ' on your website. Do you have it?')|urlencode }}" target="_blank" rel="noopener">Can't find it? Ask us on WhatsApp</a></p>{% endif %}
         </div>
       {% endif %}
     </section>

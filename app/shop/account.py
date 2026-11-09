@@ -7,16 +7,19 @@ from sqlalchemy.orm import selectinload
 from ..admin.helpers import clean, page_number
 from ..auth.decorators import roles_required
 from ..extensions import db
-from ..models import Address, Order, OrderStatusHistory
+from ..models import Address, Order, OrderStatusHistory, Product, Review
 from ..models.base import utcnow
 from ..services import invoice as invoice_svc
 from ..services import orders as order_svc
+from ..services import reviews as rv_svc
 from . import bp
 from .cart import _add_one
 
 user_only = roles_required("user")
 MAX_ADDRESSES = 10
-STEPS = (("placed", "Placed"), ("confirmed", "Confirmed"), ("packed", "Packed"), ("shipped", "Shipped"), ("delivered", "Delivered"))
+STEPS = (("placed", "Order placed"), ("confirmed", "Order confirmed"), ("shipped", "Shipped"), ("out_for_delivery", "Out for delivery"), ("delivered", "Delivered"))
+# "packed" is a step inside the shop; the customer sees it as part of Confirmed.
+STEP_OF = {"packed": "confirmed"}
 
 
 # ---------------------------------------------------------------- orders
@@ -39,14 +42,42 @@ def _mine(order_number: str) -> Order:
 def order_detail(order_number):
     order = _mine(order_number)
     history = db.session.scalars(select(OrderStatusHistory).where(OrderStatusHistory.order_id == order.id).order_by(OrderStatusHistory.created_at, OrderStatusHistory.id)).all()
-    when = {h.to_status: h.created_at for h in history}
+    when: dict = {"placed": order.created_at}
+    for h in history:
+        if h.from_status == h.to_status:  # payment notes, not a stage change
+            continue
+        when.setdefault(STEP_OF.get(h.to_status, h.to_status), h.created_at)
+    if "delivered" in when and "shipped" not in when:  # shipped straight to delivered: still show the earlier stages as done
+        when["shipped"] = when["delivered"]
+    # a return only happens after delivery, so the timeline stays at Delivered for those
     reached = [i for i, (k, _) in enumerate(STEPS) if k in when]
     current = max(reached) if reached else 0
+    reviewable = order.status in rv_svc.REVIEWABLE_ORDER_STATUSES
+    products = {}
+    my_reviews = {}
+    if reviewable:
+        pids = {it.product_id for it in order.items if it.product_id}
+        products = {p.id: p for p in db.session.scalars(select(Product).where(Product.id.in_(pids or {0}), Product.is_deleted.is_(False)))}
+        my_reviews = {r.product_id: r for r in db.session.scalars(select(Review).where(Review.user_id == g.user.id, Review.product_id.in_(pids or {0}), Review.is_deleted.is_(False)))}
     return render_template("shop/order.html", order=order, steps=STEPS, when=when, current=current, labels=order_svc.LABELS,
+                           reviewable=reviewable, review_products=products, my_reviews=my_reviews, moderation=rv_svc.moderation_on(),
                            can_cancel=order.status in order_svc.CANCELLABLE,
                            can_return=order.status == "delivered" and utcnow() <= order_svc.return_deadline(order), return_deadline=order_svc.return_deadline(order),
                            return_reasons=order_svc.RETURN_REASONS, can_invoice=order.status not in invoice_svc.NOT_INVOICEABLE,
                            return_note=next((h.note for h in reversed(history) if h.to_status == "return_requested"), None), closed_note=next((h.note for h in reversed(history) if h.to_status in ("rejected", "cancelled")), None))
+
+
+@bp.get("/account/orders/<order_number>/status.json")
+@user_only
+def order_status_json(order_number):
+    """Polled by the tracking page so it updates itself when the shop moves the order along. Only the customer's own order."""
+    from flask import jsonify
+    order = db.session.scalar(select(Order).where(Order.order_number == order_number, Order.user_id == g.user.id))
+    if order is None:
+        abort(404)
+    resp = jsonify(status=order.status, label=order_svc.LABELS.get(order.status, order.status), updated=order.updated_at.isoformat() if order.updated_at else None)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @bp.post("/account/orders/<order_number>/cancel")

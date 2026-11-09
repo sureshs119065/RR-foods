@@ -1,7 +1,9 @@
 {% extends "admin/layout.html" %}
+{% import "admin/_macros.html" as m %}
 {% block title %}{{ 'Edit' if offer else 'New' }} offer{% endblock %}
 {% block heading %}{{ 'Edit offer' if offer else 'New offer' }}{% endblock %}
 {% block content %}
+{% include "admin/_offers_nav.html" %}
 <form method="post" class="panel form" novalidate>
   {{ m.csrf() }}
   <div class="grid-2">

@@ -10,7 +10,17 @@
   <title>{% block title %}RR FOODS{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-design.css') }}">
+  {% block social %}
+  <meta property="og:site_name" content="RR FOODS">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ self.title()|striptags|trim }}">
+  <meta property="og:description" content="Healthy, home-style mixes, snacks, sweets and breakfast essentials from RR FOODS.">
+  <meta property="og:url" content="{{ request.base_url }}">
+  <meta property="og:image" content="{{ url_for('static', filename='img/rr-foods-brand-logo.png', _external=True) }}">
+  <meta name="twitter:card" content="summary_large_image">
+  {% endblock %}
   {% block head %}{% endblock %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-white-ui.css') }}">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -22,7 +32,7 @@
         {% if current_user %}
           {% if current_user.role == 'admin' %}<a href="/admin/">Admin</a>
           {% elif current_user.role == 'owner' %}<a href="/owner/">Owner</a>
-          {% else %}<a href="/account">My account</a>{% endif %}
+          {% else %}<a href="/account">My account</a><a href="{{ url_for('shop.messages') }}">Inbox</a>{% endif %}
           <form method="post" action="{{ url_for('auth.logout') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="link-btn" type="submit">Sign out</button>

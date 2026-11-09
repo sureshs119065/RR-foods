@@ -100,6 +100,14 @@ def copy_file(url: str | None) -> str | None:
     return f"/uploads/{new.relative_to(upload_root().resolve()).as_posix()}"
 
 
+def _looks_like_video(data: bytes, ext: str) -> bool:
+    """Checks the file's own first bytes, because the extension and the browser-sent MIME type can be faked.
+    MP4/MOV files start with a box whose type is 'ftyp' (bytes 4-8); WebM starts with the EBML header."""
+    if ext == ".webm":
+        return data[:4] == b"\x1a\x45\xdf\xa3"
+    return len(data) > 12 and data[4:8] == b"ftyp"
+
+
 VIDEO_MAX_BYTES = 50 * 1024 * 1024
 VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov"}
 
@@ -119,6 +127,8 @@ def save_video(file_storage, subdir: str) -> str | None:
         raise UploadError("The video file is empty.")
     if len(data) > VIDEO_MAX_BYTES:
         raise UploadError("Videos must be 50 MB or smaller.")
+    if not _looks_like_video(data, ext):
+        raise UploadError("This file is not a real MP4, WebM or MOV video.")
     folder = upload_root() / subdir
     folder.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid.uuid4().hex}{ext}"

@@ -1,0 +1,21 @@
+{% extends "owner/layout.html" %}
+{% block title %}{{ 'Edit' if coupon else 'New' }} coupon{% endblock %}
+{% block heading %}{{ 'Edit coupon' if coupon else 'New coupon' }}{% endblock %}
+{% block content %}
+<form method="post" class="panel form" novalidate>
+  {{ m.csrf() }}
+  <div class="grid-2">
+    {{ m.field("code", "Coupon code", f.code, errors=errors, required=true, maxlength="40", hint="Letters, numbers, dash. Customers type this at checkout.") }}
+    {{ m.field("description", "Description", f.description, errors=errors, maxlength="200") }}
+    {{ m.select("discount_type", "Type", [("percent", "Percent off"), ("flat", "Flat amount off (₹)")], f.discount_type, errors) }}
+    {{ m.field("discount_value", "Value", f.discount_value, "number", errors, required=true, inputmode="decimal", step="0.01") }}
+    {{ m.field("max_discount", "Maximum discount (₹, percent coupons)", f.max_discount, "number", errors, inputmode="decimal", step="0.01", hint="Optional cap") }}
+    {{ m.field("min_cart_value", "Minimum cart value (₹)", f.min_cart_value, "number", errors, inputmode="decimal", step="0.01") }}
+    {{ m.field("expires_at", "Expires (shop time)", f.expires_at, "datetime-local", errors, hint="Leave empty for no expiry") }}
+    {{ m.field("usage_limit", "Total uses allowed", f.usage_limit, "number", errors, inputmode="numeric", hint="Leave empty for unlimited") }}
+    {{ m.field("per_user_limit", "Uses per customer", f.per_user_limit, "number", errors, inputmode="numeric") }}
+    <div>{{ m.checkbox("is_active", "Active", f.is_active) }}</div>
+  </div>
+  <div class="formbar"><button class="btn" type="submit">Save coupon</button><a class="btn btn--ghost" href="{{ url_for('owner.coupons') }}">Cancel</a></div>
+</form>
+{% endblock %}

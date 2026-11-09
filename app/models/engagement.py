@@ -38,6 +38,18 @@ class ReviewVote(db.Model):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
 
+class StockAlert(db.Model):
+    """A customer asked to be told when an out-of-stock product is available again. notified_at is set once they were told."""
+    __tablename__ = "stock_alerts"
+    __table_args__ = (UniqueConstraint("user_id", "product_id", name="uq_stock_alerts_user_product"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ProductQuestion(TimestampMixin, SoftDeleteMixin, db.Model):
     __tablename__ = "product_questions"
 

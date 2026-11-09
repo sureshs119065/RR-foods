@@ -9,7 +9,7 @@ from app.prodcheck import config_problems
 
 
 def fake(**over):
-    cfg = {"SECRET_KEY": "k" * 48, "SQLALCHEMY_DATABASE_URI": "postgresql+psycopg://shop:Zq8!x@db/nk", "ONLINE_PAYMENT_MODE": "off",
+    cfg = {"SECRET_KEY": "k" * 48, "SQLALCHEMY_DATABASE_URI": "postgresql+psycopg://shop:Zq8!x@db/nk", "ADMIN_WHATSAPP_NUMBER": "919876543210",
            "SESSION_COOKIE_SECURE": True, "DEBUG": False, "RATELIMIT_STORAGE_URI": "redis://r/0", "SITE_URL": "https://shop.example.com",
            "TRUST_PROXY": True, "MAIL_MODE": "smtp", "MAIL_SERVER": "smtp.example.com", "UPLOAD_DIR": "/srv/uploads"}
     cfg.update(over)
@@ -23,7 +23,7 @@ def test_good_settings_have_nothing_to_fix_or_advise():
 @pytest.mark.parametrize("over", [
     {"SECRET_KEY": "dev-only-change-me"}, {"SECRET_KEY": "short"},
     {"SQLALCHEMY_DATABASE_URI": "postgresql+psycopg://nk_user:nk_password@localhost/nk"},
-    {"ONLINE_PAYMENT_MODE": "stub"}, {"SESSION_COOKIE_SECURE": False}, {"DEBUG": True},
+    {"SESSION_COOKIE_SECURE": False}, {"DEBUG": True},
 ])
 def test_each_dangerous_setting_is_fatal(over):
     fatal, _ = config_problems(fake(**over))
@@ -32,8 +32,8 @@ def test_each_dangerous_setting_is_fatal(over):
 
 def test_softer_problems_are_advice_only():
     fatal, advice = config_problems(fake(RATELIMIT_STORAGE_URI="memory://", SITE_URL="http://x", TRUST_PROXY=False, MAIL_MODE="off",
-                                         UPLOAD_DIR="uploads"))
-    assert fatal == [] and len(advice) == 5
+                                         UPLOAD_DIR="uploads", ADMIN_WHATSAPP_NUMBER=""))
+    assert fatal == [] and len(advice) == 6
 
 
 def test_production_start_is_refused_with_a_weak_key(monkeypatch):

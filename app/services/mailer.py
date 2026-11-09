@@ -13,7 +13,7 @@ from ..extensions import db
 from ..models import Notification, User
 from ..models.base import utcnow
 
-EMAIL_KINDS = {"order_status", "return_status", "password_reset"}
+EMAIL_KINDS = {"order_status", "return_status", "password_reset", "back_in_stock"}
 
 
 def enabled() -> bool:

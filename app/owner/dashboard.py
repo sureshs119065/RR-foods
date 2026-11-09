@@ -1,13 +1,13 @@
 from datetime import datetime, time, timedelta, timezone
 
-from flask import render_template
+from flask import jsonify, render_template, request, url_for
 from sqlalchemy import func, select
 
 from ..admin.helpers import shop_tz
 from ..extensions import db
 from ..models import Order, Product
 from ..models.base import utcnow
-from ..services.orders import REVENUE_STATUSES
+from ..services.analytics import build_sales_analytics
 from . import bp
 
 
@@ -15,13 +15,6 @@ def _start_of_today_utc() -> datetime:
     now_local = utcnow().astimezone(shop_tz())
     return datetime.combine(now_local.date(), time.min, tzinfo=shop_tz()).astimezone(timezone.utc)
 
-
-def revenue_between(start: datetime, end: datetime) -> tuple[int, object]:
-    """(number of orders, money) for orders the shop accepted, placed in [start, end)."""
-    row = db.session.execute(
-        select(func.count(Order.id), func.coalesce(func.sum(Order.total), 0))
-        .where(Order.status.in_(REVENUE_STATUSES), Order.created_at >= start, Order.created_at < end)).one()
-    return row[0], row[1]
 
 
 @bp.route("/")
@@ -41,10 +34,17 @@ def dashboard():
     low_total = count(select(func.count(Product.id)).where(*low_filter))
     low_items = db.session.scalars(select(Product).where(*low_filter).order_by(Product.stock_qty.asc(), Product.name).limit(8)).all()
 
-    revenue = {
-        "today": revenue_between(today, tomorrow),
-        "week": revenue_between(today - timedelta(days=6), tomorrow),   # today + the 6 days before it
-        "month": revenue_between(today - timedelta(days=29), tomorrow),  # today + the 29 days before it
-    }
+    sales_analytics = build_sales_analytics(
+        request.args.get("range"), request.args.get("start_date"), request.args.get("end_date"), shop_tz()
+    )
     return render_template("owner/dashboard.html", orders_today=orders_today, pending=pending, pending_total=pending_total,
-                           to_ship=to_ship, low_total=low_total, low_items=low_items, revenue=revenue, now_utc=utcnow())
+                           to_ship=to_ship, low_total=low_total, low_items=low_items,
+                           sales_analytics=sales_analytics, analytics_refresh_url=url_for("owner.analytics_data"), now_utc=utcnow())
+
+
+@bp.get("/analytics-data")
+def analytics_data():
+    """Fresh single-store metrics for the owner dashboard background refresh."""
+    return jsonify(build_sales_analytics(
+        request.args.get("range"), request.args.get("start_date"), request.args.get("end_date"), shop_tz()
+    ))
