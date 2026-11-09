@@ -1,5 +1,6 @@
-from flask import abort, current_app, flash, g, redirect, render_template, request, session, url_for
+from flask import abort, flash, g, redirect, render_template, request, session, url_for
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from ..auth.decorators import roles_required
 from ..extensions import db, limiter
@@ -36,57 +37,41 @@ def checkout_page():
         quotes[a.id] = {"ok": ok, "delivery": t.delivery, "total": t.total, "eta": zone.eta_days if ok else None}
     sel = quotes.get(chosen.id) if chosen else None
     totals = totals_for(view.lines, view.totals.discount, svc.zone_for(chosen.pincode) if chosen and sel and sel["ok"] else None)
-    return render_template("shop/checkout.html", view=view, addrs=addrs, chosen=chosen, quotes=quotes, totals=totals, methods=svc.payment_methods())
+    import secrets
+    checkout_token = session.get("checkout_token") or secrets.token_urlsafe(24)
+    session["checkout_token"] = checkout_token
+    return render_template("shop/checkout.html", view=view, addrs=addrs, chosen=chosen, quotes=quotes, totals=totals, methods=svc.payment_methods(), checkout_token=checkout_token)
 
 
 @bp.post("/checkout")
 @user_only
 @limiter.limit("20 per minute")
 def checkout_place():
+    submitted_token = request.form.get("checkout_token", "")
+    if not submitted_token or submitted_token != session.get("checkout_token"):
+        flash("This checkout has already been submitted or expired. Please review your order.", "info")
+        return redirect(url_for("shop.orders"))
     try:
         order = svc.place_order(g.user, int(request.form.get("address_id") or 0) if (request.form.get("address_id") or "").isdigit() else 0,
                                 request.form.get("method", ""), session.get("coupon"), request.form.get("notes"))
         db.session.commit()
+        session.pop("checkout_token", None)
     except svc.CheckoutError as e:
         db.session.rollback()
         flash(str(e), "error")
         return redirect(url_for("shop.checkout_page", address=request.form.get("address_id")))
     session.pop("coupon", None)
-    if order.payment_method == "online":
-        return redirect(url_for("shop.pay", order_number=order.order_number))
-    flash(f"Order {order.order_number} placed. We will confirm it shortly.", "success")
-    return redirect(url_for("shop.order_detail", order_number=order.order_number))
+    return redirect(url_for("shop.order_placed", order_number=order.order_number))
 
 
-# ---------------------------------------------------------------- online payment (stub)
-def _my_order(order_number: str) -> Order:
-    order = db.session.scalar(select(Order).where(Order.order_number == order_number, Order.user_id == g.user.id))
+# ---------------------------------------------------------------- order placed: send it to the owner on WhatsApp
+@bp.get("/order-placed/<order_number>")
+@user_only
+def order_placed(order_number):
+    """Shown right after checkout. The big button opens WhatsApp with the whole order already written."""
+    order = db.session.scalar(select(Order).where(Order.order_number == order_number, Order.user_id == g.user.id).options(selectinload(Order.items)))
     if order is None:
         abort(404)
-    return order
-
-
-@bp.get("/pay/<order_number>")
-@user_only
-def pay(order_number):
-    """Where the real gateway (Razorpay) checkout opens. Today this is a stub: see README, 'Plugging in Razorpay'."""
-    order = _my_order(order_number)
-    if order.payment_status == "paid":
-        return redirect(url_for("shop.order_detail", order_number=order.order_number))
-    return render_template("shop/pay.html", order=order, stub=current_app.config.get("ONLINE_PAYMENT_MODE") == "stub")
-
-
-@bp.post("/pay/<order_number>/simulate")
-@user_only
-def pay_simulate(order_number):
-    if current_app.config.get("ONLINE_PAYMENT_MODE") != "stub":
-        abort(404)  # never available in production
-    order = _my_order(order_number)
-    if order.payment_status == "pending" and order.status in ("placed", "confirmed", "packed"):
-        order.payment_status = "paid"
-        for p in order.payments:
-            if p.status == "pending":
-                p.status, p.raw = "paid", {"stub": True}
-        db.session.commit()
-        flash("Test payment recorded. (No money moved: this is the stub gateway.)", "success")
-    return redirect(url_for("shop.order_detail", order_number=order.order_number))
+    from ..services.whatsapp import owner_link, order_message
+    wa = owner_link(order)
+    return render_template("shop/order_placed.html", order=order, wa=wa, wa_text=order_message(order))

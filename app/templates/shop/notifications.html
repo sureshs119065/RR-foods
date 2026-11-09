@@ -9,7 +9,7 @@
   <ul class="notes">
     {% for n in page.items %}
     <li class="{{ '' if n.is_read else 'is-new' }}">
-      <a href="{{ url_for('shop.notification_go', nid=n.id) }}"><b>{{ n.title }}</b>{% if n.body %}<span>{{ n.body }}</span>{% endif %}<span class="muted small">{{ n.created_at|local_display }}</span></a>
+      <a href="{{ url_for('shop.notification_go', nid=n.id) }}"><b>{% if not n.is_read %}<span class="notes__new" aria-label="Unread"></span>{% endif %}{{ n.title }}</b>{% if n.body %}<span>{{ n.body }}</span>{% endif %}<span class="muted small">{{ n.created_at|local_display }}{% if n.link and '/account/orders/' in n.link %} · <span class="notes__go">{{ 'Rate your products' if 'delivered' in n.title else 'View order & track' }} &rarr;</span>{% endif %}</span></a>
     </li>
     {% else %}<li class="muted">You have no notifications yet.</li>{% endfor %}
   </ul>

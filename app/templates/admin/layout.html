@@ -11,7 +11,9 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-design.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/sales-analytics.css') }}">
   <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/sales-analytics.js') }}" defer></script>
 </head>
 <body>
 {% set here = request.endpoint %}
@@ -25,16 +27,13 @@
       <ul class="nav">
         {{ item('admin.dashboard', 'Dashboard', 'home', 'admin.dashboard') }}
         {{ item('admin.products', 'Products', 'box', 'admin.product') }}
-        {{ item('admin.orders', 'Orders', 'package', 'admin.orders') }}
+        <li><a href="{{ url_for('admin.offers') }}" {% if here and (here.startswith('admin.offer') or here.startswith('admin.combo') or here.startswith('admin.coupon') or here.startswith('admin.bundle')) %}aria-current="page"{% endif %}>{{ m.icon('tag') }}<span class="label">Offers</span></a></li>
         {{ item('admin.categories', 'Categories', 'grid', 'admin.categor') }}
-        {{ item('admin.offers', 'Offers', 'tag', 'admin.offer') }}
-        {{ item('admin.combos', 'Diwali Combos', 'package', 'admin.combo') }}
-        {{ item('admin.coupons', 'Coupons', 'ticket', 'admin.coupon') }}
-        {{ item('admin.bundles', 'Combo Offers', 'package', 'admin.bundle') }}
         {{ item('admin.reels', 'Reels', 'video', 'admin.reel') }}
         {{ item('admin.recipes', 'Recipes', 'book-open', 'admin.recipe') }}
         {{ item('admin.banners', 'Header banners', 'image', 'admin.banner') }}
         {{ item('admin.reviews', 'Reviews', 'log', 'admin.review') }}
+        <li><a href="{{ url_for('admin.inbox') }}" {% if here and here.startswith('admin.inbox') %}aria-current="page"{% endif %}>{{ m.icon('message-circle') }}<span class="label">Customer Inbox</span></a></li>
         {{ item('admin.users', 'Users', 'users', 'admin.user') }}
         {{ item('admin.audit', 'Audit log', 'log', 'admin.audit') }}
         <li class="nav__sep" role="separator"></li>

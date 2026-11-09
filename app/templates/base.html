@@ -22,7 +22,7 @@
         {% if current_user %}
           {% if current_user.role == 'admin' %}<a href="/admin/">Admin</a>
           {% elif current_user.role == 'owner' %}<a href="/owner/">Owner</a>
-          {% else %}<a href="/account">My account</a>{% endif %}
+          {% else %}<a href="/account">My account</a><a href="{{ url_for('shop.messages') }}">Inbox</a>{% endif %}
           <form method="post" action="{{ url_for('auth.logout') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="link-btn" type="submit">Sign out</button>

@@ -39,13 +39,18 @@ def unread_count() -> int:
     return db.session.scalar(select(func.count(Notification.id)).where(Notification.user_id == u.id, Notification.channel == "in_app", Notification.is_read.is_(False))) or 0
 
 
+def review_thanks():
+    """The thank-you popup shows once, right after a review was saved (never when the form is merely opened)."""
+    return session.pop("review_thanks", None)
+
+
 def compare_count() -> int:
     return len(session.get("cmp", []))
 
 
 @bp.record_once
 def _register_globals(state):
-    state.app.jinja_env.globals.update(in_wishlist=in_wishlist, unread_count=unread_count, compare_count=compare_count)
+    state.app.jinja_env.globals.update(in_wishlist=in_wishlist, unread_count=unread_count, compare_count=compare_count, review_thanks=review_thanks)
 
 
 def _shopper_or_response():
@@ -113,15 +118,10 @@ def compare_toggle():
 
 @bp.get("/compare")
 def compare():
-    ids = [i for i in session.get("cmp", []) if isinstance(i, int)]
-    rows = {p.id: p for p in db.session.scalars(select(Product).where(Product.id.in_(ids or [0]), LIVE).options(selectinload(Product.images), selectinload(Product.variants)))} if ids else {}
-    products = [rows[i] for i in ids if i in rows]
-    spec_keys = []
-    for p in products:
-        for k in (p.specifications or {}):
-            if k not in spec_keys:
-                spec_keys.append(k)
-    return render_template("shop/compare.html", products=products, spec_keys=spec_keys)
+    # Comparison has been retired from the storefront navigation and product UI.
+    session.pop("cmp", None)
+    return redirect(url_for("shop.listing"))
+
 
 
 # ---------------------------------------------------------------- reviews
@@ -136,16 +136,18 @@ def review_save(slug):
     p = get_product(slug)
     if p is None:
         abort(404)
-    item = rv.purchase_for(g.user.id, p.id)
+    back = safe_next(request.form.get("next"), _back(slug))  # the order page sends people back to itself
+    item_id = to_int(request.form.get("order_item_id"), "i", {}, min_=1, max_=2_000_000_000) if request.form.get("order_item_id") else None
+    item = rv.purchase_for(g.user.id, p.id, item_id)
     if item is None:
         flash("You can review a product after it has been delivered to you.", "error")
-        return redirect(_back(slug))
+        return redirect(back)
     errs: dict = {}
     rating = to_int(request.form.get("rating"), "rating", errs, min_=1, max_=5)
     title, body = clean(request.form.get("title"), 150), (request.form.get("body") or "").strip()[:2000]
     if errs:
         flash("Choose a star rating from 1 to 5.", "error")
-        return redirect(_back(slug))
+        return redirect(back)
     files = [f for f in request.files.getlist("photos") if f and f.filename][:MAX_PHOTOS]
     if len(request.files.getlist("photos")) > MAX_PHOTOS and any(f.filename for f in request.files.getlist("photos")[MAX_PHOTOS:]):
         flash(f"You can add up to {MAX_PHOTOS} photos. The extra ones were ignored.", "info")
@@ -155,14 +157,15 @@ def review_save(slug):
             photos.append(save_image(f, "reviews", max_side=1200, thumb_side=None)[0])
     except UploadError as e:
         flash(str(e), "error")
-        return redirect(_back(slug))
+        return redirect(back)
 
     review = db.session.scalar(select(Review).where(Review.user_id == g.user.id, Review.product_id == p.id))
     if review is None:
         review = Review(user_id=g.user.id, product_id=p.id)
         db.session.add(review)
     review.rating, review.title, review.body = rating, title or None, body or None
-    review.order_item_id, review.is_verified_purchase, review.status, review.is_deleted = item.id, True, "approved", False
+    needs_ok = rv.moderation_on()
+    review.order_item_id, review.is_verified_purchase, review.status, review.is_deleted = item.id, True, "pending" if needs_ok else "approved", False
     if photos:
         review.photos = photos
     elif review.photos is None:
@@ -170,8 +173,9 @@ def review_save(slug):
     db.session.flush()
     rv.refresh_rating(p.id)
     db.session.commit()
-    flash("Thank you! Your review is now live.", "success")
-    return redirect(_back(slug))
+    flash("Thank you! Your review will appear on the product page once the shop approves it." if needs_ok else "Thank you! Your review is now live.", "success")
+    session["review_thanks"] = {"product": p.name[:80], "pending": needs_ok}  # shows the thank-you popup once, on the next page
+    return redirect(back)
 
 
 @bp.post("/review/<int:review_id>/delete")
@@ -245,6 +249,17 @@ def notifications():
     q = select(Notification).where(Notification.user_id == g.user.id, Notification.channel == "in_app").order_by(Notification.id.desc())
     return render_template("shop/notifications.html", page=db.paginate(q, page=page_number(), per_page=20, error_out=False),
                            layout="owner/layout.html" if g.user.role == "owner" else "shop/layout.html")
+
+
+@bp.get("/notifications/unread.json")
+@inbox_roles
+def notifications_unread():
+    """Polled by the bell every 30 seconds: the unread count and the newest unread ones (only this person's own)."""
+    rows = db.session.scalars(select(Notification).where(Notification.user_id == g.user.id, Notification.channel == "in_app", Notification.is_read.is_(False))
+                              .order_by(Notification.id.desc()).limit(5)).all()
+    resp = jsonify(count=unread_count(), latest=[{"id": n.id, "title": n.title, "body": n.body, "url": url_for("shop.notification_go", nid=n.id)} for n in rows])
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @bp.get("/notifications/<int:nid>/go")

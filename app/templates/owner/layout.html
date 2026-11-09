@@ -12,10 +12,12 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/owner.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-design.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/sales-analytics.css') }}">
   <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/sales-analytics.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/owner.js') }}" defer></script>
 </head>
-<body>
+<body class="owner-panel">
 {% set here = request.endpoint %}
 {% macro item(endpoint, label, ic, prefix, count=0) %}
   <li><a href="{{ url_for(endpoint) }}" {% if here and here.startswith(prefix) %}aria-current="page"{% endif %}>{{ m.icon(ic) }}<span class="label">{{ label }}</span>{% if count %}<span class="nav__count" aria-label="{{ count }} waiting">{{ count if count < 100 else '99+' }}</span>{% endif %}</a></li>
@@ -30,6 +32,7 @@
         {{ item('owner.inventory', 'Inventory', 'box', 'owner.inventory') }}
         {{ item('owner.stock_history', 'Stock history', 'clock', 'owner.stock_history') }}
         {{ item('owner.questions', 'Questions', 'log', 'owner.question') }}
+        <li><a href="{{ url_for('owner.inbox') }}" {% if here and here.startswith('owner.inbox') %}aria-current="page"{% endif %}>{{ m.icon('message-circle') }}<span class="label">Customer Inbox</span></a></li>
         <li><a href="{{ url_for('shop.notifications') }}">{{ m.icon('clock') }}<span class="label">Notifications</span>{% set un = unread_count() %}{% if un %}<span class="nav__count" aria-label="{{ un }} unread">{{ un if un < 100 else '99+' }}</span>{% endif %}</a></li>
         <li class="nav__sep" role="separator"></li>
         {{ item('owner.password', 'Change password', 'key', 'owner.password') }}

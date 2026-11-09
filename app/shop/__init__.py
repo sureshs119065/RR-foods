@@ -42,4 +42,4 @@ def reply(ok: bool, message: str, fallback: str, code: int = 200, **extra):
     return redirect(safe_next(request.form.get("next"), fallback))
 
 
-from . import account, cart, catalog, checkout, engage, pwa, content  # noqa: E402,F401
+from . import account, cart, catalog, checkout, engage, pwa, content, messages  # noqa: E402,F401

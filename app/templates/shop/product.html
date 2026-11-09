@@ -38,9 +38,6 @@
       <div class="buy__tools">
         <form method="post" action="{{ url_for('shop.wishlist_toggle') }}" data-wish>{{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.path }}">
           <button class="btn btn--ghost btn--sm wishbtn {{ 'is-on' if in_wishlist(p.id) else '' }}" type="submit" aria-pressed="{{ 'true' if in_wishlist(p.id) else 'false' }}"><span aria-hidden="true">♥</span> <span data-wish-label>{{ 'Saved' if in_wishlist(p.id) else 'Wishlist' }}</span></button></form>
-        <form method="post" action="{{ url_for('shop.compare_toggle') }}" data-compare>{{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.path }}">
-          <button class="btn btn--ghost btn--sm" type="submit">Compare</button></form>
-        {% if compare_count() %}<a class="small" href="{{ url_for('shop.compare') }}">View compare ({{ compare_count() }})</a>{% endif %}
       </div>
       {% if p.brand %}<p class="muted buy__brand">by <a href="{{ url_for('shop.listing', brand=p.brand) }}">{{ p.brand }}</a></p>{% endif %}
       {% if p.review_count %}<p><a class="stars" href="#reviews">{{ '%.1f'|format(p.avg_rating) }} ★</a> <span class="muted">{{ p.review_count }} review{{ '' if p.review_count == 1 else 's' }}</span></p>{% endif %}
@@ -109,6 +106,22 @@
       </tbody></table>
     </div></div></div></div>
     {% endif %}
+    {% if p.description or p.video_id %}
+    <div class="acc" data-open>
+      <button class="acc__h" type="button" aria-expanded="true">Product description &amp; recipe</button>
+      <div class="acc__p"><div class="acc__i"><div class="acc__b">
+        {% if p.description %}<p>{{ p.description }}</p>{% endif %}
+        {% if p.video_id %}
+          <div class="product-recipe-video">
+            <h3>How to prepare {{ p.name }}</h3>
+            <div class="product-recipe-video__frame">
+              <iframe src="https://www.youtube-nocookie.com/embed/{{ p.video_id|e }}" title="Recipe video for {{ p.name|e }}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            </div>
+          </div>
+        {% endif %}
+      </div></div></div>
+    </div>
+    {% endif %}
     {% if p.ingredients %}<div class="acc"><button class="acc__h" type="button" aria-expanded="false">Ingredients</button><div class="acc__p"><div class="acc__i"><div class="acc__b"><p>{{ p.ingredients }}</p></div></div></div></div>{% endif %}
     {% if p.nutrition %}<div class="acc"><button class="acc__h" type="button" aria-expanded="false">Nutrition</button><div class="acc__p"><div class="acc__i"><div class="acc__b"><table class="specs"><tbody>{% for k, v in p.nutrition.items() %}<tr><th scope="row">{{ k }}</th><td>{{ v }}</td></tr>{% endfor %}</tbody></table></div></div></div></div>{% endif %}
     {% if p.how_to_use %}<div class="acc"><button class="acc__h" type="button" aria-expanded="false">How to use</button><div class="acc__p"><div class="acc__i"><div class="acc__b"><p>{{ p.how_to_use }}</p></div></div></div></div>{% endif %}
@@ -148,6 +161,7 @@
       </ul>
     {% else %}<p class="muted">No reviews yet.</p>{% endif %}
 
+    {% if my_review and my_review.status == 'pending' %}<p class="notice small">Your review is waiting for the shop's approval. It will appear here once approved.</p>{% endif %}
     {% if can_review %}
     <div class="acc" {% if not my_review %}data-open{% endif %}><button class="acc__h" type="button" aria-expanded="false">{{ 'Edit your review' if my_review else 'Write a review' }}</button>
       <div class="acc__p"><div class="acc__i"><div class="acc__b">

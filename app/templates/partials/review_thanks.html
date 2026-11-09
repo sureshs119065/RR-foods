@@ -1,0 +1,18 @@
+{# Thank-you popup. Rendered only on the page right after a review was saved (review_thanks() pops a one-time session flag). #}
+{% set rt = review_thanks() if current_user and current_user.role == 'user' else none %}
+{% if rt %}
+<div class="rt" id="review-thanks" role="dialog" aria-modal="true" aria-labelledby="rt-title" aria-describedby="rt-text" data-review-thanks>
+  <div class="rt__backdrop" data-rt-close></div>
+  <div class="rt__card" tabindex="-1">
+    <div class="rt__fx" aria-hidden="true"></div>
+    <button class="rt__x" type="button" data-rt-close aria-label="Close">&times;</button>
+    <div class="rt__heart" aria-hidden="true">&#10084;&#65039;</div>
+    <h2 class="rt__title" id="rt-title">Thank You for Your Love! <span aria-hidden="true">&#10084;&#65039;</span></h2>
+    <p class="rt__lead">Your feedback means the world to us!</p>
+    <p class="rt__text" id="rt-text">We&rsquo;re happy to be part of your journey. Your review helps us serve you better and helps other customers shop with confidence.</p>
+    {% if rt.pending %}<p class="rt__note">Your review of {{ rt.product }} will appear on the product page once the shop approves it.</p>{% endif %}
+    <p class="rt__sign">Keep Smiling, Keep Shopping! <span aria-hidden="true">&#10024;</span></p>
+    <button class="btn rt__btn" type="button" data-rt-close>Close</button>
+  </div>
+</div>
+{% endif %}

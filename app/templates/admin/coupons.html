@@ -1,7 +1,9 @@
 {% extends "admin/layout.html" %}
+{% import "admin/_macros.html" as m %}
 {% block title %}Coupons{% endblock %}
 {% block heading %}Coupons{% endblock %}
 {% block content %}
+{% include "admin/_offers_nav.html" %}
 <div class="pagehead"><h2>Coupons</h2><a class="btn" href="{{ url_for('admin.coupon_new') }}">Add coupon</a></div>
 <div class="table-wrap"><table class="table">
   <thead><tr><th>Code</th><th>Discount</th><th>Min cart</th><th>Used</th><th>Expires</th><th>Status</th><th>Actions</th></tr></thead>

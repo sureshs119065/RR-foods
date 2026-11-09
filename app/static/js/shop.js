@@ -238,4 +238,107 @@
       e.preventDefault(); send(f, function () {});
     }
   });
+
+  /* ---------- copy a text box (order message) ---------- */
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("[data-copy]") : null;
+    if (!b) return;
+    var src = document.querySelector(b.getAttribute("data-copy"));
+    if (!src) return;
+    var done = function () { say("Message copied. Paste it in WhatsApp."); };
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(src.value).then(done, function () { src.select(); }); }
+    else { src.select(); try { document.execCommand("copy"); done(); } catch (x) { /* the text stays selected for a manual copy */ } }
+  });
+})();
+
+/* Live order updates: the bell count, the tracking page, and the review thank-you popup. */
+(function () {
+  "use strict";
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var POLL = 30000;
+
+  function getJSON(url) {
+    return fetch(url, { credentials: "same-origin", headers: { Accept: "application/json" }, cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+  }
+  function toast(text) {
+    var t = $(".toast") || $("#toast");
+    if (!t) return;
+    t.textContent = text; t.hidden = false;
+    requestAnimationFrame(function () { t.classList.add("toast--show"); });
+    setTimeout(function () { t.classList.remove("toast--show"); }, 4500);
+  }
+
+  // ---- bell: refresh the unread count every 30 s, and when the tab becomes visible again
+  var badges = Array.prototype.slice.call(document.querySelectorAll("[data-notif-count]"));
+  if (badges.length) {
+    var last = parseInt(badges[0].textContent, 10) || 0, busy = false;
+    var tick = function () {
+      if (busy || document.hidden) return;
+      busy = true;
+      getJSON("/notifications/unread.json").then(function (d) {
+        badges.forEach(function (b) {
+          b.textContent = d.count > 99 ? "99+" : d.count; b.hidden = !d.count;
+          if (d.count > last) { b.classList.remove("dot-n--pop"); void b.offsetWidth; b.classList.add("dot-n--pop"); }
+        });
+        if (d.count > last && d.latest && d.latest[0]) toast(d.latest[0].title);
+        last = d.count;
+      }).catch(function () { /* offline or signed out: try again next time */ }).then(function () { busy = false; });
+    };
+    setInterval(tick, POLL);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) tick(); });
+  }
+
+  // ---- tracking page: when the shop moves the order along, show it without a manual refresh
+  var trk = $("[data-track]");
+  if (trk) {
+    var shown = trk.getAttribute("data-status"), url = trk.getAttribute("data-url"), live = $("[data-track-live]", trk), wait = false;
+    var check = function () {
+      if (wait || document.hidden) return;
+      wait = true;
+      getJSON(url).then(function (d) {
+        if (d.status !== shown) {
+          if (live) live.textContent = "Updated: " + d.label;
+          trk.classList.add("trk--flash");
+          setTimeout(function () { window.location.reload(); }, reduce ? 200 : 900);
+        }
+      }).catch(function () { if (live) live.textContent = "Could not check for updates. Retrying…"; }).then(function () { wait = false; });
+    };
+    setInterval(check, 20000);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) check(); });
+  }
+
+  // ---- thank-you popup (only exists on the page right after a review was saved)
+  var pop = $("[data-review-thanks]");
+  if (pop) {
+    var card = $(".rt__card", pop), fx = $(".rt__fx", pop), opener = document.activeElement, closed = false;
+    if (fx && !reduce) {
+      var hearts = ["❤️", "💚", "✨", "💖", "⭐"], colors = ["#f7b32b", "#e63e6d", "#2fbf71", "#4da3ff", "#b36bff"], html = "";
+      for (var i = 0; i < 16; i++) {
+        html += '<span class="rt__p" style="left:' + (Math.random() * 94 + 2).toFixed(1) + '%;font-size:' + (0.9 + Math.random() * 1.1).toFixed(2) + 'rem;--d:' + (3 + Math.random() * 2.5).toFixed(1) + 's;--delay:' + (Math.random() * 3).toFixed(1) + 's;--dx:' + ((Math.random() - 0.5) * 5).toFixed(1) + 'rem">' + hearts[i % hearts.length] + "</span>";
+      }
+      for (var j = 0; j < 22; j++) {
+        html += '<span class="rt__c" style="left:' + (Math.random() * 98).toFixed(1) + '%;background:' + colors[j % colors.length] + ';--d:' + (2.6 + Math.random() * 2).toFixed(1) + 's;--delay:' + (Math.random() * 2.5).toFixed(1) + 's"></span>';
+      }
+      fx.innerHTML = html;
+    }
+    document.documentElement.classList.add("nolock");
+    if (card) card.focus();
+    var close = function () {
+      if (closed) return; closed = true;
+      pop.classList.add("is-closing");
+      document.documentElement.classList.remove("nolock");
+      setTimeout(function () { pop.remove(); if (opener && opener.focus) try { opener.focus(); } catch (e) { /* element gone */ } }, reduce ? 0 : 320);
+    };
+    pop.addEventListener("click", function (e) { if (e.target.closest("[data-rt-close]")) close(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !closed) close(); });
+    pop.addEventListener("keydown", function (e) {  // keep Tab inside the dialog
+      if (e.key !== "Tab") return;
+      var f = pop.querySelectorAll("button"); if (!f.length) return;
+      var first = f[0], lastEl = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); lastEl.focus(); }
+      else if (!e.shiftKey && document.activeElement === lastEl) { e.preventDefault(); first.focus(); }
+    });
+  }
 })();

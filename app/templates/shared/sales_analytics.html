@@ -1,0 +1,71 @@
+<section class="sales-analytics panel" aria-labelledby="sales-analytics-title" data-refresh-url="{{ analytics_refresh_url }}">
+  <div class="sa-heading">
+    <div>
+      <p class="sa-eyebrow">PERFORMANCE OVERVIEW</p>
+      <h2 id="sales-analytics-title">Sales analytics</h2>
+      <p class="sa-subtitle" id="sa-range-label">{{ sales_analytics.range_label }} · Confirmed and fulfilled orders</p>
+    </div>
+    <form class="sa-filter" method="get" action="{{ request.path }}" id="sales-range-filter">
+      <label for="sa-range">Date range</label>
+      <select id="sa-range" name="range">
+        <option value="month" {% if sales_analytics.range_key == 'month' %}selected{% endif %}>This Month</option>
+        <option value="year" {% if sales_analytics.range_key == 'year' %}selected{% endif %}>This Year</option>
+        <option value="custom" {% if sales_analytics.range_key == 'custom' %}selected{% endif %}>Custom Range</option>
+      </select>
+      <div class="sa-custom-dates" id="sa-custom-dates" {% if sales_analytics.range_key != 'custom' %}hidden{% endif %}>
+        <label><span>From</span><input type="date" name="start_date" value="{{ sales_analytics.start_date if sales_analytics.range_key == 'custom' else '' }}"></label>
+        <label><span>To</span><input type="date" name="end_date" value="{{ sales_analytics.end_date if sales_analytics.range_key == 'custom' else '' }}"></label>
+      </div>
+      <button class="btn" type="submit">Apply</button>
+    </form>
+  </div>
+
+  <div class="sa-metrics">
+    <article class="sa-metric sa-metric--primary">
+      <span class="sa-metric-label" id="sa-sales-label">{{ sales_analytics.sales_label }}</span>
+      <strong id="sa-total-sales">{{ '₹{:,.2f}'.format(sales_analytics.total_sales) }}</strong>
+      <small>Final order totals in selected period</small>
+    </article>
+    <article class="sa-metric">
+      <span class="sa-metric-label">Total Orders</span>
+      <strong id="sa-total-orders">{{ '{:,}'.format(sales_analytics.total_orders) }}</strong>
+      <small>All order statuses in selected period</small>
+    </article>
+    <article class="sa-metric">
+      <span class="sa-metric-label">Average Order Value</span>
+      <strong id="sa-average-order-value">{{ '₹{:,.2f}'.format(sales_analytics.average_order_value) }}</strong>
+      <small>From <span id="sa-accepted-orders">{{ sales_analytics.accepted_orders }}</span> accepted orders</small>
+    </article>
+    <article class="sa-metric">
+      <span class="sa-metric-label">Products Sold</span>
+      <strong id="sa-products-sold">{{ '{:,}'.format(sales_analytics.products_sold) }}</strong>
+      <small>Units in accepted orders</small>
+    </article>
+  </div>
+
+  <div class="sa-chart-grid">
+    <article class="sa-chart-card sa-chart-card--wide">
+      <div class="sa-chart-head"><div><h3>Monthly sales</h3><p>Sales by month in the selected period</p></div><span class="sa-chart-mark">₹</span></div>
+      <div class="sa-chart" id="sa-monthly-chart" role="img" aria-label="Monthly sales bar chart"></div>
+    </article>
+    <article class="sa-chart-card sa-chart-card--wide">
+      <div class="sa-chart-head"><div><h3 id="sa-daily-title">{{ sales_analytics.daily_title }}</h3><p>Sales trend in the selected period</p></div><span class="sa-chart-mark"><span aria-hidden="true">↗</span></span></div>
+      <div class="sa-chart" id="sa-daily-chart" role="img" aria-label="Daily or weekly sales line chart"></div>
+    </article>
+    <article class="sa-chart-card">
+      <div class="sa-chart-head"><div><h3>Top-selling products</h3><p>Ranked by product sales value</p></div></div>
+      <div class="sa-chart sa-chart--products" id="sa-products-chart" role="img" aria-label="Top-selling products bar chart"></div>
+    </article>
+    <article class="sa-chart-card">
+      <div class="sa-chart-head"><div><h3>Sales by category</h3><p>Share of product sales value</p></div></div>
+      <div class="sa-donut-wrap">
+        <div class="sa-chart sa-chart--donut" id="sa-category-chart" role="img" aria-label="Sales by product category donut chart"></div>
+        <div class="sa-legend" id="sa-category-legend" aria-label="Category chart legend"></div>
+      </div>
+    </article>
+  </div>
+  <p class="sa-footnote">Sales include orders in Confirmed, Packed, Shipped, Out for delivery and Delivered status. Placed, rejected, cancelled, returned and refunded orders are excluded. Product/category charts use saved order-item line totals.</p>
+  <script>
+    window.rrSalesAnalyticsData = {{ sales_analytics|tojson }};
+  </script>
+</section>

@@ -10,15 +10,7 @@
   <a class="stat {% if low_total %}stat--alert{% endif %}" href="{{ url_for('owner.inventory', stock='attention') }}"><b>{{ low_total }}</b>Low or out of stock</a>
 </div>
 
-<section class="panel" aria-labelledby="rev-h">
-  <h2 id="rev-h">Revenue</h2>
-  <div class="stats stats--flush">
-    {% for key, label in [('today', 'Today'), ('week', 'Last 7 days'), ('month', 'Last 30 days')] %}
-    <div class="stat stat--static"><b>{{ o.inr(revenue[key][1]) }}</b>{{ label }} <span class="hint">· {{ revenue[key][0] }} order{{ '' if revenue[key][0] == 1 else 's' }}</span></div>
-    {% endfor %}
-  </div>
-  <p class="hint">Counts orders you confirmed, packed, shipped or delivered. New, rejected and cancelled orders are not included.</p>
-</section>
+{% include "shared/sales_analytics.html" %}
 
 <div class="grid-2">
   <section class="panel" aria-labelledby="pend-h">

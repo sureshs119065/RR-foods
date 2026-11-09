@@ -2,12 +2,17 @@ from dotenv import load_dotenv
 from flask import Flask, g, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from .config import Config
+# Load this project's own .env before Config class attributes are evaluated.
+from pathlib import Path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(dotenv_path=PROJECT_ROOT / ".env", override=False)
+
+from .config import Config, BASE_DIR
 from .extensions import csrf, db, limiter, migrate
 
 
 def create_app(config_object=None):
-    load_dotenv()
+    load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
     app = Flask(__name__)
     app.config.from_object(config_object or Config)
     if app.config.get("TRUST_PROXY"):
@@ -58,6 +63,10 @@ def create_app(config_object=None):
     from .services.storefront import active_variants, available_qty
     app.jinja_env.globals["available_qty"] = available_qty
     app.jinja_env.globals["active_variants"] = active_variants  # usable inside imported macros
+    from .services import whatsapp as wa
+    app.jinja_env.globals["wa_owner_link"] = wa.owner_link          # customer -> owner: order already written
+    app.jinja_env.globals["wa_order_text"] = wa.order_message
+    app.jinja_env.globals["wa_customer_link"] = wa.customer_link    # owner -> customer: status message already written
 
     @app.context_processor
     def _inject():

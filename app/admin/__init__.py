@@ -12,4 +12,4 @@ def _guard():
 
 
 # Importing the modules registers their routes on `bp`.
-from . import account, dashboard, categories, products, bulk, offers, coupons, banners, users, audit, reviews, content, combos  # noqa: E402,F401
+from . import account, dashboard, categories, products, bulk, banners, users, audit, reviews, content, offers, coupons, combos, bundles, inbox  # noqa: E402,F401

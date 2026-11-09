@@ -45,7 +45,6 @@
   <ul class="facts">
     <li>{{ s.icon('package') }}<span><b>Track every order</b><small>From placed to delivered</small></span></li>
     <li>{{ s.icon('heart') }}<span><b>Save your favourites</b><small>Wishlist on every product</small></span></li>
-    <li>{{ s.icon('scale') }}<span><b>Compare side by side</b><small>Prices and details together</small></span></li>
     <li>{{ s.icon('tag') }}<span><b>Offers and coupons</b><small>Applied at checkout</small></span></li>
   </ul>
 </section>
@@ -172,7 +171,38 @@
   </div>
 </section>
 
+
+
 <section class="cta" aria-labelledby="cta-h">
   <div class="cta__in"><h2 id="cta-h">Ready to order?</h2><p>Browse everything we sell and add your favourites to the cart.</p><a class="btn btn--accent btn--lg" href="{{ url_for('shop.listing') }}">Shop all products</a></div>
+</section>
+
+<section class="home-contact-section" id="customer-message" aria-labelledby="customer-message-title">
+  <div class="container narrow2">
+    <div class="pagehead">
+      <p class="eyebrow">Customer support</p>
+      <h2 id="customer-message-title" class="pg-h">Message RR FOODS</h2>
+      <p class="muted">Your message is shared with both our Admin team and Shop Owner so the right person can help.</p>
+    </div>
+    {% if current_user and current_user.role == 'user' %}
+    <form method="post" action="{{ url_for('shop.message_new') }}" class="inbox-form card home-contact-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Subject
+        <input name="subject" maxlength="160" minlength="3" required placeholder="e.g. Question about my order">
+      </label>
+      <label>Your message
+        <textarea name="body" rows="6" maxlength="4000" minlength="5" required placeholder="Tell us how we can help..."></textarea>
+      </label>
+      <div class="inbox-actions">
+        <button class="btn btn--accent" type="submit">Send message</button>
+      </div>
+    </form>
+    {% else %}
+    <div class="card home-contact-login">
+      <p>Please sign in to send a message to our Admin and Shop Owner teams.</p>
+      <a class="btn btn--accent" href="{{ url_for('auth.login', next=url_for('shop.home') ~ '#customer-message') }}">Sign in to message us</a>
+    </div>
+    {% endif %}
+  </div>
 </section>
 {% endblock %}

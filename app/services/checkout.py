@@ -23,11 +23,11 @@ class CheckoutError(Exception):
     """Safe to show to the customer. Nothing was saved."""
 
 
+WHATSAPP_METHOD = "upi_manual"  # stored on the order; payment is settled with the owner on WhatsApp, then marked paid in the owner panel
+
+
 def payment_methods() -> list[tuple[str, str, str]]:
-    out = [("cod", "Cash on delivery", "Pay when your order arrives.")]
-    if current_app.config.get("ONLINE_PAYMENT_MODE", "off") in ("stub", "razorpay"):
-        out.append(("online", "Pay online (UPI, card, netbanking)", "You will be taken to a secure payment page."))
-    return out
+    return [(WHATSAPP_METHOD, "Order and pay on WhatsApp", "No payment now. Send your order on WhatsApp and the shop will confirm it and share payment details.")]
 
 
 def zone_for(pincode: str) -> DeliveryZone | None:
@@ -104,7 +104,7 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
         order.items.append(OrderItem(product_id=l.product.id, variant_id=l.variant.id if l.variant else None,
                                      name=l.product.name + (f" ({l.variant.option_value})" if l.variant else ""), sku=l.sku, pack_size=l.product.pack_size,
                                      unit_price=l.unit_price, mrp=l.mrp, quantity=l.qty, line_total=l.total))
-    order.payments.append(Payment(provider="cod" if method == "cod" else "razorpay", amount=t.total, status="pending"))
+    order.payments.append(Payment(provider="upi_manual", amount=t.total, status="pending"))
     db.session.add(order)
     db.session.flush()
     db.session.add(OrderStatusHistory(order_id=order.id, from_status=None, to_status="placed", changed_by=user.id, note=None))
@@ -117,6 +117,6 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
     for it in items:
         db.session.delete(it)
 
-    notify(user.id, "order_status", f"Order {order.order_number} placed", "Thanks! The shop will confirm it shortly.", link=f"/account/orders/{order.order_number}")
+    notify(user.id, "order_status", f"Order {order.order_number} placed", "Thanks! Send the order on WhatsApp so the shop can confirm it and share payment details.", link=f"/account/orders/{order.order_number}")
     audit("order.place", entity_type="order", entity_id=order.id, actor_id=user.id, after={"order_number": order.order_number, "total": str(order.total), "method": method})
     return order

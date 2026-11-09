@@ -8,7 +8,7 @@ from sqlalchemy.orm import joinedload
 
 from ..extensions import db, limiter
 from flask import g
-from ..models import Category, Coupon, DeliveryZone, Product, ProductQuestion, Review, ReviewVote
+from ..models import Category, Coupon, DeliveryZone, Product, ProductQuestion, Review, ReviewVote, User
 from ..services import reviews as review_svc
 from ..models.base import utcnow
 from ..services import header_banners, storefront
@@ -27,9 +27,27 @@ def home():
     stmt = select(Reel).where(Reel.is_active.is_(True)).order_by(Reel.sort_order, Reel.id)
     if selected: stmt = stmt.where(Reel.id.in_(selected))
     reels = db.session.scalars(stmt.limit(max(1, min(20, int(cfg.get("max_count", 8)))))).all()
+    # Only approved, non-deleted reviews and answered product questions are
+    # featured publicly. Moderation remains in Admin > Reviews; answers remain
+    # managed by the Shop Owner > Questions workflow.
+    featured_reviews = db.session.execute(
+        select(Review, Product.name, User.name)
+        .join(Product, Product.id == Review.product_id)
+        .join(User, User.id == Review.user_id)
+        .where(Review.status == "approved", Review.is_deleted.is_(False), Product.is_deleted.is_(False))
+        .order_by(Review.created_at.desc()).limit(6)
+    ).all()
+    featured_questions = db.session.execute(
+        select(ProductQuestion, Product.name, User.name)
+        .join(Product, Product.id == ProductQuestion.product_id)
+        .join(User, User.id == ProductQuestion.user_id)
+        .where(ProductQuestion.answer.is_not(None), ProductQuestion.is_deleted.is_(False), Product.is_deleted.is_(False))
+        .order_by(ProductQuestion.answered_at.desc(), ProductQuestion.created_at.desc()).limit(4)
+    ).all()
     return render_template("shop/home.html", rows=storefront.home_rows(), carousel=header_banners.cached_payload(),
                            recent=storefront.recently_viewed(), now=utcnow(), home_reels=reels,
-                           reels_enabled=cfg.get("enabled", True))
+                           reels_enabled=cfg.get("enabled", True), featured_reviews=featured_reviews,
+                           featured_questions=featured_questions)
 
 
 @bp.get("/banner-colors.css")
@@ -169,7 +187,7 @@ def offers():
     products = {p.id: p for p in db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all()}
     originals = {b.id: sum((Decimal(str(products[int(line.get("product_id", 0))].final_price)) * int(line.get("quantity", 1))
         for line in (b.product_quantities or []) if int(line.get("product_id", 0)) in products), Decimal("0")) for b in bundles}
-    combos = db.session.scalars(select(Combo).where(Combo.is_active.is_(True), Combo.festival_tag == "diwali").order_by(Combo.created_at.desc())).all()
+    combos = db.session.scalars(select(Combo).where(Combo.is_active.is_(True)).order_by(Combo.created_at.desc())).all()
     combo_products = {p.id: p for p in db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all()}
     end_setting = db.session.get(SiteSetting, "diwali_end_at")
     diwali_end_at = end_setting.value if end_setting and isinstance(end_setting.value, str) else "2026-11-12T23:59:00+05:30"

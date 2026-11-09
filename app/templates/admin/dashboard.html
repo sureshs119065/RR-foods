@@ -9,9 +9,9 @@
   <a class="stat" href="{{ url_for('admin.products', status='archived') }}"><b>{{ stats.archived }}</b>Archived</a>
   <a class="stat" href="{{ url_for('admin.categories') }}"><b>{{ stats.categories }}</b>Categories</a>
   <a class="stat" href="{{ url_for('admin.banners') }}"><b>{{ stats.banners }}</b>Active header banners</a>
-  <a class="stat" href="{{ url_for('admin.coupons') }}"><b>{{ stats.coupons }}</b>Active coupons</a>
   <a class="stat" href="{{ url_for('admin.users') }}"><b>{{ stats.users }}</b>Customers</a>
 </div>
+{% include "shared/sales_analytics.html" %}
 <div class="panel">
   <h2>Quick actions</h2>
   <div class="row">
