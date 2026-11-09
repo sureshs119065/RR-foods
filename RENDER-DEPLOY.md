@@ -24,3 +24,6 @@
 - Load the 32 products once (Render Shell, or temporarily in the start command): `flask import-rr-foods --yes`. Imported stock is 0: set real stock in Admin before selling.
 - Images you upload in Admin go to `UPLOAD_DIR` (`/var/data/uploads` with a paid Disk mounted at `/var/data`). Without a Disk they are lost on restart.
 - Products without a bundled image (13) get theirs via Admin > Products > edit > Images.
+
+## Mobile layout fix
+`app/static/css/rr-foods-mobile-fix.css` (linked in `app/templates/shop/layout.html`) keeps the phone header on one row and aligns breadcrumbs.

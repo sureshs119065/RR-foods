@@ -1,0 +1,39 @@
+/* RR FOODS - mobile storefront alignment fix.
+   1) Header: keep menu, logo, search and cart on ONE row (no empty white band under the logo).
+   2) Breadcrumbs: vertically align every crumb. */
+@media (max-width: 900px) {
+  html[data-shop] .sh__row {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    min-height: 56px !important;
+    padding-block: 0 !important;
+    row-gap: 0 !important;
+  }
+  html[data-shop] .sh__br,
+  html[data-shop] .sh__search { display: none !important; }
+  html[data-shop] .sh .brand { margin-right: auto !important; min-width: 0; overflow: hidden; }
+  html[data-shop] .sh__actions {
+    order: 0 !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    margin: 0 0 0 auto !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: .25rem !important;
+  }
+  html[data-shop] .sh__searchbtn { display: inline-flex !important; }
+  html[data-shop] .sh__cart {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    padding: 0 !important;
+    border-radius: 12px !important;
+    justify-content: center !important;
+  }
+  html[data-shop] .sh__cart .sh__cart-t { display: none !important; }
+}
+
+/* Breadcrumbs: link and plain-text crumbs share one centre line */
+html[data-shop] .crumbs ol { align-items: center !important; row-gap: 0; }
+html[data-shop] .crumbs li { display: inline-flex; align-items: center; min-height: 2.75rem; }
+html[data-shop] .crumbs li + li::before { line-height: 1; }
