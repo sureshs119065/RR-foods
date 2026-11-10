@@ -22,8 +22,3 @@ maintain. The product-page pincode check (/api/pincode/<pin>), checkout and plac
   deliverable by default; switch them off with --disable if you do not deliver there.
 
 Tests: `tests/test_bundles_and_delivery.py`.
-
-## 3. Cloudinary storage
-`app/uploads.py` uploads to Cloudinary when CLOUDINARY_URL is set (images, thumbnails, videos; delete and copy work too).
-`migrate_to_cloudinary.py` moves existing /uploads/ files and rewrites the database addresses (dry run by default).
-The Content-Security-Policy now allows videos from res.cloudinary.com. New dependency: cloudinary. Tests: tests/test_cloudinary_storage.py.
