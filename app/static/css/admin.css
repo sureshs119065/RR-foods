@@ -173,3 +173,6 @@
 .admin-status-history li { padding:.5rem; border-bottom:1px solid var(--c-line); }
 .admin-status-history span { display:block; color:var(--c-muted); font-size:.85rem; }
 \n.admin-status-stepper li.is-complete b{color:#1d7544}.admin-status-stepper li:not(.is-complete){opacity:.55}\n
+/* bundle product rows: product | quantity | remove */
+@media (min-width: 768px) { .bundle-line { grid-template-columns: 1fr 9rem auto; align-items: end; } }
+.bundle-line .bundle-remove { align-self: end; }

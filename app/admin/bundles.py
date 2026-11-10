@@ -41,7 +41,7 @@ def bundle_form(item_id=None):
             if item.bundle_price < 0: raise ValueError("Bundle price cannot be negative.")
             items = []
             seen_products = set()
-            for pid, qty in zip(request.form.getlist("product_id"), request.form.getlist("quantity")):
+            for pid, qty in list(zip(request.form.getlist("product_id"), request.form.getlist("quantity")))[:30]:
                 if pid.isdigit() and qty.isdigit() and int(qty) > 0 and db.session.get(Product, int(pid)):
                     if int(pid) in seen_products: raise ValueError("Choose each product only once in a bundle.")
                     seen_products.add(int(pid))

@@ -30,9 +30,15 @@
 <label class="field">Valid from <input type="datetime-local" name="starts_at" value="{{ item.starts_at.strftime('%Y-%m-%dT%H:%M') if item.starts_at else '' }}"></label>
 <label class="field">Valid until <input type="datetime-local" name="ends_at" value="{{ item.ends_at.strftime('%Y-%m-%dT%H:%M') if item.ends_at else '' }}"></label>
 <h3>Products and quantities</h3>
-{% for i in range(5) %}{% set line = (item.product_quantities or [])[i] if i < (item.product_quantities or [])|length else {} %}
-<div class="grid-2"><label class="field">Product <select name="product_id"><option value="">Choose product</option>{% for p in products %}<option value="{{ p.id }}" {% if line.get('product_id') == p.id %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></label><label class="field">Quantity <input type="number" name="quantity" min="1" max="50" value="{{ line.get('quantity', 1) }}"></label></div>
+{% set bl = item.product_quantities or [] %}
+<div id="bundle-lines" data-bundle-lines>
+{% for i in range([bl|length, 5]|max) %}{% set line = bl[i] if i < bl|length else {} %}
+<div class="grid-2 bundle-line"><label class="field">Product <select name="product_id"><option value="">Choose product</option>{% for p in products %}<option value="{{ p.id }}" {% if line.get('product_id') == p.id %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></label><label class="field">Quantity <input type="number" name="quantity" min="1" max="50" value="{{ line.get('quantity', 1) }}"></label><button type="button" class="btn btn--ghost btn--sm bundle-remove" data-remove-line aria-label="Remove this product">Remove</button></div>
 {% endfor %}
+</div>
+<template id="bundle-line-tpl"><div class="grid-2 bundle-line"><label class="field">Product <select name="product_id"><option value="">Choose product</option>{% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></label><label class="field">Quantity <input type="number" name="quantity" min="1" max="50" value="1"></label><button type="button" class="btn btn--ghost btn--sm bundle-remove" data-remove-line aria-label="Remove this product">Remove</button></div></template>
+<p><button type="button" class="btn btn--ghost" id="add-bundle-line">+ Add more products</button> <span class="hint" id="bundle-count"></span></p>
+<script src="{{ url_for('static', filename='js/bundle-lines.js') }}" defer></script>
 <label class="check"><input type="checkbox" name="is_active" value="1" {% if item.is_active or not item.id %}checked{% endif %}> Active</label>
 {% endif %}
 <div class="formbar"><a class="btn btn--ghost" href="{{ url_for('admin.' + ('reels' if kind == 'reels' else 'recipes' if kind == 'recipes' else 'bundles')) }}">Cancel</a><button class="btn" type="submit">Save {{ title }}</button></div>

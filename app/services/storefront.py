@@ -165,17 +165,35 @@ def listing(f: Filters, bestseller_only: bool = False):
     return page, cat, brands
 
 
+def _popular() -> dict:
+    """Shown when the search box is tapped and empty (like the big shopping sites): what people buy most, plus categories."""
+    prods = db.session.scalars(select(Product).where(LIVE).order_by(Product.sales_count.desc(), Product.name).limit(6)).all()
+    cats = db.session.scalars(select(Category).where(Category.is_deleted.is_(False), Category.is_active.is_(True))
+                              .order_by(Category.sort_order, Category.name).limit(4)).all()
+    return {"popular": True, "terms": [p.name for p in prods], "products": [], "bundles": [],
+            "categories": [{"name": c.name, "url": f"/category/{c.slug}"} for c in cats]}
+
+
 def suggest(q: str) -> dict:
+    from datetime import datetime, timezone
+    from ..models import Bundle
     q = " ".join(q.split())[:60]
     if len(q) < 2:
-        return {"products": [], "categories": []}
+        return _popular()
     f = Filters(q=q)
     score = func.greatest(func.similarity(Product.name, q), case((func.lower(Product.name).startswith(q.lower(), autoescape=True), 1.0), else_=0.0))
     prods = db.session.scalars(select(Product).where(*conditions(f, [])).options(selectinload(Product.images))
                                .order_by(score.desc(), Product.sales_count.desc()).limit(6)).all()
     cats = db.session.scalars(select(Category).where(Category.is_deleted.is_(False), Category.is_active.is_(True),
                                                       func.lower(Category.name).contains(q.lower(), autoescape=True)).order_by(Category.name).limit(3)).all()
+    now = datetime.now(timezone.utc)
+    bundles = db.session.scalars(select(Bundle).where(
+        Bundle.is_active.is_(True), func.lower(Bundle.name).contains(q.lower(), autoescape=True),
+        (Bundle.starts_at.is_(None)) | (Bundle.starts_at <= now), (Bundle.ends_at.is_(None)) | (Bundle.ends_at > now)).limit(2)).all()
     return {
+        "popular": False,
+        "terms": [p.name for p in prods[:5]],
+        "bundles": [{"name": b.name, "url": "/bundles", "price": f"{float(b.bundle_price):,.0f}"} for b in bundles],
         "products": [{"name": p.name, "url": f"/product/{p.slug}", "price": f"{p.final_price:,.2f}",
                       "image": (p.primary_image.thumb_url or p.primary_image.url) if p.primary_image else None} for p in prods],
         "categories": [{"name": c.name, "url": f"/category/{c.slug}"} for c in cats],

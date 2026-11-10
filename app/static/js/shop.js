@@ -96,22 +96,53 @@
   }
   var clr = $("#so-clear"); if (clr) clr.addEventListener("click", function () { store(false, RK, "[]"); renderRecent(); });
   $$("form[role=search]").forEach(function (f) { f.addEventListener("submit", function () { var i = $("input[name=q]", f); if (i) remember(i.value); }); });
-  function suggestHtml(d) {
-    var out = d.categories.map(function (c) { return '<li><a href="' + esc(c.url) + '">in <b>' + esc(c.name) + "</b></a></li>"; });
-    out = out.concat(d.products.map(function (p) { return '<li><a href="' + esc(p.url) + '">' + (p.image ? '<img src="' + esc(p.image) + '" alt="" width="40" height="40">' : "") + "<span>" + esc(p.name) + '</span><span class="sub">₹' + esc(p.price) + "</span></a></li>"; }));
+  function hl(name, q) {
+    var i = q ? name.toLowerCase().indexOf(q.toLowerCase()) : -1;
+    if (i < 0) return esc(name);
+    return esc(name.slice(0, i)) + "<b>" + esc(name.slice(i, i + q.length)) + "</b>" + esc(name.slice(i + q.length));
+  }
+  var ICON = '<svg class="sg-i" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>';
+  function termLink(t, q) { return '<li><a href="/shop?q=' + encodeURIComponent(t) + '" data-term="' + esc(t) + '">' + ICON + "<span>" + hl(t, q) + "</span></a></li>"; }
+  function suggestHtml(d, q) {
+    var out = [];
+    if (d.popular) {
+      out.push('<li class="sg-h" aria-hidden="true">Popular searches</li>');
+      out = out.concat((d.terms || []).map(function (t) { return termLink(t, ""); }));
+      if ((d.categories || []).length) out.push('<li class="sg-h" aria-hidden="true">Browse categories</li>');
+      out = out.concat((d.categories || []).map(function (c) { return '<li><a href="' + esc(c.url) + '">' + ICON + "<span>" + esc(c.name) + "</span></a></li>"; }));
+      return out.join("");
+    }
+    out = out.concat((d.bundles || []).map(function (b) { return '<li><a href="' + esc(b.url) + '"><span class="sg-tag">Combo offer</span><span>' + hl(b.name, q) + '</span><span class="sub">₹' + esc(b.price) + "</span></a></li>"; }));
+    out = out.concat((d.categories || []).map(function (c) { return '<li><a href="' + esc(c.url) + '">' + ICON + "<span>" + hl(c.name, q) + ' <small class="muted">in categories</small></span></a></li>'; }));
+    out = out.concat((d.terms || []).map(function (t) { return termLink(t, q); }));
+    out = out.concat((d.products || []).map(function (p) { return '<li><a href="' + esc(p.url) + '">' + (p.image ? '<img src="' + esc(p.image) + '" alt="" width="40" height="40">' : "") + "<span>" + hl(p.name, q) + '</span><span class="sub">₹' + esc(p.price) + "</span></a></li>"; }));
     return out.join("") || '<li class="muted nomatch">No matches. Press search to look anyway.</li>';
   }
   var seq = 0;
   function wireSuggest(input, list) {
-    var go = debounce(function () {
+    function load() {
       var q = input.value.trim(); var my = ++seq;
-      if (q.length < 2) { list.innerHTML = ""; list.hidden = true; return; }
       fetch("/api/suggest?q=" + encodeURIComponent(q), { headers: { Accept: "application/json" }, credentials: "same-origin" })
         .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (d) { if (!d || my !== seq) return; list.innerHTML = suggestHtml(d); list.hidden = false; })
+        .then(function (d) { if (!d || my !== seq) return; list.innerHTML = suggestHtml(d, q); list.hidden = false; })
         .catch(function () {});
-    }, 200);
-    input.addEventListener("input", go);
+    }
+    input.addEventListener("input", debounce(load, 180));
+    input.addEventListener("focus", load);
+    input.addEventListener("keydown", function (e) {
+      var links = $$("a", list);
+      if (e.key === "ArrowDown" && links.length) { e.preventDefault(); links[0].focus(); }
+      else if (e.key === "Escape") { list.hidden = true; }
+    });
+    list.addEventListener("keydown", function (e) {
+      var links = $$("a", list), i = links.indexOf(document.activeElement);
+      if (e.key === "ArrowDown") { e.preventDefault(); (links[i + 1] || links[0]).focus(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); if (i <= 0) input.focus(); else links[i - 1].focus(); }
+      else if (e.key === "Escape") { list.hidden = true; input.focus(); }
+    });
+    list.addEventListener("click", function (e) {
+      var a = e.target.closest("a[data-term]"); if (a) remember(a.getAttribute("data-term"));
+    });
   }
   var soIn = $("#so-input"), soRes = $("#so-results"); if (soIn && soRes) { wireSuggest(soIn, soRes); soIn.addEventListener("input", function () { var b = $("#so-recent"); if (b) b.hidden = soIn.value.trim().length >= 2 || !recent().length; }); }
   var dIn = $("[data-suggest]"), dList = null;
