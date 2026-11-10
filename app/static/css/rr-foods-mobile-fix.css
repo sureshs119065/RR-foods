@@ -127,3 +127,28 @@ html[data-shop] .sugg a span b, html[data-shop] .so__list a span b { font-weight
 html[data-shop] .sg-i { flex: none; color: #8a8a80; }
 html[data-shop] .sg-tag { flex: none; font-size: .65rem; font-weight: 700; text-transform: uppercase; background: #f2b84b; color: #3a2a05; border-radius: 999px; padding: .1rem .5rem; }
 html[data-shop] .so__list a[data-term], html[data-shop] .sugg a[data-term] { min-height: 2.6rem; }
+
+/* ===== Header offer banner on phones =====
+   Cause: .hc__viewport is locked to 16:9 (~200px tall on a phone) with overflow:hidden, while .hc__copy
+   (badge + title + subtitle + countdown + button) is taller than that, so the badge was cut off at the top
+   and the button at the bottom. Fix: let the banner grow to fit its copy, keep a minimum 16:9 height so the
+   artwork still shows, tighten the type and use a bottom-up scrim so text stays readable. */
+@media (max-width: 767px) {
+  html[data-shop] .hc__viewport { aspect-ratio: auto !important; height: auto !important; }
+  html[data-shop] .hc__track { height: auto !important; align-items: stretch; }
+  html[data-shop] .hc__slide { min-height: max(56.25vw, 17rem); }
+  html[data-shop] .hc__pic img { object-position: 70% center; }
+  html[data-shop] .hc__slide::after {
+    background: linear-gradient(0deg, rgb(7 29 18 / .88) 0%, rgb(7 29 18 / .6) 55%, rgb(7 29 18 / .15) 100%) !important;
+  }
+  html[data-shop] .hc__copy {
+    height: auto !important; min-height: 100%; max-width: 100%;
+    justify-content: flex-end; gap: .4rem;
+    padding: 1.25rem 1rem 1.1rem !important;
+  }
+  html[data-shop] .hc__badge { font-size: .65rem; line-height: 1.4; padding: .1rem .55rem; }
+  html[data-shop] .hc__title { font-size: 1.45rem; line-height: 1.15; }
+  html[data-shop] .hc__sub { font-size: .85rem; line-height: 1.4; max-width: 34ch; }
+  html[data-shop] .hc__cd { font-size: .85rem; line-height: 1.3; }
+  html[data-shop] .hc__btn { min-height: 2.25rem; font-size: .85rem; margin-top: .15rem; }
+}
