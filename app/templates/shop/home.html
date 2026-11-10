@@ -53,7 +53,7 @@
 
 <div class="container">
   {% if rows.categories %}
-  <section class="sec" aria-labelledby="cats-h">
+  <section class="sec" id="categories" aria-labelledby="cats-h">
     <div class="sec__row"><div><h2 id="cats-h" class="sec__h">Shop by category</h2><p class="sec__sub">Everything we sell, grouped the way you shop.</p></div><a href="{{ url_for('shop.listing') }}">All products</a></div>
     <ul class="ctiles">
       {% for c in rows.categories %}{% set n = rows.counts.get(c.id, 0) %}

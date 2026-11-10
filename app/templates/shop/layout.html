@@ -128,7 +128,7 @@
 {% include "partials/review_thanks.html" %}
 <nav class="bn" aria-label="Main">
   <a href="{{ url_for('shop.home') }}" {% if request.endpoint == 'shop.home' %}aria-current="page"{% endif %}>{{ s.icon('home') }}<span>Home</span></a>
-  <button type="button" data-open="drawer" aria-controls="drawer">{{ s.icon('grid') }}<span>Categories</span></button>
+  <a href="{{ url_for('shop.home') }}#categories" {% if request.endpoint == 'shop.category_listing' %}aria-current="page"{% endif %}>{{ s.icon('grid') }}<span>Categories</span></a>
   <button type="button" data-open="search">{{ s.icon('search') }}<span>Search</span></button>
   <a href="{{ url_for('shop.cart') }}" {% if request.endpoint == 'shop.cart' %}aria-current="page"{% endif %}>{{ s.icon('cart') }}<span>Cart</span>{% set n = cart_count() %}<b class="dot-n" data-cart-count {% if not n %}hidden{% endif %}>{{ n }}</b></a>
   <a href="{{ '/account' if current_user and current_user.role == 'user' else '/login' }}" {% if request.path.startswith('/account') %}aria-current="page"{% endif %}>{{ s.icon('user') }}<span>Account</span></a>

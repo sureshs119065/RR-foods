@@ -91,3 +91,32 @@ html[data-shop] .zoom     { z-index: 1240 !important; }
   html[data-shop] .need small { font-size: .74rem !important; line-height: 1.3 !important; }
   html[data-shop] .need__go { font-size: .8rem !important; padding-top: .1rem !important; }
 }
+
+/* ===== Categories anchor: land below the sticky header ===== */
+html[data-shop] #categories { scroll-margin-top: 5rem; }
+html { scroll-behavior: smooth; }
+
+/* ===== "How ordering works": horizontal swipe row on phones ===== */
+@media (max-width: 767px) {
+  html[data-shop] .steps {
+    display: flex !important;
+    grid-template-columns: none !important;
+    gap: .6rem !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-top: .6rem !important;
+    padding: 0 .1rem .4rem !important;
+  }
+  html[data-shop] .steps::-webkit-scrollbar { display: none; }
+  html[data-shop] .steps > li {
+    flex: 0 0 72%;
+    max-width: 18rem;
+    scroll-snap-align: start;
+    padding: .75rem .85rem !important;
+  }
+  html[data-shop] .steps > li b { font-size: .95rem; line-height: 1.25; }
+  html[data-shop] .steps > li p { font-size: .82rem; line-height: 1.35; margin: .2rem 0 0; }
+}
