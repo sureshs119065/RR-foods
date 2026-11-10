@@ -6,7 +6,8 @@
 {% block content %}
 {% set addr = order.shipping_address or {} %}
 {% set nxt = svc.next_step(order.status) %}
-<p><a href="{{ url_for('owner.orders') }}">&larr; All orders</a>{% if order.status not in ('placed', 'rejected', 'cancelled') %} · <a href="{{ url_for('owner.order_invoice', order_id=order.id) }}">Download invoice (PDF)</a>{% endif %}</p>
+<p class="row"><a href="{{ url_for('owner.orders') }}">&larr; All orders</a></p>
+{% if order.status not in ('placed', 'rejected', 'cancelled') %}<p><a class="btn btn--block" href="{{ url_for('owner.order_invoice', order_id=order.id) }}" download>&#11015; Download invoice (PDF)</a></p>{% endif %}
 
 <section class="panel">
   <div class="row">{{ o.status_badge(order.status) }}{{ o.pay_badge(order) }}<span class="hint">Placed {{ order.created_at|local_display }}</span></div>

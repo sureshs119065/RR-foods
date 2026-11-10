@@ -93,7 +93,7 @@
   {% endif %}
 
   <div class="actions">
-    {% if can_invoice %}<a class="btn btn--ghost" href="{{ url_for('shop.order_invoice', order_number=order.order_number) }}">Download invoice (PDF)</a>{% endif %}
+    {% if can_invoice %}<a class="btn" download href="{{ url_for('shop.order_invoice', order_number=order.order_number) }}">&#11015; Download invoice (PDF)</a>{% endif %}
     <form method="post" action="{{ url_for('shop.order_reorder', order_number=order.order_number) }}">{{ s.csrf() }}<button class="btn" type="submit">Reorder</button></form>
     {% if can_cancel %}
     <form method="post" action="{{ url_for('shop.order_cancel', order_number=order.order_number) }}" data-once>{{ s.csrf() }}<button class="btn btn--danger" type="submit" data-confirm="Cancel order {{ order.order_number }}? This cannot be undone.">Cancel order</button></form>
