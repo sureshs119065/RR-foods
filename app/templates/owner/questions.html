@@ -12,7 +12,14 @@
   <p><b>Q:</b> {{ q.question }}</p>
   <form method="post" action="{{ url_for('owner.question_answer', question_id=q.id) }}">
     {{ m.csrf() }}
-    <label class="field"><span>{{ 'Your answer (shown to everyone)' if not q.answer else 'Edit answer' }}</span><textarea name="answer" rows="2" maxlength="1000" required>{{ q.answer or '' }}</textarea></label>
+    <label class="field"><span>{{ 'Your answer (shown to everyone)' if not q.answer else 'Edit answer' }}</span><textarea id="answer-{{ q.id }}" name="answer" rows="3" maxlength="1000" required>{{ q.answer or '' }}</textarea></label>
+    <div class="quick-answers" aria-label="Predefined answer starters">
+      <span class="hint">Quick answer starters</span>
+      <button class="chip" type="button" data-fill="#answer-{{ q.id }}" data-text="Yes, this product is currently available. Please check the product page for the latest stock status.">Availability</button>
+      <button class="chip" type="button" data-fill="#answer-{{ q.id }}" data-text="Please check the product description for the listed ingredients and product details. Contact us if you need any additional information.">Product details</button>
+      <button class="chip" type="button" data-fill="#answer-{{ q.id }}" data-text="Please store the product in a cool, dry place and follow the storage instructions on its packaging.">Storage</button>
+      <button class="chip" type="button" data-fill="#answer-{{ q.id }}" data-text="Delivery timing depends on your location. Please share your order number or pincode so we can help you.">Delivery</button>
+    </div>
     <div class="row"><button class="btn" type="submit">{{ 'Publish answer' if not q.answer else 'Save' }}</button></div>
   </form>
   <form method="post" action="{{ url_for('owner.question_delete', question_id=q.id) }}">{{ m.csrf() }}<button class="btn btn--ghost btn--sm" type="submit" data-confirm="Remove this question?">Remove question</button></form>

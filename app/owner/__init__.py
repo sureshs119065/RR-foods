@@ -17,9 +17,13 @@ def _owner_menu():
     from sqlalchemy import func, select
 
     from ..extensions import db
-    from ..models import Order
+    from ..models import Order, Product
 
-    return {"pending_count": db.session.scalar(select(func.count(Order.id)).where(Order.status == "placed")) or 0}
+    pending = db.session.scalar(select(func.count(Order.id)).where(Order.status == "placed")) or 0
+    low_stock = db.session.scalar(select(func.count(Product.id)).where(
+        Product.is_deleted.is_(False), Product.stock_qty <= Product.low_stock_threshold
+    )) or 0
+    return {"pending_count": pending, "low_stock_count": low_stock}
 
 
 # Importing the modules registers their routes on `bp`.
