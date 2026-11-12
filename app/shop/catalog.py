@@ -8,7 +8,7 @@ from sqlalchemy.orm import joinedload
 
 from ..extensions import db, limiter
 from flask import g
-from ..models import Bundle, Category, Coupon, DeliveryZone, Product, ProductQuestion, Review, ReviewVote, User
+from ..models import Category, Coupon, DeliveryZone, Product, ProductQuestion, Review, ReviewVote, User
 from ..services import reviews as review_svc
 from ..models.base import utcnow
 from ..services import header_banners, storefront
@@ -45,17 +45,10 @@ def home():
         .where(ProductQuestion.answer.is_not(None), ProductQuestion.is_deleted.is_(False), Product.is_deleted.is_(False))
         .order_by(ProductQuestion.answered_at.desc(), ProductQuestion.created_at.desc()).limit(4)
     ).all()
-    now = utcnow()
-    bundles = db.session.scalars(
-        select(Bundle).where(Bundle.is_active.is_(True),
-            (Bundle.starts_at.is_(None)) | (Bundle.starts_at <= now),
-            (Bundle.ends_at.is_(None)) | (Bundle.ends_at > now))
-        .order_by(Bundle.created_at.desc()).limit(8)
-    ).all()
-    return render_template("shop/home.html", rows=storefront.home_rows(), bundles=bundles,
-                           carousel=header_banners.cached_payload(), recent=storefront.recently_viewed(),
-                           now=now, home_reels=reels, reels_enabled=cfg.get("enabled", True),
-                           featured_reviews=featured_reviews, featured_questions=featured_questions)
+    return render_template("shop/home.html", rows=storefront.home_rows(), carousel=header_banners.cached_payload(),
+                           recent=storefront.recently_viewed(), now=utcnow(), home_reels=reels,
+                           reels_enabled=cfg.get("enabled", True), featured_reviews=featured_reviews,
+                           featured_questions=featured_questions)
 
 
 @bp.get("/banner-colors.css")

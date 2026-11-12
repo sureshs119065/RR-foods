@@ -5,3 +5,45 @@
 .cart-suggestions{grid-column:1/-1}
 
 .delivery-settings-panel{max-width:760px}
+
+
+/* RR Foods customer header: navigation first, product search on its own row */
+html[data-shop] .rr-header { position: sticky; top: 0; z-index: 50; background: var(--c-surface, #fff); border-bottom: 1px solid #e5ecdf; box-shadow: 0 3px 14px rgb(18 67 34 / 7%); }
+html[data-shop] .rr-header__row { width: min(100% - 1.25rem, 90rem); margin-inline: auto; display: flex; flex-wrap: wrap; align-items: center; gap: .45rem .8rem; padding: .55rem 0 .7rem; }
+html[data-shop] .rr-header .brand { order: 1; margin: 0; flex: 0 0 auto; }
+html[data-shop] .rr-header__links { order: 2; display: none; min-width: 0; flex: 1 1 auto; }
+html[data-shop] .rr-header__links ul { display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; gap: clamp(0px, .5vw, 8px); }
+html[data-shop] .rr-header__links .nav-link { min-height: 2.8rem; padding: 0 clamp(.45rem, .8vw, .9rem); white-space: nowrap; border-radius: 999px; font-size: clamp(.82rem, .9vw, .96rem); font-weight: 700; }
+html[data-shop] .rr-header__links .nav-link[aria-current="page"] { color: #087b35; background: #eff9e9; box-shadow: inset 0 -2px #0b8a3c; }
+html[data-shop] .rr-header__actions { order: 3; display: flex; align-items: center; gap: .15rem; margin-left: auto; }
+html[data-shop] .rr-header__search { order: 4; display: flex; flex: 1 0 100%; width: 100%; max-width: none; min-width: 0; height: 2.8rem; align-items: center; gap: .5rem; margin: 0; padding: 0 .35rem 0 1rem; border: 1px solid #d8e7d5; border-radius: 999px; background: #f7fbf4; box-shadow: none; }
+html[data-shop] .rr-header__search:focus-within { border-color: #13833b; box-shadow: 0 0 0 3px rgb(19 131 59 / 10%); }
+html[data-shop] .rr-header__search input { width: 100%; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--c-ink); font-size: .95rem; }
+html[data-shop] .rr-header__search .sh__go { width: 2.2rem; height: 2.2rem; border-radius: 50%; background: #07843b; color: #fff; }
+html[data-shop] .rr-header .sh__menu { order: 0; }
+@media (min-width: 900px) {
+ html[data-shop] .rr-header__row { width: min(100% - 2rem, 90rem); gap: .55rem 1rem; }
+ html[data-shop] .rr-header__links { display: flex; }
+ html[data-shop] .rr-header .sh__menu, html[data-shop] .rr-header .sh__searchbtn { display: none; }
+ html[data-shop] .rr-header .sh__acct, html[data-shop] .rr-header .sh__bell { display: inline-flex; }
+ html[data-shop] .rr-header .sh__acct-t { display: none; }
+ html[data-shop] .rr-header .sh__cart-t { display: none; }
+}
+@media (min-width: 1024px) {
+ html[data-shop] .rr-header__row { padding-block: .55rem .75rem; column-gap: 1.1rem; }
+ html[data-shop] .rr-header .brand { margin-right: .25rem; }
+ html[data-shop] .rr-header .brand__logo { width: 48px; height: 48px; }
+ html[data-shop] .rr-header__links { flex: 1 1 auto; }
+ html[data-shop] .rr-header__actions { margin-left: .25rem; gap: .25rem; }
+ html[data-shop] .rr-header .sh__acct-t, html[data-shop] .rr-header .sh__cart-t { display: inline; }
+ html[data-shop] .rr-header .sh__acct, html[data-shop] .rr-header .sh__cart { width: auto; padding-inline: .65rem; gap: .35rem; border-radius: 999px; }
+ html[data-shop] .rr-header .sh__cart .dot-n { position: static; }
+ html[data-shop] .rr-header__search { height: 2.9rem; }
+}
+@media (max-width: 899px) {
+ html[data-shop] .rr-header__row { gap: .45rem .55rem; }
+ html[data-shop] .rr-header .brand__logo { width: 38px; height: 38px; }
+ html[data-shop] .rr-header .brand > span { font-size: 1rem; }
+ html[data-shop] .rr-header .sh__actions .sh__acct, html[data-shop] .rr-header .sh__actions .sh__bell, html[data-shop] .rr-header .sh__actions .sh__whatsapp { display: none; }
+ html[data-shop] .rr-header__search { height: 2.65rem; }
+}
