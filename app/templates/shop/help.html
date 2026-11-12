@@ -1,26 +1,2 @@
-{% extends "shop/layout.html" %}
-{% block title %}Contact &amp; Support | RR FOODS{% endblock %}
-{% block content %}
-<div class="container page narrow2 contact-page">
-  <p class="eyebrow">We're here to help</p><h1>Contact RR FOODS</h1>
-  <p class="muted">Questions about an order, delivery or product? Reach our team using the details below.</p>
-  <div class="contact-methods">
-    {% if config.get('SUPPORT_EMAIL') %}<section class="card"><h2>Email</h2><p>For product and order questions.</p><a href="mailto:{{ config.get('SUPPORT_EMAIL') }}">{{ config.get('SUPPORT_EMAIL') }}</a></section>{% endif %}
-    {% if config.get('WHATSAPP_NUMBER') %}<section class="card"><h2>WhatsApp</h2><p>Chat with the RR FOODS team.</p><a class="btn btn--accent" href="https://wa.me/{{ config.get('WHATSAPP_NUMBER')|replace('+','')|replace(' ','') }}?text={{ 'Hello RR FOODS, I have a question about an order.'|urlencode }}" target="_blank" rel="noopener">Message on WhatsApp</a></section>{% endif %}
-    <section class="card"><h2>Orders and delivery</h2><p>Sign in to view your order history and current order status.</p><a class="btn btn--ghost" href="{{ url_for('shop.orders') if current_user and current_user.role == 'user' else url_for('auth.login', next=url_for('shop.orders')) }}">Track my orders</a></section>
-  </div>
-  <section class="card contact-question"><h2>Ask us a question</h2>
-    {% if current_user and current_user.role == 'user' %}
-    <form method="post" action="{{ url_for('shop.message_new') }}" class="inbox-form">{{ s.csrf() }}
-      <label>Subject<input name="subject" required minlength="3" maxlength="160" placeholder="Order, delivery or product question"></label>
-      <label>Message<textarea name="body" required minlength="5" maxlength="4000" rows="5" placeholder="How can we help?"></textarea></label>
-      <button class="btn btn--accent" type="submit">Send message</button>
-    </form>
-    {% else %}<p>Sign in to send a message to our Admin and Shop Owner inboxes.</p><a class="btn btn--accent" href="{{ url_for('auth.login', next=request.path) }}">Sign in to contact us</a>{% endif %}
-  </section>
-  <section class="sec contact-faq"><h2 class="sec__h">Frequently asked questions</h2>
-    {% for q,a in [('When will my order arrive?','Delivery estimates depend on your pincode and available delivery slots. Your checkout page shows the available dates.'),('How can I pay?','Place your order and continue through the WhatsApp confirmation flow. The shop will share payment details.'),('Can I return a product?','Contact the team with your order number and product details so they can review the request under the shop return policy.'),('How do I track my order?','Open Track my orders after signing in to see order status updates.'),('Does RR FOODS deliver to my pincode?','Use the pincode checker on a product page or enter your delivery address during checkout.') ] %}
-    <details class="acc"><summary class="acc__h">{{ q }}</summary><div class="acc__body"><p>{{ a }}</p></div></details>{% endfor %}
-  </section>
-</div>
-{% endblock %}
+{% extends "shop/layout.html" %}{% block title %}Help | RR FOODS{% endblock %}
+{% block content %}<div class="container page narrow2"><p class="eyebrow">We're here to help</p><h1>How can we help?</h1><section class="card"><h2>Orders and delivery</h2><p>Sign in to view your order history and current order status. You can also contact our team for order support.</p><a class="btn" href="{{ url_for('shop.orders') }}">View my orders</a></section><section class="card"><h2>Product questions</h2><p>Check each product page for ingredients, pack size, price and availability.</p><a class="btn btn--ghost" href="{{ url_for('shop.listing') }}">Browse products</a></section>{% if config.get('SUPPORT_EMAIL') %}<p>Support email: <a href="mailto:{{ config.get('SUPPORT_EMAIL') }}">{{ config.get('SUPPORT_EMAIL') }}</a></p>{% endif %}{% if config.get('WHATSAPP_NUMBER') %}<a class="btn" href="https://wa.me/{{ config.get('WHATSAPP_NUMBER') }}" target="_blank" rel="noopener">Chat on WhatsApp</a>{% endif %}</div>{% endblock %}

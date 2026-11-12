@@ -141,14 +141,7 @@ def create_app(config_object=None):
 
     @app.context_processor
     def _inject():
-        user = g.get("user")
-        wishlist_count = 0
-        if user is not None and user.role == "user":
-            from sqlalchemy import func, select
-            from .models import WishlistItem
-            wishlist_count = db.session.scalar(select(func.count(WishlistItem.id)).where(WishlistItem.user_id == user.id)) or 0
-        return {"current_user": user, "wishlist_count": wishlist_count,
-                "current_language": (user.preferred_language if user else request.cookies.get("language", "en"))}
+        return {"current_user": g.get("user"), "current_language": (g.get("user").preferred_language if g.get("user") else request.cookies.get("language", "en"))}
 
     @app.after_request
     def _security_headers(resp):

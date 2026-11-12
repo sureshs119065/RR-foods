@@ -75,4 +75,53 @@
   });
 })();
 
+/* ---------- add to cart from a product card (no page reload) ---------- */
+(function () {
+  "use strict";
+  var csrf = (document.querySelector("meta[name=csrf-token]") || {}).content || "";
+  var toast = document.getElementById("toast"), tt;
+  function say(text, bad) {
+    if (!toast) return;
+    toast.textContent = text; toast.hidden = false; toast.classList.toggle("toast--error", !!bad);
+    requestAnimationFrame(function () { toast.classList.add("toast--show"); });
+    clearTimeout(tt); tt = setTimeout(function () { toast.classList.remove("toast--show"); }, bad ? 5000 : 2800);
+  }
+  document.addEventListener("submit", function (e) {
+    var f = e.target; if (!f.matches || !f.matches("form[data-addcart]") || !window.fetch) return;
+    e.preventDefault();
+    var btn = f.querySelector("button"); if (btn) btn.disabled = true;
+    fetch(f.action, { method: "POST", body: new FormData(f), credentials: "same-origin", headers: { Accept: "application/json", "X-CSRFToken": csrf } })
+      .then(function (r) { return r.json().then(function (d) { return { s: r.status, d: d }; }); })
+      .then(function (res) {
+        if (res.s === 401 && res.d.login) { window.location.href = res.d.login; return; }
+        say(res.d.message || "Done.", !res.d.ok);
+        if (res.d.ok && typeof res.d.count === "number") Array.prototype.forEach.call(document.querySelectorAll("[data-cart-count]"), function (c) { c.textContent = res.d.count; c.hidden = !res.d.count; });
+      })
+      .catch(function () { say("No connection. Please try again.", true); })
+      .then(function () { if (btn) btn.disabled = false; });
+  });
+})();
 
+/* RR FOODS homepage horizontal rails and mobile product accordions */
+(function () {
+  "use strict";
+  document.addEventListener("click", function (event) {
+    var arrow = event.target.closest("[data-rr-scroll]");
+    if (arrow) {
+      var track = document.getElementById(arrow.getAttribute("data-rr-scroll"));
+      if (track) track.scrollBy({ left: Number(arrow.getAttribute("data-dir") || 1) * Math.max(220, track.clientWidth * .8), behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }
+    var toggle = event.target.closest(".rr-mobile-accordion");
+    if (toggle) {
+      var section = toggle.closest(".rr-mini-section");
+      var wasOpen = section.classList.contains("is-open");
+      document.querySelectorAll(".rr-mini-section.is-open").forEach(function (item) {
+        item.classList.remove("is-open");
+        var button = item.querySelector(".rr-mobile-accordion");
+        if (button) button.setAttribute("aria-expanded", "false");
+      });
+      if (!wasOpen) { section.classList.add("is-open"); toggle.setAttribute("aria-expanded", "true"); }
+      else toggle.setAttribute("aria-expanded", "false");
+    }
+  });
+})();

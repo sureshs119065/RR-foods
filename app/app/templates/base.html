@@ -8,8 +8,8 @@
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}">
   <meta name="robots" content="{% block robots %}index,follow{% endblock %}">
   <title>{% block title %}RR FOODS{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}?v=20261112-layout2">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-design.css') }}?v=20261112-layout2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-design.css') }}">
   {% block social %}
   <meta property="og:site_name" content="RR FOODS">
   <meta property="og:type" content="website">
@@ -21,7 +21,7 @@
   {% endblock %}
   {% block head %}{% endblock %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-white-ui.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-overrides.css') }}?v=20261112-layout2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-overrides.css') }}">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
