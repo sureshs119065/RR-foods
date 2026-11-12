@@ -5,3 +5,20 @@
 .cart-suggestions{grid-column:1/-1}
 
 .delivery-settings-panel{max-width:760px}
+
+/* ===== Mockup fix (loaded last): heading colours on dark sections + single-row desktop header ===== */
+html .rr-story h2, html .rr-ready h2, html .rr-hero-fallback p, html .rr-hero-fallback strong { color:#fff !important; }
+html .rr-hero-fallback h1 { color:#FFD21F !important; }
+html .rr-story p, html .rr-ready p { color:#fff !important; }
+html .rr-story a, html .rr-ready > a { color:#0B5A22 !important; background:#fff !important; border-color:#fff !important; }
+html .rr-hero-fallback a { color:#172b17 !important; background:#FFD21F !important; border-color:#FFD21F !important; }
+html .rr-story { background-color:#176a2e !important; }
+@media (min-width:1024px){
+  html[data-shop] .sh__row{flex-wrap:nowrap !important;align-items:center;min-height:68px;padding-block:.35rem !important;gap:1rem}
+  html[data-shop] .sh__br{display:none !important}
+  html[data-shop] .sh__links{flex:0 1 auto !important}
+  html[data-shop] .sh__links ul{flex-wrap:nowrap;gap:.25rem}
+  html[data-shop] .sh__search{flex:1 1 240px !important;max-width:28rem !important;margin:0 !important;min-width:140px}
+  html[data-shop] .sh__actions{margin:0 0 0 auto !important;flex:none}
+  html[data-shop] .sh .brand{margin-right:.5rem}
+}
