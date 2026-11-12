@@ -239,3 +239,13 @@ def _register_childrens_day_seed(app):
         )
         db.session.add(bundle); db.session.commit()
         click.echo("Created the Children's Day combo bundle (14-15 Nov 2026, Rs 999).")
+
+
+def register_stock_notification_sync_cli(app):
+    @app.cli.command("sync-stock-notifications")
+    def sync_stock_notifications_command():
+        from .services.inventory import sync_stock_notifications
+        from .extensions import db
+        count = sync_stock_notifications()
+        db.session.commit()
+        print(f"Checked {count} products for stock notifications.")

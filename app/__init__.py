@@ -51,7 +51,29 @@ def create_app(config_object=None):
     register_settings_cli(app)
     register_mail_cli(app)
     register_stock_alert_cli(app)
+    from .cli import register_stock_notification_sync_cli
+    register_stock_notification_sync_cli(app)
     register_check_cli(app)
+
+    # Lightweight backfill on first request and at most hourly per worker.
+    # For reliable scheduling on Render, also run `flask sync-stock-notifications`
+    # from a Render Cron Job every 15-60 minutes.
+    from datetime import datetime, timedelta, timezone
+    import logging
+    _last_stock_sync = [None]
+    @app.before_request
+    def _periodic_stock_notification_sync():
+        now = datetime.now(timezone.utc)
+        if _last_stock_sync[0] and now - _last_stock_sync[0] < timedelta(minutes=30):
+            return
+        _last_stock_sync[0] = now
+        try:
+            from .services.inventory import sync_stock_notifications
+            sync_stock_notifications()
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            app.logger.exception("Stock notification reconciliation failed")
 
     @app.before_request
     def _load_user():

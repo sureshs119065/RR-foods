@@ -13,10 +13,10 @@
         <option value="custom" {% if sales_analytics.range_key == 'custom' %}selected{% endif %}>Custom Range</option>
       </select>
       <div class="sa-custom-dates" id="sa-custom-dates" {% if sales_analytics.range_key != 'custom' %}hidden{% endif %}>
-        <label><span>From</span><input type="date" name="start_date" value="{{ sales_analytics.start_date if sales_analytics.range_key == 'custom' else '' }}"></label>
-        <label><span>To</span><input type="date" name="end_date" value="{{ sales_analytics.end_date if sales_analytics.range_key == 'custom' else '' }}"></label>
+        <label><span>Start date</span><input type="date" name="start_date" value="{{ sales_analytics.start_date if sales_analytics.range_key == 'custom' else '' }}"></label>
+        <label><span>End date</span><input type="date" name="end_date" value="{{ sales_analytics.end_date if sales_analytics.range_key == 'custom' else '' }}"></label>
       </div>
-      <button class="btn" type="submit">Apply</button>
+      <button class="btn" type="submit">Apply</button><button class="btn btn--ghost" type="button" id="sa-reset-range">Reset</button>
     </form>
   </div>
 

@@ -256,3 +256,14 @@
   .adm__main { padding-bottom:calc(5.4rem + env(safe-area-inset-bottom,0px)); }
   .toast { bottom:calc(5.2rem + env(safe-area-inset-bottom,0px)); }
 }
+
+/* Consistent, visible mobile SVG navigation and owner header */
+.owner-panel .adm__top h1 { color:#183d2b !important; opacity:1 !important; visibility:visible !important; overflow:visible; line-height:1.3; }
+@media(max-width:767px) {
+ .owner-bottom-nav a { min-height:56px; padding:6px 2px; gap:4px; color:#415e4b; font-size:11px; }
+ .owner-bottom-nav a svg { display:block !important; width:24px !important; height:24px !important; min-width:24px; flex:none; stroke:currentColor; opacity:1 !important; }
+ .owner-bottom-nav a span { display:flex !important; visibility:visible !important; opacity:1 !important; }
+ .owner-bottom-nav a.is-current { color:#1d6139; }
+ .owner-panel .adm__top { min-height:60px; overflow:visible; }
+ .owner-panel .adm__top h1 { font-size:clamp(15px,4vw,20px); min-width:0; }
+}

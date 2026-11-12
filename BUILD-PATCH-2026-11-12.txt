@@ -1,0 +1,20 @@
+RR FOODS PATCH BUILD
+Build: 2026-11-12 02:12 IST
+Purpose: Admin + Owner panel fixes (not a rebuild)
+
+Included in this archive:
+- Shared SVG icon macro additions for stock alerts, notifications, and inbox.
+- Admin and Owner bottom navigation updates.
+- Stock notification service with low-stock and out-of-stock handling.
+- Stock synchronization/backfill command: flask sync-stock-notifications
+- Owner header contrast and responsive styling updates.
+- Sales analytics custom date range controls and refresh handling.
+
+Deployment note:
+Replace the deployed project files with this archive and redeploy. Run
+`flask sync-stock-notifications` once after deployment to backfill existing
+stock alerts. Configure a Render Cron Job for periodic reconciliation.
+
+Validation note:
+Archive integrity and presence of the patched source files were checked.
+Live Render/database/browser integration is not certified by this package.

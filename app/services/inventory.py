@@ -44,21 +44,56 @@ def _log(product_id: int, variant_id: int | None, old: int, new: int, reason: st
                                 old_qty=old, new_qty=new, reason=(reason or "")[:200] or None))
 
 
+def checkStockAndNotify(product: Product) -> None:
+    """Synchronize one product's current stock alert state for every active admin.
+
+    A state change resolves old unread alerts. Existing unread alerts of the
+    same state are not duplicated. Read alerts remain read until recovery or a
+    transition to a different stock state.
+    The caller owns the transaction and must commit.
+    """
+    if product.id is None:
+        db.session.flush()
+    state = stock_state(product.stock_qty, product.low_stock_threshold) if not product.is_deleted else "ok"
+    admins = db.session.scalars(select(User.id).where(User.role == "admin", User.is_deleted.is_(False))).all()
+    for user_id in admins:
+        prefix = f"/admin/stock-alerts?q=stock-id-{product.id}"
+        # A stable product identifier is kept in the link, avoiding a schema migration.
+        existing = db.session.scalars(select(Notification).where(
+            Notification.user_id == user_id, Notification.channel == "in_app",
+            Notification.kind.in_(("low_stock", "out_of_stock")),
+            Notification.link == prefix).order_by(Notification.id.desc())).all()
+        wanted = "out_of_stock" if state == "out" else "low_stock" if state == "low" else None
+        same = (existing[0] if existing and existing[0].kind == wanted else None) if wanted else None
+        for n in existing:
+            if wanted is None or n.kind != wanted:
+                # Mark stale events resolved and remove their active product key.
+                # A later return to this state will create a fresh notification.
+                n.is_read = True
+                n.link = None
+            elif n is not same and not n.is_read:
+                n.is_read = True
+        if wanted and same is None:
+            db.session.add(Notification(user_id=user_id, channel="in_app", kind=wanted,
+                title=f"{'Out of stock' if wanted == 'out_of_stock' else 'Low stock'}: {product.name}"[:150],
+                body=f"{product.name} has {product.stock_qty} unit(s) left (threshold {product.low_stock_threshold})."[:500],
+                link=prefix, is_read=False))
+        elif same and not same.is_read:
+            same.title = f"{'Out of stock' if wanted == 'out_of_stock' else 'Low stock'}: {product.name}"[:150]
+            same.body = f"{product.name} has {product.stock_qty} unit(s) left (threshold {product.low_stock_threshold})."[:500]
+
+
 def notify_admin_stock_transition(product: Product, old_qty: int, new_qty: int) -> None:
-    """Create admin notifications when a stock reduction crosses a product alert state."""
-    old_state = stock_state(old_qty, product.low_stock_threshold)
-    new_state = stock_state(new_qty, product.low_stock_threshold)
-    if new_qty >= old_qty or new_state not in ("low", "out") or new_state == old_state:
-        return
-    admins = db.session.scalars(select(User).where(User.role == "admin", User.is_deleted.is_(False))).all()
-    label = "Out of stock" if new_state == "out" else "Low stock"
-    for admin in admins:
-        db.session.add(Notification(
-            user_id=admin.id, channel="in_app", kind="stock_alert",
-            title=f"{label}: {product.name}",
-            body=f"{product.name} has {new_qty} unit(s) left (alert level: {product.low_stock_threshold}). Update stock to restore availability.",
-            link="/admin/stock-alerts", is_read=False,
-        ))
+    """Compatibility entrypoint used by product edit and CSV import."""
+    checkStockAndNotify(product)
+
+
+def sync_stock_notifications() -> int:
+    """Backfill and reconcile ALL non-deleted products; caller commits."""
+    products = db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all()
+    for product in products:
+        checkStockAndNotify(product)
+    return len(products)
 
 
 def set_quantity(row: Product | ProductVariant, new_qty: int, reason: str, actor_id: int | None, expected: int | None = None) -> int:

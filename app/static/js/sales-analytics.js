@@ -224,6 +224,14 @@
     }
   }
 
+  const resetButton = document.getElementById('sa-reset-range');
+  if (resetButton && filterForm) resetButton.addEventListener('click', () => {
+    rangeSelect.value = 'month';
+    if (startInput) startInput.value = '';
+    if (endInput) endInput.value = '';
+    syncCustomDateControls();
+    filterForm.requestSubmit();
+  });
   if (rangeSelect && customDates) {
     rangeSelect.addEventListener('change', syncCustomDateControls);
     syncCustomDateControls();

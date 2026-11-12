@@ -18,12 +18,19 @@ PER_PAGE = 24
 def stock_alerts():
     level = request.args.get("level", "attention")
     term = (request.args.get("q") or "").strip().lower()
+    product_id = None
+    if term.startswith("stock-id-") and term[9:].isdigit():
+        product_id = int(term[9:])
+        term = ""
     q = select(Product).where(Product.is_deleted.is_(False))
+    if product_id is not None:
+        q = q.where(Product.id == product_id)
+        level = "all"
     if level == "out":
         q = q.where(Product.stock_qty == 0)
     elif level == "low":
         q = q.where(Product.stock_qty > 0, Product.stock_qty <= Product.low_stock_threshold)
-    else:
+    elif level != "all":
         q = q.where(Product.stock_qty <= Product.low_stock_threshold)
     if term:
         q = q.where(or_(func.lower(Product.name).contains(term, autoescape=True),
