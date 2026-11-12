@@ -22,34 +22,9 @@
 </section>
 {% endif %}
 
-{% if reels_enabled and home_reels %}
-<section class="container sec home-reels" aria-labelledby="reels-title">
-  <div class="sec__row"><div><h2 id="reels-title" class="sec__h">From our kitchen</h2><p class="sec__sub">Quick ideas, product stories and everyday inspiration.</p></div></div>
-  <div class="reels-track" aria-label="Short videos">
-    {% for reel in home_reels %}
-    <article class="reel-card">
-      <button class="reel-play" type="button" data-reel-open data-video="{{ reel.video_url }}" aria-label="Play {{ reel.title }}">
-        {% if reel.thumbnail_url %}<img src="{{ reel.thumbnail_url }}" alt="" loading="lazy" decoding="async">{% endif %}
-        <video class="reel-preview" muted playsinline loop preload="none" data-reel-preview="{{ reel.video_url }}" {% if reel.thumbnail_url %}poster="{{ reel.thumbnail_url }}"{% endif %}></video>
-        <span class="reel-play-icon" aria-hidden="true">▶</span>
-      </button>
-      <b>{{ reel.title }}</b>
-      {% if reel.product %}<a href="{{ url_for('shop.product', slug=reel.product.slug) }}">Shop {{ reel.product.name }}</a>{% endif %}
-    </article>
-    {% endfor %}
-  </div>
-</section>
-<dialog class="reel-dialog" id="reel-dialog" aria-label="Reel video viewer"><button type="button" data-reel-close class="reel-close" aria-label="Close video">×</button><video controls playsinline autoplay muted></video></dialog>
-<script src="{{ url_for('static', filename='js/reels.js') }}" defer></script>
-{% endif %}
 
-<section class="container facts-wrap" aria-label="Shopping here">
-  <ul class="facts">
-    <li>{{ s.icon('package') }}<span><b>Track every order</b><small>From placed to delivered</small></span></li>
-    <li>{{ s.icon('heart') }}<span><b>Save your favourites</b><small>Wishlist on every product</small></span></li>
-    <li>{{ s.icon('tag') }}<span><b>Offers and coupons</b><small>Applied at checkout</small></span></li>
-  </ul>
-</section>
+
+
 
 <div class="container">
   {% if rows.categories %}
@@ -66,42 +41,6 @@
   </section>
   {% endif %}
 
-  {% if rows.deals or rows.best or rows.new %}
-  <section class="promos" aria-label="Featured collections">
-    {% if rows.deals %}{% set di = rows.deals[0].primary_image %}
-    <article class="promo promo--berry promo--lg">
-      <div class="promo__copy"><span class="promo__badge">Offer</span><h3>Deals of the day</h3><p>{% if rows.top_deal %}Up to {{ rows.top_deal }}% off on selected products.{% else %}Selected products at special prices.{% endif %}</p><a class="btn btn--accent" href="{{ url_for('shop.listing', sort='discount', discount=10) }}">See the deals</a></div>
-      {% if di %}<img class="promo__img" src="{{ di.thumb_url or di.url }}" alt="" loading="lazy" decoding="async" width="400" height="400">{% endif %}
-    </article>
-    {% endif %}
-
-    {% if rows.best %}
-    <article class="promo promo--mist promo--bestsellers">
-      <div class="promo__copy">
-        <h3>Bestsellers</h3>
-        <p>The products customers buy most.</p>
-        <a class="btn" href="{{ url_for('shop.bestsellers') }}">
-          Shop bestsellers
-        </a>
-      </div>
-    </article>
-    {% endif %}
-
-    {% if rows.new %}
-    <article class="promo promo--leaf promo--new-arrivals">
-      <div class="promo__copy">
-        <h3>New arrivals</h3>
-        <p>Fresh additions to the shop.</p>
-        <a class="btn btn--accent"
-           href="{{ url_for('shop.listing', sort='newest') }}">
-          See what is new
-        </a>
-      </div>
-    </article>
-    {% endif %}
-  </section>
-  {% endif %}
-
   {% if rows.best %}
   <section class="sec" aria-labelledby="best-h">
     <div class="sec__row"><div><h2 id="best-h" class="sec__h">Bestsellers</h2><p class="sec__sub">Our most popular products right now.</p></div><div class="sec__tools">{{ s.row_arrows('best-track') }}<a href="{{ url_for('shop.bestsellers') }}">See all</a></div></div>
@@ -109,19 +48,6 @@
   </section>
   {% endif %}
 </div>
-
-<section class="band band--soft" aria-labelledby="coll-h">
-  <div class="container band__in">
-    <h2 id="coll-h" class="sec__h">Shop by need</h2><p class="sec__sub">Start from what matters to you today.</p>
-    <ul class="needs">
-      <li><a class="need" href="{{ url_for('shop.listing', sort='price-asc') }}"><span class="need__i">{{ s.icon('tag') }}</span><b>Best prices</b><small>Sorted from the lowest price.</small><span class="need__go">Shop now</span></a></li>
-      <li><a class="need" href="{{ url_for('shop.listing', sort='rating') }}"><span class="need__i">{{ s.icon('star') }}</span><b>Top rated</b><small>Loved by customers who bought them.</small><span class="need__go">Shop now</span></a></li>
-      <li><a class="need" href="{{ url_for('shop.listing', sort='discount') }}"><span class="need__i">{{ s.icon('scale') }}</span><b>Biggest discounts</b><small>See how much you save.</small><span class="need__go">Shop now</span></a></li>
-      <li><a class="need" href="{{ url_for('shop.listing', avail=1) }}"><span class="need__i">{{ s.icon('package') }}</span><b>Ready to ship</b><small>Only what is in stock today.</small><span class="need__go">Shop now</span></a></li>
-      <li><a class="need" href="{{ url_for('shop.offers') }}"><span class="need__i">{{ s.icon('leaf') }}</span><b>Offers and coupons</b><small>Codes you can use at checkout.</small><span class="need__go">Shop now</span></a></li>
-    </ul>
-  </div>
-</section>
 
 {% if rows.new %}
 <section class="band band--dark" aria-labelledby="new-h">
@@ -132,20 +58,20 @@
 </section>
 {% endif %}
 
+{% if rows.deals or home_bundles %}<section class="band offers-band" aria-labelledby="offers-home-title"><div class="container band__in">
+  <div class="sec__row"><div><h2 id="offers-home-title" class="sec__h">Offers &amp; Combo</h2><p class="sec__sub">Fresh savings on selected products.</p></div><div class="sec__tools">{{ s.row_arrows('offers-track') }}<a href="{{ url_for('shop.offers') }}">View all</a></div></div>
+  <ul class="snaprow" id="offers-track" tabindex="0" aria-label="Offers and combo products">
+    {% for p in rows.deals %}{{ s.rcard(p) }}{% endfor %}
+    {% for bundle in home_bundles %}<li class="rc"><a class="rc__img" href="{{ url_for('shop.bundles') }}">{% if bundle.image_url %}<img src="{{ bundle.image_url }}" alt="" loading="lazy" decoding="async" width="400" height="400">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}<span class="tag tag--off">Combo</span></a><div class="rc__body"><p class="rc__cat">Bundle offer</p><h3 class="rc__name"><a href="{{ url_for('shop.bundles') }}">{{ bundle.name }}</a></h3><p class="rc__price"><b>₹{{ '%.2f'|format(bundle.bundle_price) }}</b></p><div class="rc__act"><form method="post" action="{{ url_for('shop.add_bundle', bundle_id=bundle.id) }}">{{ s.csrf() }}<button class="btn btn--block" type="submit">Add combo</button></form></div></div></li>{% endfor %}
+  </ul>
+</div></section>{% endif %}
+
 <div class="container">
-  {% if rows.deals %}
-  <section class="sec" aria-labelledby="deals-h">
-    <div class="sec__row"><h2 id="deals-h" class="sec__h">Deals of the day</h2><a href="{{ url_for('shop.listing', sort='discount', discount=10) }}">See all</a></div>
-    {{ s.grid(rows.deals) }}
-  </section>
-  {% endif %}
 
   <section class="sec" aria-labelledby="trust-h">
     <h2 id="trust-h" class="sec__h">Why customers can trust us</h2><p class="sec__sub">Plain facts you can check on every product page.</p>
     <ul class="trust">
-      <li class="tcard"><span class="need__i">{{ s.icon('star') }}</span><b>Real reviews</b><p>Reviews from customers, with a verified purchase label.</p></li>
       <li class="tcard"><span class="need__i">{{ s.icon('list') }}</span><b>Clear prices</b><p>Price, discount and pack size shown before you add to cart.</p></li>
-      <li class="tcard"><span class="need__i">{{ s.icon('shield') }}</span><b>Secure account</b><p>Sign in to keep your cart, addresses and orders safe.</p></li>
       <li class="tcard"><span class="need__i">{{ s.icon('check') }}</span><b>Order tracking</b><p>Follow each order from placed to delivered.</p></li>
     </ul>
   </section>
@@ -164,8 +90,8 @@
   {% if not (rows.deals or rows.best or rows.new) %}<p class="muted sec">Products are coming soon.</p>{% endif %}
 </div>
 
-<section class="band band--soft home-about" aria-labelledby="home-about-h">
-  <div class="container band__in">
+<section class="home-about" aria-labelledby="home-about-h">
+  <div class="container band__in home-about__in">
     <p class="eyebrow">Our story</p>
     <h2 id="home-about-h" class="sec__h">A Mother's Dream. A Healthier Tomorrow.</h2>
     <p>Traditional roots. Modern taste. A vision to help families rediscover traditional goodness and make thoughtful food choices.</p>
@@ -174,6 +100,11 @@
 </section>
 
 
+
+{% if featured_reviews %}
+<section class="container sec customer-reviews" aria-labelledby="customer-reviews-title"><div class="sec__row"><div><h2 id="customer-reviews-title" class="sec__h">Customer reviews</h2><p class="sec__sub">What customers say about RR FOODS.</p></div></div>
+<div class="review-track" tabindex="0" aria-label="Customer reviews">{% for review, product_name, customer_name in featured_reviews %}<article class="review-card"><div class="review-stars" aria-label="{{ review.rating }} out of 5 stars">{% for _ in range(review.rating) %}★{% endfor %}</div><p>{{ review.body|default(review.comment|default('A great experience with RR FOODS.'), true)|truncate(180) }}</p><b>{{ customer_name }}</b><small>{{ "Verified purchase" if review.is_verified_purchase else "Customer review" }} · {{ product_name }}</small></article>{% endfor %}</div></section>
+{% endif %}
 
 <section class="cta" aria-labelledby="cta-h">
   <div class="cta__in"><h2 id="cta-h">Ready to order?</h2><p>Browse everything we sell and add your favourites to the cart.</p><a class="btn btn--accent btn--lg" href="{{ url_for('shop.listing') }}">Shop all products</a></div>

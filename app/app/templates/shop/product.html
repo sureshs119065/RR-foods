@@ -78,7 +78,7 @@
         </div>
         <div class="buybar" id="buybar">
           <button class="btn btn--ghost" type="submit" {% if not variants and stock <= 0 %}disabled{% endif %} data-add>Add to cart</button>
-          <button class="btn" type="submit" name="buy_now" value="1" {% if not variants and stock <= 0 %}disabled{% endif %} data-buy>Buy now</button>
+          <button class="btn" type="submit" name="buy_now" value="1" formaction="{{ url_for('shop.buy_now') }}" {% if not variants and stock <= 0 %}disabled{% endif %} data-buy>Buy now</button>
         </div>
       </form>
       {% if stock <= 0 %}

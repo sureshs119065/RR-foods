@@ -1,6 +1,7 @@
 from flask import g, jsonify, redirect, render_template, request, session, url_for
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+import time
 
 from ..auth.decorators import roles_required
 from ..auth.service import PORTALS, safe_next
@@ -27,6 +28,7 @@ def _need_login():
 @bp.get("/cart")
 @user_only
 def cart():
+    session.pop("buy_now", None)
     view = svc.build(g.user.id, session.get("coupon"))
     if session.get("coupon") and view.coupon is None and view.coupon_error:
         pass  # keep the code visible with its error so the customer can see why and remove it
@@ -77,6 +79,33 @@ def _add_one(user, product_id, variant_id, qty):
     return f"Added {name} to your cart.", True
 
 
+@bp.post("/buy-now")
+@limiter.limit("30 per minute")
+def buy_now():
+    errs: dict = {}
+    pid = to_int(request.form.get("product_id"), "p", errs, min_=1, max_=2_000_000_000)
+    vid = to_int(request.form.get("variant_id"), "v", errs, min_=1, max_=2_000_000_000, required=False, default=None)
+    qty = to_int(request.form.get("qty") or "1", "q", errs, min_=1, max_=svc.MAX_LINE_QTY)
+    if errs:
+        return reply(False, "Choose a valid quantity and product option.", "/cart", 422)
+    product = db.session.scalar(select(Product).where(Product.id == pid, LIVE))
+    if product is None:
+        return reply(False, "That product is not available.", "/shop", 404)
+    options = active_variants(product)
+    variant = next((x for x in options if x.id == vid), None) if options else None
+    if options and variant is None:
+        return reply(False, "Choose an option first.", url_for("shop.product", slug=product.slug), 422)
+    if not options and vid:
+        return reply(False, "That option does not exist.", url_for("shop.product", slug=product.slug), 422)
+    stock = variant.stock_qty if variant else product.stock_qty
+    if qty > stock or stock <= 0:
+        return reply(False, "The selected quantity is not available.", url_for("shop.product", slug=product.slug), 409)
+    session["buy_now"] = {"product_id": pid, "variant_id": vid, "qty": qty, "slug": product.slug}
+    if g.get("user") is None or g.user.role != "user":
+        return redirect(url_for("auth.login", next=url_for("shop.checkout_page")))
+    return redirect(url_for("shop.checkout_page"))
+
+
 @bp.post("/cart/add")
 @limiter.limit("60 per minute")
 def cart_add():
@@ -90,6 +119,16 @@ def cart_add():
     qty = to_int(request.form.get("qty") or "1", "q", errs, min_=1, max_=svc.MAX_LINE_QTY)
     if errs:
         return reply(False, "Choose a quantity from 1 to %d." % svc.MAX_LINE_QTY, "/cart", 422)
+    # Reject an identical repeated request inside one second (double tap / duplicate submit).
+    # The session key is scoped to the signed-in customer, product and selected variant.
+    guard_key = "cart_add_guard"
+    now = time.time()
+    previous = session.get(guard_key) or {}
+    same_request = previous.get("user") == g.user.id and previous.get("product") == pid and previous.get("variant") == (vid or 0) and previous.get("qty") == qty
+    if same_request and now - float(previous.get("at", 0)) < 1.0:
+        return reply(False, "This item was just added. Please wait a moment before adding it again.", "/cart", 409,
+                     count=svc.count_in_cart(g.user.id))
+    session[guard_key] = {"user": g.user.id, "product": pid, "variant": vid or 0, "qty": qty, "at": now}
     msg, ok = _add_one(g.user, pid, vid, qty)
     if ok and request.form.get("buy_now"):
         return redirect(url_for("shop.checkout_page"))

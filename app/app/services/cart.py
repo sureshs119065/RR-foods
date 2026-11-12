@@ -138,3 +138,27 @@ def build(user_id: int, coupon_code: str | None = None, zone: DeliveryZone | Non
             err, discount = str(e), Decimal(0)
     problems = [f"{l.product.name}: {l.error}" for l in lines if l.error]
     return CartView(lines, saved, coupon, err, totals_for(lines, discount, zone), problems)
+
+
+def build_single(user_id: int, payload: dict, coupon_code: str | None = None, zone: DeliveryZone | None = None) -> CartView:
+    """Build an isolated checkout view for a Buy now session; never reads or mutates cart rows."""
+    pid, vid, qty = int(payload.get("product_id", 0)), payload.get("variant_id"), int(payload.get("qty", 1))
+    product = db.session.scalar(select(Product).where(Product.id == pid).options(selectinload(Product.images), selectinload(Product.variants)))
+    if product is None:
+        return CartView([], [], None, "This product is no longer available.", totals_for([], Decimal(0), zone), ["This product is no longer available."])
+    variant = db.session.get(ProductVariant, int(vid)) if vid else None
+    if variant is not None and (variant.product_id != product.id or not variant.is_active or variant.is_deleted):
+        variant = None
+    item = CartItem(user_id=user_id, product_id=product.id, variant_id=variant.id if variant else None, quantity=qty, saved_for_later=False)
+    item.product, item.variant = product, variant
+    line = make_line(item)
+    coupon, err, discount = None, None, Decimal(0)
+    if coupon_code:
+        coupon = coupons.find(coupon_code)
+        try:
+            if coupon is None: raise coupons.CouponError("That coupon code does not exist.")
+            discount = coupons.discount_for(coupon, user_id, line.total)
+        except coupons.CouponError as exc:
+            err, coupon, discount = str(exc), None, Decimal(0)
+    problems = [f"{line.product.name}: {line.error}"] if line.error else []
+    return CartView([line], [], coupon, err, totals_for([line], discount, zone), problems)

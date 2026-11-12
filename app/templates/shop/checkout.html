@@ -3,7 +3,7 @@
 {% block robots %}noindex,nofollow{% endblock %}
 {% block content %}
 <div class="container">
-  <h1 class="pg-h">Checkout</h1>
+  <h1 class="pg-h">Checkout</h1>{% if buy_now %}<p class="notice"><b>Buying {{ view.count }} item</b> · <a href="{{ url_for('shop.product', slug=buy_now.slug) }}">Back to product</a></p>{% endif %}
   <nav class="checkout-progress" aria-label="Checkout progress"><a href="{{ url_for('shop.cart') }}">1. Cart</a><span class="is-current">2. Address</span><span>3. Pay</span></nav>
   <form class="cartlay" method="post" action="{{ url_for('shop.checkout_place') }}" data-checkout data-once>
     {{ s.csrf() }}
@@ -58,7 +58,7 @@
         <ul class="mini">
           {% for l in view.lines %}<li><span>{{ l.product.name }}{% if l.label %} <span class="muted">({{ l.label }})</span>{% endif %} × {{ l.qty }}</span><b>{{ s.inr(l.total) }}</b></li>{% endfor %}
         </ul>
-        <a href="{{ url_for('shop.cart') }}">Edit cart</a>
+        {% if not buy_now %}<a href="{{ url_for('shop.cart') }}">Edit cart</a>{% else %}<span class="muted small">This Buy now checkout does not change your cart.</span>{% endif %}
       </section>
     </div>
 

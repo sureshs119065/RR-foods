@@ -60,7 +60,7 @@ def _check_bundle_still_valid(item: CartItem, product: Product) -> None:
         raise CheckoutError(f"The bundle offer for “{product.name}” was updated. Remove it from your cart and add the bundle again to get the new price.")
 
 
-def place_order(user, address_id: int, method: str, coupon_code: str | None, note: str | None, delivery_date: str | None = None, delivery_slot: str | None = None, gift_message: str | None = None, hide_prices: bool = False) -> Order:
+def place_order(user, address_id: int, method: str, coupon_code: str | None, note: str | None, delivery_date: str | None = None, delivery_slot: str | None = None, gift_message: str | None = None, hide_prices: bool = False, buy_now: dict | None = None) -> Order:
     if method not in {m[0] for m in payment_methods()}:
         raise CheckoutError("Choose a payment method.")
     address = db.session.get(Address, address_id) if address_id else None
@@ -77,7 +77,13 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
     except ValueError as exc:
         raise CheckoutError(str(exc)) from exc
 
-    items = list(db.session.scalars(select(CartItem).where(CartItem.user_id == user.id, CartItem.saved_for_later.is_(False)).order_by(CartItem.id)))
+    if buy_now:
+        qty = int(buy_now.get("qty", 0)); pid = int(buy_now.get("product_id", 0)); vid = buy_now.get("variant_id")
+        if qty < 1 or qty > MAX_LINE_QTY or pid < 1:
+            raise CheckoutError("Your Buy now selection is invalid. Please select the product again.")
+        items = [CartItem(user_id=user.id, product_id=pid, variant_id=int(vid) if vid else None, quantity=qty, saved_for_later=False)]
+    else:
+        items = list(db.session.scalars(select(CartItem).where(CartItem.user_id == user.id, CartItem.saved_for_later.is_(False)).order_by(CartItem.id)))
     if not items:
         raise CheckoutError("Your cart is empty. Your order may already have been placed. Check My orders.")
 
@@ -138,8 +144,9 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
     if coupon:
         coupon.used_count += 1
         db.session.add(CouponUsage(coupon_id=coupon.id, user_id=user.id, order_id=order.id))
-    for it in items:
-        db.session.delete(it)
+    if not buy_now:
+        for it in items:
+            db.session.delete(it)
 
     notify(user.id, "order_status", f"Order {order.order_number} placed", "Thanks! Send the order on WhatsApp so the shop can confirm it and share payment details.", link=f"/account/orders/{order.order_number}")
     audit("order.place", entity_type="order", entity_id=order.id, actor_id=user.id, after={"order_number": order.order_number, "total": str(order.total), "method": method})

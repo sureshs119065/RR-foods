@@ -32,7 +32,7 @@
 <header class="sh" id="sh" data-sh>
   <div class="sh__row">
     <button class="icon-btn sh__menu" type="button" data-open="drawer" aria-label="Open menu" aria-controls="drawer" aria-expanded="false">{{ s.icon('menu') }}</button>
-    <a class="brand rr-brand" href="{{ url_for('shop.home') }}" aria-label="RR FOODS home"><img class="brand__logo rr-brand__logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="60" height="60" alt="RR FOODS"></a>
+    <a class="brand rr-brand" href="{{ url_for('shop.home') }}" aria-label="RR FOODS home"><img class="brand__logo rr-brand__logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="64" height="64" alt="RR FOODS"></a>
     <nav class="sh__links" aria-label="Main">
       <ul>
         <li><a class="nav-link" href="{{ url_for('shop.home') }}" {% if request.endpoint == 'shop.home' %}aria-current="page"{% endif %}>Home</a></li>
@@ -43,34 +43,20 @@
       </ul>
     </nav>
     <span class="sh__br" aria-hidden="true"></span>
-   {% if current_user and current_user.role == 'user' %}
-    {% set un = unread_count() if unread_count is callable else unread_count|default(0) %}
-    <a class="icon-btn sh__bell"
-       href="{{ url_for('shop.notifications') }}"
-       aria-label="Notifications{% if un %} ({{ un }} unread){% endif %}">
-        <svg class="ic" viewBox="0 0 24 24" width="24" height="24"
-             fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round"
-             aria-hidden="true">
-            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/>
-            <path d="M10 21a2 2 0 0 0 4 0"/>
-        </svg>
-        <span class="dot-n" data-notif-count {% if not un %}hidden{% endif %}>
-            {{ un if un < 100 else '99+' }}
-        </span>
-    </a>
-{% endif %}
-
+    {% if current_user and current_user.role == 'user' %}
+      {% set un = unread_count() if unread_count is callable else unread_count|default(0) %}
+      <a class="icon-btn sh__bell" href="{{ url_for('shop.notifications') }}" aria-label="Notifications{% if un %} ({{ un }} unread){% endif %}">{{ s.icon('bell') }}<span class="dot-n" data-notif-count {% if not un %}hidden{% endif %}>{{ un if un < 100 else '99+' }}</span></a>
+    {% endif %}
     <form class="sh__search" action="{{ url_for('shop.listing') }}" method="get" role="search">
       <input type="search" name="q" value="{{ request.args.get('q', '') if request.endpoint in ('shop.listing', 'shop.bestsellers', 'shop.category_listing') else '' }}" placeholder="Search for products" aria-label="Search products" autocomplete="off" enterkeyhint="search" data-suggest>
       <button class="sh__go" type="submit" aria-label="Search">{{ s.icon('search') }}</button>
     </form>
     <div class="sh__actions">
-      <a class="icon-btn sh__wish" href="{{ url_for('shop.wishlist') if current_user and current_user.role == 'user' else url_for('auth.login', next=url_for('shop.wishlist')) }}" aria-label="Save your favourites">{{ s.icon('heart') }}{% set wn = wishlist_count() if wishlist_count is callable else 0 %}<span class="dot-n" data-wishlist-count {% if not wn %}hidden{% endif %}>{{ wn }}</span><span class="sh__action-label">Favourites</span></a>
-      <a class="icon-btn sh__track" href="{{ url_for('shop.orders') if current_user and current_user.role == 'user' else url_for('auth.login', next=url_for('shop.orders')) }}" aria-label="Track my orders">{{ s.icon('package') }}<span class="sh__action-label">Track orders</span></a>
       <button class="icon-btn sh__searchbtn" type="button" data-open="search" aria-label="Search">{{ s.icon('search') }}</button>
+      {% set wc = wishlist_count|default(0) if current_user and current_user.role == 'user' else 0 %}
+      <a class="icon-btn sh__wish" href="{{ url_for('shop.wishlist') if current_user and current_user.role == 'user' else url_for('auth.login', next=url_for('shop.wishlist')) }}" aria-label="Save your favourites">{{ s.icon('heart') }}<span class="sh__action-label">Favourites</span><span class="dot-n" {% if not wc %}hidden{% endif %}>{{ wc }}</span></a>
+      <a class="icon-btn sh__orders" href="{{ url_for('shop.orders') if current_user and current_user.role == 'user' else url_for('auth.login', next=url_for('shop.orders')) }}" aria-label="Track my orders">{{ s.icon('package') }}<span class="sh__action-label">Track orders</span></a>
       <a class="icon-btn sh__acct" href="{{ '/account' if current_user and current_user.role == 'user' else ('/owner/' if current_user and current_user.role == 'owner' else ('/admin/' if current_user else '/login')) }}" aria-label="{{ 'My account' if current_user else 'Sign in' }}">{{ s.icon('user') }}<span class="sh__acct-t">{{ 'Account' if current_user else 'Sign in' }}</span></a>
-      {% if config.get('WHATSAPP_NUMBER') %}<a class="icon-btn sh__whatsapp" href="https://wa.me/{{ config.get('WHATSAPP_NUMBER') }}" target="_blank" rel="noopener" aria-label="WhatsApp"><span class="sh__action-label">WhatsApp</span></a>{% endif %}
       <a class="icon-btn sh__cart" href="{{ url_for('shop.cart') }}" aria-label="Cart">{{ s.icon('cart') }}<span class="sh__cart-t">Cart</span>{% set n = cart_count() %}<span class="dot-n" data-cart-count {% if not n %}hidden{% endif %}>{{ n }}</span></a>
     </div>
   </div>
@@ -85,11 +71,10 @@
     <a href="{{ url_for('shop.offers') }}">Offers &amp; Combo</a>
     <a href="{{ url_for('shop.about') }}">About Us</a>
     <a href="{{ url_for('shop.help_page') }}">Contact</a>
+    <a href="{{ url_for('shop.orders') if current_user and current_user.role == 'user' else url_for('auth.login', next=url_for('shop.orders')) }}">Track orders</a>
+    <a href="{{ url_for('shop.wishlist') if current_user and current_user.role == 'user' else url_for('auth.login', next=url_for('shop.wishlist')) }}">Favourites</a>
     <hr>
     {% if current_user and current_user.role == 'user' %}
-      <a href="{{ url_for('shop.orders') }}">Track orders</a>
-      <a href="{{ url_for('shop.wishlist') }}">Favourites</a>
-      <a href="{{ url_for('shop.wishlist') }}">My wishlist</a>
       <a href="{{ url_for('shop.notifications') }}">Notifications</a>
       <a href="{{ url_for('shop.addresses') }}">My addresses</a>
       <a href="/account">My account</a>
@@ -143,8 +128,8 @@
       <p>Traditional roots. Modern taste. A healthier tomorrow.</p>
       <a href="{{ url_for('shop.about') }}">About RR FOODS</a>
       <a href="{{ url_for('shop.help_page') }}">Contact &amp; support</a>
-      {% if config.get('SUPPORT_EMAIL') %}<a href="mailto:{{ config.get('SUPPORT_EMAIL')|e }}">{{ config.get('SUPPORT_EMAIL') }}</a>{% endif %}
-      {% if config.get('WHATSAPP_NUMBER') %}<a href="https://wa.me/{{ config.get('WHATSAPP_NUMBER')|replace('+','')|replace(' ','') }}" target="_blank" rel="noopener">WhatsApp support</a>{% endif %}
+      {% if config.get('SUPPORT_EMAIL') %}<a href="mailto:{{ config.get('SUPPORT_EMAIL') }}">{{ config.get('SUPPORT_EMAIL') }}</a>{% endif %}
+      {% if config.get('WHATSAPP_NUMBER') %}<a href="https://wa.me/{{ config.get('WHATSAPP_NUMBER') }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}
       <a class="btn btn--accent" href="{{ url_for('shop.listing') }}">View products</a>
     </div>
     <details class="sf__col" open data-col><summary>Shop</summary><ul>
@@ -159,7 +144,7 @@
     </ul></details>
     <details class="sf__col" open data-col><summary>My account</summary><ul>
       {% if current_user and current_user.role == 'user' %}
-        <li><a href="{{ url_for('shop.orders') }}">My orders</a></li><li><a href="{{ url_for('shop.wishlist') }}">My wishlist</a></li><li><a href="{{ url_for('shop.addresses') }}">My addresses</a></li><li><a href="/account">Account settings</a></li>
+        <li><a href="{{ url_for('shop.orders') }}">Track orders</a></li><li><a href="{{ url_for('shop.wishlist') }}">Favourites</a></li><li><a href="{{ url_for('shop.addresses') }}">My addresses</a></li><li><a href="/account">Account settings</a></li>
       {% else %}
         <li><a href="/login">Sign in</a></li><li><a href="/register">Create account</a></li>
       {% endif %}

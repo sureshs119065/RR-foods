@@ -21,7 +21,7 @@ HEX = re.compile(r"^#[0-9a-fA-F]{3,8}$")
 
 @bp.get("/")
 def home():
-    from ..models import Reel, SiteSetting
+    from ..models import Reel, SiteSetting, Bundle
     setting = db.session.get(SiteSetting, "home_reels")
     cfg = setting.value if setting and isinstance(setting.value, dict) else {}
     selected = cfg.get("selected_ids") or []
@@ -45,8 +45,12 @@ def home():
         .where(ProductQuestion.answer.is_not(None), ProductQuestion.is_deleted.is_(False), Product.is_deleted.is_(False))
         .order_by(ProductQuestion.answered_at.desc(), ProductQuestion.created_at.desc()).limit(4)
     ).all()
+    now = utcnow()
+    home_bundles = db.session.scalars(select(Bundle).where(Bundle.is_active.is_(True),
+        (Bundle.starts_at.is_(None)) | (Bundle.starts_at <= now),
+        (Bundle.ends_at.is_(None)) | (Bundle.ends_at > now)).order_by(Bundle.created_at.desc()).limit(6)).all()
     return render_template("shop/home.html", rows=storefront.home_rows(), carousel=header_banners.cached_payload(),
-                           recent=storefront.recently_viewed(), now=utcnow(), home_reels=reels,
+                           recent=storefront.recently_viewed(), now=now, home_reels=reels, home_bundles=home_bundles,
                            reels_enabled=cfg.get("enabled", True), featured_reviews=featured_reviews,
                            featured_questions=featured_questions)
 

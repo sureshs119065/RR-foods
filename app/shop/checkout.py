@@ -21,7 +21,8 @@ def _addresses():
 @bp.get("/checkout")
 @user_only
 def checkout_page():
-    view = cart_svc.build(g.user.id, session.get("coupon"))
+    buy_now = session.get("buy_now")
+    view = cart_svc.build_single(g.user.id, buy_now, session.get("coupon")) if buy_now else cart_svc.build(g.user.id, session.get("coupon"))
     if not view.lines:
         flash("Your cart is empty.", "info")
         return redirect(url_for("shop.cart"))
@@ -44,7 +45,7 @@ def checkout_page():
     last_address = max(addrs, key=lambda a: (a.updated_at or a.created_at, a.id), default=None)
     slot_dates = delivery_slots.available_dates()
     delivery_settings = delivery_slots.get_settings()
-    return render_template("shop/checkout.html", view=view, addrs=addrs, chosen=chosen, last_address=last_address, quotes=quotes, totals=totals, methods=svc.payment_methods(), checkout_token=checkout_token, slot_dates=slot_dates, delivery_settings=delivery_settings)
+    return render_template("shop/checkout.html", view=view, buy_now=buy_now, addrs=addrs, chosen=chosen, last_address=last_address, quotes=quotes, totals=totals, methods=svc.payment_methods(), checkout_token=checkout_token, slot_dates=slot_dates, delivery_settings=delivery_settings)
 
 
 @bp.post("/checkout")
@@ -57,7 +58,7 @@ def checkout_place():
         return redirect(url_for("shop.orders"))
     try:
         order = svc.place_order(g.user, int(request.form.get("address_id") or 0) if (request.form.get("address_id") or "").isdigit() else 0,
-                                request.form.get("method", ""), session.get("coupon"), request.form.get("notes"), request.form.get("delivery_date"), request.form.get("delivery_slot"), request.form.get("gift_message"), request.form.get("hide_prices") == "1")
+                                request.form.get("method", ""), session.get("coupon"), request.form.get("notes"), request.form.get("delivery_date"), request.form.get("delivery_slot"), request.form.get("gift_message"), request.form.get("hide_prices") == "1", buy_now=session.get("buy_now"))
         db.session.commit()
         session.pop("checkout_token", None)
     except svc.CheckoutError as e:
@@ -65,6 +66,7 @@ def checkout_place():
         flash(str(e), "error")
         return redirect(url_for("shop.checkout_page", address=request.form.get("address_id")))
     session.pop("coupon", None)
+    session.pop("buy_now", None)
     return redirect(url_for("shop.order_placed", order_number=order.order_number))
 
 

@@ -5,3 +5,42 @@
 .cart-suggestions{grid-column:1/-1}
 
 .delivery-settings-panel{max-width:760px}
+
+/* RR Foods customer refresh — consolidated customer overrides */
+html[data-shop] .sh__row{display:flex;align-items:center;gap:clamp(.35rem,1vw,.85rem);min-width:0}
+html[data-shop] .rr-brand{flex:0 0 auto;display:flex;align-items:center}
+html[data-shop] .rr-brand>span{display:none!important}
+html[data-shop] .rr-brand__logo{width:62px!important;height:62px!important;max-width:none;object-fit:contain}
+html[data-shop] .sh__links{flex:0 1 auto;min-width:0}
+html[data-shop] .sh__search{flex:0 1 400px;width:min(34vw,400px);min-width:190px;margin-inline:auto}
+html[data-shop] .sh__actions{display:flex;align-items:center;gap:clamp(.2rem,.55vw,.55rem);flex:0 0 auto}
+html[data-shop] .sh__bell,html[data-shop] .sh__wish,html[data-shop] .sh__orders,html[data-shop] .sh__acct,html[data-shop] .sh__cart{position:relative;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:.25rem}
+html[data-shop] .sh__action-label,html[data-shop] .sh__acct-t,html[data-shop] .sh__cart-t{font-size:.72rem;white-space:nowrap}
+html[data-shop] .sh__searchbtn{display:none}
+html[data-shop] .dot-n{position:absolute;top:0;right:0;min-width:17px;min-height:17px;padding:0 4px;border-radius:99px;background:#087b39;color:#fff;font-size:10px;display:grid;place-items:center}
+html[data-shop] .dot-n[hidden]{display:none}
+html[data-shop] .offers-band{background:linear-gradient(115deg,#e8f8d8,#f5ffe9 55%,#d7f0c6);color:#123d25}
+html[data-shop] .offers-band .snaprow{overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;touch-action:pan-x}
+html[data-shop] .offers-band .snaprow>.rc{flex:0 0 min(78vw,260px);scroll-snap-align:start}
+html[data-shop] .trust{grid-template-columns:repeat(2,minmax(0,1fr))}
+html[data-shop] .steps .step__n{display:grid;place-items:center;width:2.35rem;height:2.35rem;border-radius:50%;background:linear-gradient(145deg,#159447,#075c2e);color:#fff;font-weight:900;border:3px solid #a8e2b7;box-shadow:0 0 0 2px #087b39}
+html[data-shop] .home-about{position:relative;isolation:isolate;overflow:hidden;padding:clamp(3rem,8vw,6rem) 0;background:linear-gradient(120deg,#064c2b,#168346 60%,#0b5a32);color:#fff}
+html[data-shop] .home-about:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(0,50,24,.92),rgba(0,80,38,.72)),url('/static/img/our-story-bg.webp') center/cover no-repeat}
+html[data-shop] .home-about .sec__h,html[data-shop] .home-about p,html[data-shop] .home-about .eyebrow{color:#fff}
+html[data-shop] .home-about .more{color:#fff;text-decoration:underline;text-underline-offset:4px}
+html[data-shop] .review-track{display:flex;gap:1rem;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;padding:.5rem 0 1rem}
+html[data-shop] .review-card{flex:0 0 min(82vw,320px);scroll-snap-align:start;border:1px solid var(--c-line);border-radius:1rem;padding:1rem;background:var(--c-surface);box-shadow:var(--shadow)}
+html[data-shop] .review-card p{min-height:3.5em}
+html[data-shop] .review-card small{display:block;color:var(--c-muted);margin-top:.25rem}
+html[data-shop] .review-stars{color:#168344;letter-spacing:.12em}
+html[data-shop] input,html[data-shop] select,html[data-shop] textarea{font-size:16px}
+@media(max-width:1099px){html[data-shop] .sh__row{justify-content:space-between}html[data-shop] .sh__links,html[data-shop] .sh__br,html[data-shop] .sh__search{display:none!important}html[data-shop] .sh__searchbtn{display:inline-flex}html[data-shop] .rr-brand{position:absolute;left:50%;transform:translateX(-50%)}html[data-shop] .rr-brand__logo{width:50px!important;height:50px!important}html[data-shop] .sh__actions{margin-left:auto}html[data-shop] .sh__action-label,html[data-shop] .sh__acct-t,html[data-shop] .sh__cart-t{display:none!important}}
+@media(max-width:380px){html[data-shop] .sh__row{gap:.15rem}html[data-shop] .sh__menu,html[data-shop] .sh__actions .icon-btn{min-width:44px;width:44px;padding:0}html[data-shop] .rr-brand__logo{width:46px!important;height:46px!important}html[data-shop] .sh__actions{gap:0}}
+@media(max-width:639px){html[data-shop] .trust{grid-template-columns:1fr}html[data-shop] .steps{display:grid;grid-template-columns:1fr;gap:.8rem}html[data-shop] .steps>li{display:grid;grid-template-columns:2.7rem 1fr;column-gap:.7rem;align-items:start}html[data-shop] .steps .step__n{grid-row:span 2}html[data-shop] .steps>li p{margin:.15rem 0 0}}
+@media(prefers-reduced-motion:reduce){html[data-shop] .review-track,html[data-shop] .offers-band .snaprow{scroll-behavior:auto}}
+html[data-shop] .contact-methods{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:1rem;margin:1.5rem 0}
+html[data-shop] .contact-methods .card,html[data-shop] .contact-question{padding:1.15rem;border:1px solid var(--c-line);border-radius:1rem;background:var(--c-surface)}
+html[data-shop] .contact-methods h2,html[data-shop] .contact-question h2{margin-top:0}
+html[data-shop] .contact-question label{display:grid;gap:.35rem;margin:.8rem 0;font-weight:650}
+html[data-shop] .contact-question input,html[data-shop] .contact-question textarea{width:100%;min-height:44px;padding:.7rem;border:1px solid var(--c-line);border-radius:.65rem;background:var(--c-bg);color:var(--c-text)}
+html[data-shop] .contact-faq{margin-top:2rem}

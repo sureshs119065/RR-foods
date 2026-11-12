@@ -75,29 +75,4 @@
   });
 })();
 
-/* ---------- add to cart from a product card (no page reload) ---------- */
-(function () {
-  "use strict";
-  var csrf = (document.querySelector("meta[name=csrf-token]") || {}).content || "";
-  var toast = document.getElementById("toast"), tt;
-  function say(text, bad) {
-    if (!toast) return;
-    toast.textContent = text; toast.hidden = false; toast.classList.toggle("toast--error", !!bad);
-    requestAnimationFrame(function () { toast.classList.add("toast--show"); });
-    clearTimeout(tt); tt = setTimeout(function () { toast.classList.remove("toast--show"); }, bad ? 5000 : 2800);
-  }
-  document.addEventListener("submit", function (e) {
-    var f = e.target; if (!f.matches || !f.matches("form[data-addcart]") || !window.fetch) return;
-    e.preventDefault();
-    var btn = f.querySelector("button"); if (btn) btn.disabled = true;
-    fetch(f.action, { method: "POST", body: new FormData(f), credentials: "same-origin", headers: { Accept: "application/json", "X-CSRFToken": csrf } })
-      .then(function (r) { return r.json().then(function (d) { return { s: r.status, d: d }; }); })
-      .then(function (res) {
-        if (res.s === 401 && res.d.login) { window.location.href = res.d.login; return; }
-        say(res.d.message || "Done.", !res.d.ok);
-        if (res.d.ok && typeof res.d.count === "number") Array.prototype.forEach.call(document.querySelectorAll("[data-cart-count]"), function (c) { c.textContent = res.d.count; c.hidden = !res.d.count; });
-      })
-      .catch(function () { say("No connection. Please try again.", true); })
-      .then(function () { if (btn) btn.disabled = false; });
-  });
-})();
+

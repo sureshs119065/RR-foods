@@ -56,7 +56,7 @@
       </p>
       <p class="muted small">Inclusive of all taxes</p>
 
-      <form class="buyform" id="buyform" method="post" action="{{ url_for('shop.cart_add') }}" data-addcart>
+      <form class="buyform" id="buyform" method="post" action="{{ url_for('shop.cart_add') }}">
         {{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.path }}">
         {% if variants %}
         <fieldset class="variants">
@@ -78,7 +78,7 @@
         </div>
         <div class="buybar" id="buybar">
           <button class="btn btn--ghost" type="submit" {% if not variants and stock <= 0 %}disabled{% endif %} data-add>Add to cart</button>
-          <button class="btn" type="submit" name="buy_now" value="1" {% if not variants and stock <= 0 %}disabled{% endif %} data-buy>Buy now</button>
+          <button class="btn" type="submit" name="buy_now" value="1" formaction="{{ url_for('shop.buy_now') }}" {% if not variants and stock <= 0 %}disabled{% endif %} data-buy>Buy now</button>
         </div>
       </form>
       {% if stock <= 0 %}

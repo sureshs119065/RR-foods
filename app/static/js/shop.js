@@ -197,17 +197,6 @@
       });
     });
     $$("[data-step]", form).forEach(function (b) { b.addEventListener("click", function () { var v = (parseInt(qty.value, 10) || 1) + parseInt(b.dataset.step, 10); qty.value = Math.min(+qty.max || 10, Math.max(1, v)); }); });
-    form.addEventListener("submit", function (e) {
-      if (e.submitter && e.submitter.name === "buy_now") return; // go straight to checkout with a normal post
-      if (!window.fetch) return;
-      e.preventDefault(); if (form.getAttribute("data-busy")) return;
-      if (!form.reportValidity()) return;
-      form.setAttribute("data-busy", "1");
-      fetch(form.action, { method: "POST", body: new FormData(form), credentials: "same-origin", headers: { Accept: "application/json", "X-CSRFToken": csrf } })
-        .then(function (r) { return r.json().then(function (d) { return { s: r.status, d: d }; }); })
-        .then(function (res) { form.removeAttribute("data-busy"); if (res.s === 401 && res.d.login) { window.location.href = res.d.login; return; } if (typeof res.d.count === "number") setCount(res.d.count); say(res.d.message || "Done.", !res.d.ok); })
-        .catch(function () { form.removeAttribute("data-busy"); say("No connection. Please try again.", true); });
-    });
   }
   var pin = $("#pinform");
   if (pin) {
@@ -458,18 +447,19 @@
     clearTimeout(tt); tt = setTimeout(function () { toast.classList.remove("toast--show"); }, bad ? 5000 : 2500);
   }
   document.addEventListener("submit", function (e) {
-    var f = e.target; if (!f.matches || !f.matches("[data-quickadd]") || !window.fetch) return;
+    var f = e.target; if (!f.matches || !(f.matches("[data-quickadd]") || f.matches("form[data-addcart]") || f.id === "buyform") || !window.fetch) return;
+    if (e.submitter && e.submitter.name === "buy_now") return;
     e.preventDefault(); if (f.hasAttribute("data-busy")) return;
-    f.setAttribute("data-busy", "1");
+    f.setAttribute("data-busy", "1"); var addButton = e.submitter || f.querySelector("button[type=submit]") || f.querySelector("button"); if (addButton) addButton.disabled = true;
     fetch(f.action, { method: "POST", body: new FormData(f), credentials: "same-origin", headers: { Accept: "application/json", "X-CSRFToken": csrf } })
       .then(function (r) { return r.json().then(function (d) { return { s: r.status, d: d }; }); })
       .then(function (res) {
-        f.removeAttribute("data-busy");
+        f.removeAttribute("data-busy"); if (addButton) addButton.disabled = false;
         if (res.s === 401 && res.d.login) { window.location.href = res.d.login; return; }
         if (typeof res.d.count === "number") document.querySelectorAll("[data-cart-count]").forEach(function (b) { b.textContent = res.d.count; b.hidden = !res.d.count; });
         say(res.d.message || "Done.", !res.d.ok);
       })
-      .catch(function () { f.removeAttribute("data-busy"); say("No connection. Please try again.", true); });
+      .catch(function () { f.removeAttribute("data-busy"); if (addButton) addButton.disabled = false; say("No connection. Please try again.", true); });
   });
   document.addEventListener("click", function (e) {
     var b = e.target.closest ? e.target.closest("[data-share]") : null; if (!b) return;
@@ -492,17 +482,18 @@
   }
   document.addEventListener("submit", function (e) {
     var f = e.target; if (!f.matches || !f.matches("[data-notify]") || !window.fetch) return;
+    if (e.submitter && e.submitter.name === "buy_now") return;
     e.preventDefault(); if (f.hasAttribute("data-busy")) return;
-    f.setAttribute("data-busy", "1");
+    f.setAttribute("data-busy", "1"); var addButton = e.submitter || f.querySelector("button[type=submit]") || f.querySelector("button"); if (addButton) addButton.disabled = true;
     fetch(f.action, { method: "POST", body: new FormData(f), credentials: "same-origin", headers: { Accept: "application/json", "X-CSRFToken": csrf } })
       .then(function (r) { return r.json().then(function (d) { return { s: r.status, d: d }; }); })
       .then(function (res) {
-        f.removeAttribute("data-busy");
+        f.removeAttribute("data-busy"); if (addButton) addButton.disabled = false;
         if (res.s === 401 && res.d.login) { window.location.href = res.d.login; return; }
         var b = f.querySelector("[data-notify-btn]");
         if (res.d.ok && b) { b.textContent = res.d.on ? "Alert on. Tap to cancel" : "Notify me when available"; b.setAttribute("aria-pressed", res.d.on ? "true" : "false"); }
         say(res.d.message || "Done.", !res.d.ok);
       })
-      .catch(function () { f.removeAttribute("data-busy"); say("No connection. Please try again.", true); });
+      .catch(function () { f.removeAttribute("data-busy"); if (addButton) addButton.disabled = false; say("No connection. Please try again.", true); });
   });
 })();
