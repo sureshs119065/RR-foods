@@ -52,8 +52,8 @@
     {% if p.pack_size %}<span class="pc__pack muted">{{ p.pack_size }}</span>{% endif %}
   </a>
   {% if left > 0 and not active_variants(p) %}
-  <form class="pc__add" method="post" action="{{ url_for('shop.cart_add') }}" data-quickadd>{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="qty" value="1"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
-    <button class="btn btn--ghost btn--sm" type="submit" aria-label="Add {{ p.name }} to cart">Add to cart</button></form>
+  <form class="pc__add" method="post" action="{{ url_for('shop.cart_add') }}" data-quickadd>{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="qty" value="1" data-card-qty><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+    <div class="pc__quickstep"><button type="button" data-card-step="-1" aria-label="Decrease {{ p.name }} quantity">−</button><output data-card-output aria-live="polite">1</output><button type="button" data-card-step="1" aria-label="Increase {{ p.name }} quantity">+</button><button class="btn btn--ghost btn--sm" type="submit" aria-label="Add {{ p.name }} to cart">Add</button></div></form>
   {% elif left <= 0 %}
   <a class="pc__add pc__opts btn btn--ghost btn--sm" href="{{ url_for('shop.product', slug=p.slug) }}#notify">Notify me</a>
   {% elif left > 0 %}

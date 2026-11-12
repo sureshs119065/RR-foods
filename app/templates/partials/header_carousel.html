@@ -11,7 +11,7 @@
         {% if b.desktop_image or b.mobile_image %}
         <picture class="hc__pic">
           {% if b.desktop_image %}<source media="(min-width: 768px)" srcset="{{ b.desktop_image }}">{% endif %}
-          <img src="{{ b.mobile_image or b.desktop_image }}" alt="" {% if loop.first %}loading="eager" fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async" width="1600" height="686">
+          <img src="{{ b.mobile_image or b.desktop_image }}" sizes="100vw" alt="" {% if loop.first %}loading="eager" fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async" width="1600" height="686">
         </picture>
         {% endif %}
         <div class="hc__copy">

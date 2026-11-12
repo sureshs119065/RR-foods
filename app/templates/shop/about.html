@@ -3,7 +3,7 @@
 {% block head_extra %}
 <meta name="description" content="Discover the story behind RR FOODS: traditional roots, modern taste and a vision for a healthier tomorrow.">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-journey.css') }}">
-<script src="{{ url_for('static', filename='js/quality-journey.js') }}" defer></script>
+
 {% endblock %}
 {% block content %}
 <section class="about-hero">
@@ -23,7 +23,7 @@
   <p class="about-signoff">Because I believe that a healthier tomorrow begins with the choices we make today.</p>
 </article>
 
-<section class="quality-journey" data-quality-journey aria-labelledby="quality-journey-title">
+<section class="quality-journey" data-lazy-script="quality" data-quality-journey aria-labelledby="quality-journey-title">
   <header class="quality-journey__head">
     <p class="eyebrow">Care at every step</p>
     <h2 id="quality-journey-title">A Nurse Guides You Through Our Quality Journey</h2>

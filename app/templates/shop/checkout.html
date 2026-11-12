@@ -4,12 +4,13 @@
 {% block content %}
 <div class="container">
   <h1 class="pg-h">Checkout</h1>
+  <nav class="checkout-progress" aria-label="Checkout progress"><a href="{{ url_for('shop.cart') }}" data-i18n="step_cart">1. Cart</a><span class="is-current" data-i18n="step_address">2. Address</span><span data-i18n="step_pay">3. Pay</span></nav>
   <form class="cartlay" method="post" action="{{ url_for('shop.checkout_place') }}" data-checkout data-once>
     {{ s.csrf() }}
     <input type="hidden" name="checkout_token" value="{{ checkout_token }}">
     <div>
       <section class="panel2" aria-labelledby="addr-h">
-        <h2 id="addr-h" class="h3">1. Delivery address</h2>
+        <h2 id="addr-h" class="h3" data-i18n="delivery_address">1. Delivery address</h2>
         {% if addrs %}
           <ul class="radios">
             {% for a in addrs %}{% set q = quotes[a.id] %}
@@ -26,7 +27,7 @@
       </section>
 
       <section class="panel2" aria-labelledby="pay-h">
-        <h2 id="pay-h" class="h3">2. Payment</h2>
+        <h2 id="pay-h" class="h3" data-i18n="payment">2. Payment</h2>
         {% for key, label, hint in methods %}
         <input type="hidden" name="method" value="{{ key }}">
         <p class="notice"><b>{{ label }}</b><br><span class="muted small">{{ hint }}</span></p>
@@ -36,7 +37,7 @@
       </section>
 
       <section class="panel2" aria-labelledby="items-h">
-        <h2 id="items-h" class="h3">3. Review items</h2>
+        <h2 id="items-h" class="h3" data-i18n="review_items">3. Review items</h2>
         <ul class="mini">
           {% for l in view.lines %}<li><span>{{ l.product.name }}{% if l.label %} <span class="muted">({{ l.label }})</span>{% endif %} × {{ l.qty }}</span><b>{{ s.inr(l.total) }}</b></li>{% endfor %}
         </ul>
@@ -57,7 +58,7 @@
       </dl>
       <div class="stickybar">
         <div class="stickybar__t"><span class="muted small">Total</span><b id="bar-total">{{ s.inr(t.total) }}</b></div>
-        <button class="btn" type="submit" {% if not addrs %}disabled{% endif %}>Place order</button>
+        <button class="btn" type="submit" {% if not addrs %}disabled{% endif %} data-i18n="place_order">Place order</button>
       </div>
       <p class="muted small">Stock is checked again when you place the order.</p>
     </aside>

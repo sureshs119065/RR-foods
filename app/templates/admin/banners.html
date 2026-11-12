@@ -21,7 +21,7 @@
   {% for b, status in rows %}
   <li data-id="{{ b.id }}">
     <div class="pcell">
-      {% if b.desktop_image %}<img class="thumb" src="{{ b.desktop_image }}" alt="" loading="lazy" width="48" height="48">{% else %}<span class="thumb" aria-hidden="true"></span>{% endif %}
+      {% if b.desktop_image %}<img class="thumb" src="{{ b.desktop_image }}" alt="" loading="lazy" width="48" height="48" decoding="async">{% else %}<span class="thumb" aria-hidden="true"></span>{% endif %}
       <span><b>{{ b.title }}</b>
         <span class="hint">{% if b.start_at or b.end_at %}{{ b.start_at|local_display or 'now' }} → {{ b.end_at|local_display or 'no end' }}{% else %}No schedule{% endif %}{% if b.countdown_enabled %} · countdown{% endif %}</span></span>
     </div>

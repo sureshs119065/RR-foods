@@ -63,7 +63,7 @@
         <input type="file" name="desktop_image" accept="image/jpeg,image/png,image/webp">
         {% if errors.get('desktop_image') %}<small class="error">{{ errors.desktop_image }}</small>{% endif %}
       </label>
-      {% if banner and banner.desktop_image %}<img class="thumb" src="{{ banner.desktop_image }}" alt="Current desktop image">{{ m.checkbox("remove_desktop_image", "Remove desktop image") }}{% endif %}
+      {% if banner and banner.desktop_image %}<img class="thumb" src="{{ banner.desktop_image }}" alt="Current desktop image" width="160" height="120" decoding="async" loading="lazy">{{ m.checkbox("remove_desktop_image", "Remove desktop image") }}{% endif %}
     </div>
     <div>
       <label class="field {% if errors.get('mobile_image') %}field--error{% endif %}">
@@ -71,7 +71,7 @@
         <input type="file" name="mobile_image" accept="image/jpeg,image/png,image/webp">
         {% if errors.get('mobile_image') %}<small class="error">{{ errors.mobile_image }}</small>{% endif %}
       </label>
-      {% if banner and banner.mobile_image %}<img class="thumb" src="{{ banner.mobile_image }}" alt="Current mobile image">{{ m.checkbox("remove_mobile_image", "Remove mobile image") }}{% endif %}
+      {% if banner and banner.mobile_image %}<img class="thumb" src="{{ banner.mobile_image }}" alt="Current mobile image" width="160" height="120" decoding="async" loading="lazy">{{ m.checkbox("remove_mobile_image", "Remove mobile image") }}{% endif %}
     </div>
   </div>
   <p class="hint">Images are optional: without them the banner uses the colours above. If you add only a desktop image, phones use it too.</p>

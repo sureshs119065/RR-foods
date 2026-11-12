@@ -3,7 +3,7 @@
 {% block robots %}noindex,nofollow{% endblock %}
 {% macro line(l, saved=False) %}
 <li class="cl {% if l.error %}cl--bad{% endif %}">
-  <a class="cl__img" href="{{ url_for('shop.product', slug=l.product.slug) }}">{% if l.image %}<img src="{{ l.image.thumb_url or l.image.url }}" alt="" loading="lazy" width="96" height="96">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}</a>
+  <a class="cl__img" href="{{ url_for('shop.product', slug=l.product.slug) }}">{% if l.image %}<img src="{{ l.image.thumb_url or l.image.url }}" alt="" loading="lazy" width="96" height="96" decoding="async">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}</a>
   <div class="cl__main">
     <a class="cl__name" href="{{ url_for('shop.product', slug=l.product.slug) }}">{{ l.product.name }}</a>
     {% if l.label %}<span class="muted small">{{ l.label }}</span>{% endif %}
@@ -29,6 +29,7 @@
 {% endmacro %}
 {% block content %}
 <div class="container">
+  <nav class="checkout-progress" aria-label="Checkout progress"><span class="is-current" data-i18n="step_cart">1. Cart</span><span data-i18n="step_address">2. Address</span><span data-i18n="step_pay">3. Pay</span></nav>
   <h1 class="pg-h">Your cart {% if view.count %}<span class="muted">({{ view.count }} item{{ '' if view.count == 1 else 's' }})</span>{% endif %}</h1>
   {% if not view.lines and not view.saved %}
     <div class="empty"><h2>Your cart is empty</h2><p class="muted">Add something tasty and it will wait for you here.</p><a class="btn" href="{{ url_for('shop.listing') }}">Start shopping</a></div>
@@ -66,11 +67,11 @@
         </div></div></div>
       </div>
 
-      <form class="coupon" method="post" action="{{ url_for('shop.cart_coupon') }}">
+      <details class="coupon-collapse"><summary>Have a coupon?</summary><form class="coupon" method="post" action="{{ url_for('shop.cart_coupon') }}">
         {{ s.csrf() }}
         <label for="code">Coupon code</label>
         <div class="coupon__row"><input id="code" name="code" type="text" autocomplete="off" autocapitalize="characters" maxlength="40" value="{{ view.coupon.code if view.coupon else '' }}" placeholder="Enter code"><button class="btn btn--ghost" type="submit">Apply</button></div>
-      </form>
+      </form></details>
       {% if view.coupon_error %}<p class="cl__err" role="alert">{{ view.coupon_error }}</p>{% endif %}
       {% if view.coupon %}<form method="post" action="{{ url_for('shop.cart_coupon_remove') }}">{{ s.csrf() }}<button class="linkish" type="submit">Remove coupon</button></form>{% endif %}
 

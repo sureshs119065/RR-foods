@@ -7,8 +7,8 @@
   <link rel="icon" href="{{ url_for('static', filename='img/rr-foods-icon-192.png') }}" type="image/png">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/rr-foods-icon-192.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-design.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-mobile-fix.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-overrides.css') }}">
+
   {% block head_extra %}{% endblock %}
   <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
   <link rel="preload" href="{{ url_for('static', filename='fonts/bricolage-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
@@ -33,14 +33,14 @@
 <header class="sh" id="sh" data-sh>
   <div class="sh__row">
     <button class="icon-btn sh__menu" type="button" data-open="drawer" aria-label="Open menu" aria-controls="drawer" aria-expanded="false">{{ s.icon('menu') }}</button>
-    <a class="brand rr-brand" href="{{ url_for('shop.home') }}"><img class="brand__logo rr-brand__logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="44" height="44" alt="RR FOODS"><span>RR FOODS</span></a>
+    <a class="brand rr-brand" href="{{ url_for('shop.home') }}"><img class="brand__logo rr-brand__logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="44" height="44" alt="RR FOODS" decoding="async"><span>RR FOODS</span></a>
     <nav class="sh__links" aria-label="Main">
       <ul>
         <li><a class="nav-link" href="{{ url_for('shop.home') }}" {% if request.endpoint == 'shop.home' %}aria-current="page"{% endif %}>Home</a></li>
-        <li><a class="nav-link" href="{{ url_for('shop.listing') }}" {% if request.endpoint in ('shop.listing', 'shop.bestsellers', 'shop.category_listing') %}aria-current="page"{% endif %}>Products</a></li>
-        <li><a class="nav-link" href="{{ url_for('shop.offers') }}" {% if request.endpoint == 'shop.offers' %}aria-current="page"{% endif %}>Offers</a></li>
-        <li><a class="nav-link" href="{{ url_for('shop.about') }}" {% if request.endpoint == 'shop.about' %}aria-current="page"{% endif %}>About Us</a></li>
-        <li><a class="nav-link" href="{{ url_for('shop.help_page') }}" {% if request.endpoint == 'shop.help_page' %}aria-current="page"{% endif %}>Contact</a></li>
+        <li><a class="nav-link" href="{{ url_for('shop.listing') }}" {% if request.endpoint in ('shop.listing', 'shop.bestsellers', 'shop.category_listing') %}aria-current="page"{% endif %} data-i18n="products">Products</a></li>
+        <li><a class="nav-link" href="{{ url_for('shop.offers') }}" {% if request.endpoint == 'shop.offers' %}aria-current="page"{% endif %} data-i18n="offers">Offers</a></li>
+        <li><a class="nav-link" href="{{ url_for('shop.about') }}" {% if request.endpoint == 'shop.about' %}aria-current="page"{% endif %} data-i18n="about">About Us</a></li>
+        <li><a class="nav-link" href="{{ url_for('shop.help_page') }}" {% if request.endpoint == 'shop.help_page' %}aria-current="page"{% endif %} data-i18n="contact">Contact</a></li>
       </ul>
     </nav>
     <span class="sh__br" aria-hidden="true"></span>
@@ -75,14 +75,14 @@
 </header>
 
 <div class="backdrop" id="backdrop" hidden></div>
-<aside class="drawer" id="drawer" aria-label="Menu" aria-hidden="true">
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Menu" aria-hidden="true">
   <div class="drawer__head"><b>Menu</b><button class="icon-btn" type="button" data-close aria-label="Close menu">{{ s.icon('close') }}</button></div>
   <nav class="drawer__nav">
-    <a href="{{ url_for('shop.home') }}">Home</a>
-    <a href="{{ url_for('shop.listing') }}">Products</a>
-    <a href="{{ url_for('shop.offers') }}">Offers</a>
-    <a href="{{ url_for('shop.about') }}">About Us</a>
-    <a href="{{ url_for('shop.help_page') }}">Contact</a>
+    <a href="{{ url_for('shop.home') }}" data-i18n="home">Home</a>
+    <a href="{{ url_for('shop.listing') }}" data-i18n="products">Products</a>
+    <a href="{{ url_for('shop.offers') }}" data-i18n="offers">Offers</a>
+    <a href="{{ url_for('shop.about') }}" data-i18n="about">About Us</a>
+    <a href="{{ url_for('shop.help_page') }}" data-i18n="contact">Contact</a>
     <hr>
     {% if current_user and current_user.role == 'user' %}
       <a href="{{ url_for('shop.orders') }}">My orders</a>
@@ -95,6 +95,7 @@
     {% else %}
       <a href="/login">Sign in</a><a href="/register">Create account</a>
     {% endif %}
+    <button type="button" class="drawer__btn" data-language-toggle aria-label="Switch language">தமிழ் / English</button>
     <button type="button" class="drawer__btn" data-theme-toggle>{{ s.icon('moon') }} <span>Dark mode</span></button>
     {% if current_user %}<form method="post" action="{{ url_for('auth.logout') }}">{{ s.csrf() }}<button type="submit" class="drawer__btn">Sign out</button></form>{% endif %}
   </nav>
@@ -111,6 +112,12 @@
     <ul class="so__list" id="so-results" aria-live="polite"></ul>
   </div>
 </div>
+<section class="cat-sheet" id="category-sheet" role="dialog" aria-modal="true" aria-labelledby="category-sheet-title" aria-hidden="true" hidden>
+  <div class="cat-sheet__head"><h2 id="category-sheet-title">Browse categories</h2><button class="icon-btn" type="button" data-close aria-label="Close categories">{{ s.icon('close') }}</button></div>
+  <nav class="cat-sheet__grid" aria-label="Product categories">
+    {% for c in nav_categories() %}<a href="{{ url_for('shop.category_listing', slug=c.slug) }}">{{ c.name }}</a>{% endfor %}
+  </nav>
+</section>
 {% endblock %}
 
 {% block main %}
@@ -127,23 +134,24 @@
 {% block after %}
 {% include "partials/review_thanks.html" %}
 <nav class="bn" aria-label="Main">
-  <a href="{{ url_for('shop.home') }}" {% if request.endpoint == 'shop.home' %}aria-current="page"{% endif %}>{{ s.icon('home') }}<span>Home</span></a>
-  <a href="{{ url_for('shop.home') }}#categories" {% if request.endpoint == 'shop.category_listing' %}aria-current="page"{% endif %}>{{ s.icon('grid') }}<span>Categories</span></a>
-  <button type="button" data-open="search">{{ s.icon('search') }}<span>Search</span></button>
-  <a href="{{ url_for('shop.cart') }}" {% if request.endpoint == 'shop.cart' %}aria-current="page"{% endif %}>{{ s.icon('cart') }}<span>Cart</span>{% set n = cart_count() %}<b class="dot-n" data-cart-count {% if not n %}hidden{% endif %}>{{ n }}</b></a>
-  <a href="{{ '/account' if current_user and current_user.role == 'user' else '/login' }}" {% if request.path.startswith('/account') %}aria-current="page"{% endif %}>{{ s.icon('user') }}<span>Account</span></a>
+  <a href="{{ url_for('shop.home') }}" {% if request.endpoint == 'shop.home' %}aria-current="page"{% endif %}>{{ s.icon('home') }}<span data-i18n="home">Home</span></a>
+  <button type="button" class="{% if request.endpoint == 'shop.category_listing' %}is-active{% endif %}" data-open="categories" aria-controls="category-sheet" aria-expanded="false">{{ s.icon('grid') }}<span data-i18n="categories">Categories</span></button>
+  <button type="button" data-open="search">{{ s.icon('search') }}<span data-i18n="search">Search</span></button>
+  <a href="{{ url_for('shop.cart') }}" {% if request.endpoint == 'shop.cart' %}aria-current="page"{% endif %}>{{ s.icon('cart') }}<span data-i18n="cart">Cart</span>{% set n = cart_count() %}<b class="dot-n" data-cart-count {% if not n %}hidden{% endif %}>{{ n }}</b></a>
+  <a href="{{ '/account' if current_user and current_user.role == 'user' else '/login' }}" {% if request.path.startswith('/account') %}aria-current="page"{% endif %}>{{ s.icon('user') }}<span data-i18n="account">Account</span></a>
 </nav>
+{% if config.get('WHATSAPP_NUMBER') %}<a class="wa-float" href="https://wa.me/{{ config.get('WHATSAPP_NUMBER') }}" target="_blank" rel="noopener" aria-label="Chat with RR FOODS on WhatsApp">☏</a>{% endif %}
 <footer class="sf" data-footer>
   <div class="sf__grid">
     <div class="sf__brand">
-      <p class="sf__logo"><img src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="48" height="48" alt="RR FOODS">RR FOODS</p>
+      <p class="sf__logo"><img src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="48" height="48" alt="RR FOODS" decoding="async">RR FOODS</p>
       <p>Traditional roots. Modern taste. A healthier tomorrow.</p>
       <a href="{{ url_for('shop.about') }}">About RR FOODS</a>
       <a href="{{ url_for('shop.help_page') }}">Contact &amp; support</a>
       <a class="btn btn--accent" href="{{ url_for('shop.listing') }}">View products</a>
     </div>
     <details class="sf__col" open data-col><summary>Shop</summary><ul>
-      <li><a href="{{ url_for('shop.listing') }}">Products</a></li>
+      <li><a href="{{ url_for('shop.listing') }}" data-i18n="products">Products</a></li>
       <li><a href="{{ url_for('shop.bestsellers') }}">Bestsellers</a></li>
       <li><a href="{{ url_for('shop.about') }}">About RR FOODS</a></li>
       <li><a href="{{ url_for('shop.offers') }}">Offers &amp; coupons</a></li>
@@ -164,4 +172,5 @@
   <div class="sf__base"><p>© {{ current_year }} RR FOODS. All rights reserved.</p></div>
 </footer>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<div class="install-banner" id="install-banner" hidden><span>Install RR FOODS for a faster shopping experience</span><button class="btn btn--sm" type="button" id="install-app">Install</button><button class="btn btn--ghost btn--sm" type="button" id="dismiss-install" aria-label="Dismiss install prompt">×</button></div>
 {% endblock %}

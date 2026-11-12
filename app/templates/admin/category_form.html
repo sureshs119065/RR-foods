@@ -24,7 +24,7 @@
         {% if errors.get('image') %}<small class="error">{{ errors.image }}</small>{% endif %}
       </label>
       {% if cat and cat.image %}
-        <p><img class="thumb" src="{{ cat.image }}" alt="Current image of {{ cat.name }}"></p>
+        <p><img class="thumb" src="{{ cat.image }}" alt="Current image of {{ cat.name }}" width="160" height="120" decoding="async" loading="lazy"></p>
         {{ m.checkbox("remove_image", "Remove the current image") }}
       {% endif %}
     </div>
