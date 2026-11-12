@@ -337,3 +337,5 @@ body.owner-panel .adm__main .owner-hero__meta {
     overflow: visible !important;
   }
 }
+
+.batch-entry{margin-top:6px;font-size:13px}.batch-entry summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:var(--owner-accent,#2563eb)}.batch-entry form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-width:360px}.batch-entry label{display:grid;gap:3px}.batch-entry input{min-width:0;width:100%;min-height:44px;font-size:16px}

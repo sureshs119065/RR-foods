@@ -23,5 +23,5 @@
     <ol>{% for item in order.items %}<li><b>{{ item.name }}</b> · Qty: {{ item.quantity }}{% if item.pack_size %} · {{ item.pack_size }}{% endif %}</li>{% endfor %}</ol>
   </section>
   {% if order.customer_notes %}<p><b>Customer note:</b> {{ order.customer_notes }}</p>{% endif %}
-</body>
+{% if order.gift_message %}<p><b>Gift message:</b> {{ order.gift_message }}</p>{% endif %}</body>
 </html>

@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, date
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import JsonType, SoftDeleteMixin, TimestampMixin, db
@@ -95,3 +95,52 @@ class Notification(db.Model):
     is_read: Mapped[bool] = mapped_column(default=False, server_default="false", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class InventoryBatch(db.Model):
+    """Traceable stock batch; Product.stock_qty remains the aggregate sellable quantity."""
+    __tablename__ = "inventory_batches"
+    __table_args__ = (
+        CheckConstraint("quantity >= 0", name="ck_inventory_batches_quantity_nonneg"),
+        UniqueConstraint("product_id", "batch_number", name="uq_inventory_batch_product_number"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    batch_number: Mapped[str] = mapped_column(String(80))
+    expiry_date: Mapped[date | None] = mapped_column(Date, index=True)
+    quantity: Mapped[int] = mapped_column(default=0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    product = relationship("Product")
+
+
+class PushSubscription(db.Model):
+    """Browser Push API endpoint owned by one customer; endpoint is unique per browser."""
+    __tablename__ = "push_subscriptions"
+    __table_args__ = (UniqueConstraint("endpoint", name="uq_push_subscription_endpoint"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    endpoint: Mapped[str] = mapped_column(Text)
+    p256dh: Mapped[str] = mapped_column(String(255))
+    auth: Mapped[str] = mapped_column(String(255))
+    is_enabled: Mapped[bool] = mapped_column(default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class LoginLockout(db.Model):
+    """Persistent per-account and per-IP lockout counters without storing raw identifiers."""
+    __tablename__ = "login_lockouts"
+    __table_args__ = (
+        UniqueConstraint("scope", "subject_hash", name="uq_login_lockout_scope_subject"),
+        CheckConstraint("scope in ('account','ip')", name="ck_login_lockouts_scope"),
+        CheckConstraint("failed_count >= 0", name="ck_login_lockouts_failed_count"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scope: Mapped[str] = mapped_column(String(8))  # account | ip
+    subject_hash: Mapped[str] = mapped_column(String(64))
+    failed_count: Mapped[int] = mapped_column(default=0, server_default="0")
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

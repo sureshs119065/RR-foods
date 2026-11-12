@@ -7,7 +7,7 @@ from flask import current_app, g, request, session
 from sqlalchemy import func, select
 
 from ..extensions import db
-from ..models import AuditLog, User
+from ..models import AuditLog, LoginLockout, User
 from ..models.base import utcnow
 from ..security import hash_password, needs_rehash, verify_password
 
@@ -50,14 +50,65 @@ def is_locked(user: User) -> bool:
     return bool(user.locked_until and user.locked_until > utcnow())
 
 
+
+def _lockout_hash(value: str) -> str:
+    secret = current_app.config["SECRET_KEY"].encode()
+    return hmac.new(secret, value.encode("utf-8", "ignore"), hashlib.sha256).hexdigest()
+
+
+def _lockout_row(scope: str, value: str):
+    return db.session.scalar(select(LoginLockout).where(
+        LoginLockout.scope == scope, LoginLockout.subject_hash == _lockout_hash(value)
+    ))
+
+
+def _lockout_remaining(row) -> int:
+    if row and row.locked_until and row.locked_until > utcnow():
+        return max(1, int((row.locked_until - utcnow()).total_seconds() // 60) + 1)
+    return 0
+
+
+def _record_failed_lockout(scope: str, value: str, threshold: int) -> None:
+    if not value:
+        return
+    row = _lockout_row(scope, value)
+    if row is None:
+        row = LoginLockout(scope=scope, subject_hash=_lockout_hash(value), failed_count=0)
+        db.session.add(row)
+    row.failed_count += 1
+    row.updated_at = utcnow()
+    if row.failed_count >= threshold:
+        row.locked_until = utcnow() + timedelta(minutes=current_app.config["LOCKOUT_MINUTES"])
+        row.failed_count = 0
+
+
+def _clear_lockout(scope: str, value: str) -> None:
+    row = _lockout_row(scope, value)
+    if row:
+        row.failed_count = 0
+        row.locked_until = None
+        row.updated_at = utcnow()
+
 def authenticate(portal: str, email: str, password: str) -> tuple[User | None, str | None]:
     """Returns (user, None) on success or (None, message). The message never says which part was wrong."""
     generic = "Incorrect email or password."
     cfg = current_app.config
+    ip = request.remote_addr or "unknown"
+    ip_lock = _lockout_row("ip", ip) if cfg.get("LOGIN_IP_LOCKOUT_ENABLED", True) else None
+    account_lock = _lockout_row("account", email)
+    remaining = max(_lockout_remaining(ip_lock), _lockout_remaining(account_lock))
+    if remaining:
+        verify_password(_DUMMY_HASH, password)
+        return None, f"Too many attempts. Try again in about {remaining} minutes."
+
     user = db.session.scalar(select(User).where(func.lower(User.email) == email, User.is_deleted.is_(False)))
 
     if user is None:
         verify_password(_DUMMY_HASH, password)
+        _record_failed_lockout("account", email, cfg["MAX_FAILED_LOGINS"])
+        if cfg.get("LOGIN_IP_LOCKOUT_ENABLED", True):
+            _record_failed_lockout("ip", ip, cfg["LOGIN_IP_MAX_FAILED"])
+        db.session.commit()
         return None, generic
 
     if is_locked(user):
@@ -70,6 +121,9 @@ def authenticate(portal: str, email: str, password: str) -> tuple[User | None, s
 
     if not ok or not right_portal:
         if not ok:  # count only real wrong passwords, not a right password on the wrong portal
+            _record_failed_lockout("account", email, cfg["MAX_FAILED_LOGINS"])
+            if cfg.get("LOGIN_IP_LOCKOUT_ENABLED", True):
+                _record_failed_lockout("ip", ip, cfg["LOGIN_IP_MAX_FAILED"])
             user.failed_login_count += 1
             if user.failed_login_count >= cfg["MAX_FAILED_LOGINS"]:
                 user.locked_until = utcnow() + timedelta(minutes=cfg["LOCKOUT_MINUTES"])

@@ -1,6 +1,12 @@
 from dotenv import load_dotenv
-from flask import Flask, g, render_template, request
+from flask import Flask, g, render_template, request, jsonify
 from werkzeug.middleware.proxy_fix import ProxyFix
+import logging
+import uuid
+import re
+import json
+from datetime import datetime, timezone
+from logging.handlers import RotatingFileHandler
 
 # Load this project's own .env before Config class attributes are evaluated.
 from pathlib import Path
@@ -15,6 +21,38 @@ def create_app(config_object=None):
     load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
     app = Flask(__name__)
     app.config.from_object(config_object or Config)
+    # Console + rotating-file logs. Avoid logging request bodies, cookies or credentials.
+    log_dir = Path(app.config["LOG_DIR"])
+    log_dir.mkdir(parents=True, exist_ok=True)
+    app.logger.setLevel(getattr(logging, app.config.get("LOG_LEVEL", "INFO"), logging.INFO))
+    if not any(getattr(h, "_rr_foods_handler", False) for h in app.logger.handlers):
+        class RequestIdFilter(logging.Filter):
+            def filter(self, record):
+                try:
+                    record.request_id = getattr(g, "request_id", "-")
+                except RuntimeError:
+                    record.request_id = "-"
+                return True
+        class JsonLogFormatter(logging.Formatter):
+            def format(self, record):
+                payload = {
+                    "timestamp": datetime.fromtimestamp(record.created, timezone.utc).isoformat(),
+                    "level": record.levelname,
+                    "logger": record.name,
+                    "request_id": getattr(record, "request_id", "-"),
+                    "message": record.getMessage(),
+                }
+                if record.exc_info:
+                    payload["exception"] = self.formatException(record.exc_info)
+                return json.dumps(payload, ensure_ascii=False)
+        formatter = JsonLogFormatter()
+        console = logging.StreamHandler()
+        console.setFormatter(formatter); console.addFilter(RequestIdFilter()); console._rr_foods_handler = True
+        file_handler = RotatingFileHandler(log_dir / "rr-foods.log", maxBytes=app.config["LOG_MAX_BYTES"],
+                                           backupCount=app.config["LOG_BACKUP_COUNT"], encoding="utf-8")
+        file_handler.setFormatter(formatter); file_handler.addFilter(RequestIdFilter()); file_handler._rr_foods_handler = True
+        app.logger.addHandler(console); app.logger.addHandler(file_handler)
+        app.logger.propagate = False
     if app.config.get("TRUST_PROXY"):
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
@@ -31,6 +69,17 @@ def create_app(config_object=None):
     migrate.init_app(app, db)
     csrf.init_app(app)
     limiter.init_app(app)
+
+    @app.before_request
+    def _assign_request_id():
+        supplied = request.headers.get("X-Request-ID", "")
+        g.request_id = supplied[:64] if supplied and re.fullmatch(r"[A-Za-z0-9._-]{1,64}", supplied) else uuid.uuid4().hex
+
+    @app.after_request
+    def _request_id_header(resp):
+        resp.headers["X-Request-ID"] = getattr(g, "request_id", "-")
+        return resp
+
 
     from .auth.routes import bp as auth_bp
     from .auth.service import load_current_user
@@ -59,7 +108,6 @@ def create_app(config_object=None):
     # For reliable scheduling on Render, also run `flask sync-stock-notifications`
     # from a Render Cron Job every 15-60 minutes.
     from datetime import datetime, timedelta, timezone
-    import logging
     _last_stock_sync = [None]
     @app.before_request
     def _periodic_stock_notification_sync():
@@ -93,18 +141,23 @@ def create_app(config_object=None):
 
     @app.context_processor
     def _inject():
-        return {"current_user": g.get("user")}
+        return {"current_user": g.get("user"), "current_language": (g.get("user").preferred_language if g.get("user") else request.cookies.get("language", "en"))}
 
     @app.after_request
     def _security_headers(resp):
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("X-Permitted-Cross-Domain-Policies", "none")
+        resp.headers.setdefault("Cross-Origin-Resource-Policy", "same-site")
         resp.headers.setdefault("X-Frame-Options", "DENY")
         resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         resp.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
         resp.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
         if request.is_secure and not app.config.get("TESTING"):  # only meaningful (and only valid) over HTTPS
             resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-        resp.headers.setdefault("Content-Security-Policy", "default-src 'self'; img-src 'self' data: https:; style-src 'self'; script-src 'self'; frame-src https://www.youtube-nocookie.com; frame-ancestors 'none'; form-action 'self'")
+        csp = "default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data: https:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; frame-ancestors 'none'; form-action 'self'"
+        if request.is_secure:
+            csp += "; upgrade-insecure-requests"
+        resp.headers.setdefault("Content-Security-Policy", csp)
         # pages behind a login must never be stored by the browser or a shared cache
         if g.get("user") is not None or request.path.startswith(("/admin", "/owner", "/account")):
             resp.headers["Cache-Control"] = "no-store"
@@ -112,6 +165,8 @@ def create_app(config_object=None):
 
     def _error(code, title, message):
         def handler(err):
+            if code >= 500:
+                app.logger.error("Unhandled application error", exc_info=(type(err), err, err.__traceback__))
             return render_template("errors/error.html", code=code, title=title, message=message), code
         return handler
 
@@ -121,6 +176,18 @@ def create_app(config_object=None):
     app.register_error_handler(500, _error(500, "Something went wrong", "We could not finish that. Please try again."))
     from flask_wtf.csrf import CSRFError
     app.register_error_handler(CSRFError, _error(400, "Page expired", "For your safety this form expired. Go back, reload the page and try again."))
+
+    @app.get("/health")
+    @limiter.exempt
+    def health():
+        from sqlalchemy import text
+        try:
+            db.session.execute(text("SELECT 1"))
+            return jsonify(status="ok", database="ok", version=app.config["APP_VERSION"]), 200
+        except Exception:
+            db.session.rollback()
+            app.logger.exception("Health check database failure")
+            return jsonify(status="error", database="unavailable", version=app.config["APP_VERSION"]), 503
 
     @app.get("/healthz")
     @limiter.exempt

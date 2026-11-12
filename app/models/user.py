@@ -25,6 +25,9 @@ class User(TimestampMixin, SoftDeleteMixin, db.Model):
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     wallet_points: Mapped[int] = mapped_column(default=0, server_default="0")
+    referral_code: Mapped[str | None] = mapped_column(String(16), unique=True, index=True)
+    referred_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    preferred_language: Mapped[str] = mapped_column(String(2), default="en", server_default="en")
     failed_login_count: Mapped[int] = mapped_column(default=0, server_default="0")
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

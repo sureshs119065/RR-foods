@@ -124,3 +124,46 @@ def packing_slip(order_id):
     if order is None:
         abort(404)
     return render_template("owner/packing_slip.html", order=order)
+
+
+@bp.post("/orders/<int:order_id>/whatsapp-update")
+@limiter.limit("30 per hour")
+def whatsapp_update(order_id):
+    """Open a localized wa.me status message; record that the owner initiated the update."""
+    from urllib.parse import quote
+    from ..models import SiteSetting, AuditLog
+    order = db.session.get(Order, order_id)
+    if order is None: abort(404)
+    stage = (request.form.get("stage") or "").strip()
+    if stage not in ("confirmed", "packed", "shipped", "delivered"): abort(400)
+    phone = str((order.shipping_address or {}).get("phone") or order.user.phone or "")
+    digits = "".join(ch for ch in phone if ch.isdigit())
+    if len(digits) == 10: digits = "91" + digits
+    if len(digits) < 10: flash("Customer phone number is missing.", "error"); return redirect(url_for("owner.order_detail", order_id=order_id))
+    lang = getattr(order.user, "preferred_language", "en") or "en"
+    defaults = {"confirmed": {"en":"Your RR Foods order {order} is confirmed.","ta":"உங்கள் RR Foods ஆர்டர் {order} உறுதிப்படுத்தப்பட்டது."}, "packed":{"en":"Your RR Foods order {order} is packed.","ta":"உங்கள் RR Foods ஆர்டர் {order} பேக் செய்யப்பட்டது."}, "shipped":{"en":"Your RR Foods order {order} has been shipped. Courier: {courier}. Track: {tracking}","ta":"உங்கள் RR Foods ஆர்டர் {order} அனுப்பப்பட்டது. கூரியர்: {courier}. கண்காணிப்பு: {tracking}"}, "delivered":{"en":"Your RR Foods order {order} has been delivered. Thank you!","ta":"உங்கள் RR Foods ஆர்டர் {order} டெலிவரி செய்யப்பட்டது. நன்றி!"}}
+    setting = db.session.get(SiteSetting, "whatsapp_status_templates")
+    custom = (setting.value if setting and isinstance(setting.value, dict) else {}).get(stage, {})
+    template = custom.get(lang) or custom.get("en") or defaults[stage].get(lang) or defaults[stage]["en"]
+    message = template.replace("{order}", order.order_number).replace("{courier}", order.courier_name or "").replace("{tracking}", order.tracking_url or order.tracking_id or "")
+    db.session.add(OrderStatusHistory(order_id=order.id, from_status=order.status, to_status=order.status, changed_by=g.user.id, note=f"WhatsApp {stage} update opened by owner"))
+    db.session.add(AuditLog(actor_id=g.user.id, action="order.whatsapp_update_opened", entity_type="order", entity_id=str(order.id), after={"stage": stage, "language": lang}))
+    db.session.commit()
+    return redirect(f"https://wa.me/{digits}?text={quote(message)}")
+
+@bp.route("/settings/whatsapp-templates", methods=["GET", "POST"])
+@limiter.limit("20 per hour")
+def whatsapp_templates():
+    from ..models import SiteSetting
+    if request.method == "POST":
+        payload = {}
+        for stage in ("confirmed", "packed", "shipped", "delivered"):
+            payload[stage] = {lang: (request.form.get(f"{stage}_{lang}") or "")[:1000] for lang in ("en", "ta")}
+        setting = db.session.get(SiteSetting, "whatsapp_status_templates")
+        if setting is None: setting = SiteSetting(key="whatsapp_status_templates", value=payload); db.session.add(setting)
+        else: setting.value = payload
+        from ..models import AuditLog
+        db.session.add(AuditLog(actor_id=g.user.id, action="whatsapp.templates.update", entity_type="settings", entity_id="whatsapp"))
+        db.session.commit(); flash("WhatsApp templates saved.", "success"); return redirect(url_for("owner.whatsapp_templates"))
+    setting = db.session.get(SiteSetting, "whatsapp_status_templates")
+    return render_template("owner/whatsapp_templates.html", templates=(setting.value if setting and isinstance(setting.value, dict) else {}))

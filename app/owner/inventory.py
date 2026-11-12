@@ -1,5 +1,6 @@
 import re
 
+from datetime import date
 from flask import flash, g, jsonify, redirect, render_template, request, url_for
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import joinedload, selectinload
@@ -7,7 +8,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from ..auth.service import audit, safe_next
 from ..extensions import db
 from ..services.stock_alerts import notify_restocked
-from ..models import Category, InventoryLog, Product, ProductVariant
+from ..models import Category, InventoryBatch, InventoryLog, Product, ProductVariant
 from ..services import inventory as stock
 from ..services.inventory import MAX_QTY, StockError
 from . import bp
@@ -225,3 +226,38 @@ def stock_history():
     page = db.paginate(q.order_by(InventoryLog.id.desc()), page=page_number(), per_page=50, error_out=False)
     args = {k: v for k, v in request.args.items() if k != "page" and v}
     return render_template("owner/stock_history.html", page=page, args=args, product=product)
+
+
+@bp.post("/inventory/product/<int:product_id>/batch")
+def inventory_batch_add(product_id):
+    product = db.session.get(Product, product_id)
+    if product is None or product.is_deleted:
+        flash("Product not found.", "error")
+        return redirect(url_for("owner.inventory"))
+    batch_number = clean(request.form.get("batch_number"), 80)
+    expiry_raw = (request.form.get("expiry_date") or "").strip()
+    errors = {}
+    quantity = to_int(request.form.get("quantity"), "quantity", errors, min_=0, max_=MAX_QTY)
+    reorder_level = to_int(request.form.get("reorder_level"), "reorder_level", errors, min_=0, max_=MAX_THRESHOLD)
+    if not batch_number or not expiry_raw:
+        flash("Batch number and expiry date are required.", "error")
+        return redirect(url_for("owner.inventory", q=product.sku))
+    if errors:
+        flash("Enter valid whole numbers for batch quantity and reorder level.", "error")
+        return redirect(url_for("owner.inventory", q=product.sku))
+    if db.session.scalar(select(InventoryBatch.id).where(InventoryBatch.product_id == product.id, InventoryBatch.batch_number == batch_number)):
+        flash("That batch number already exists for this product.", "error")
+        return redirect(url_for("owner.inventory", q=product.sku))
+    try:
+        expiry = date.fromisoformat(expiry_raw)
+    except ValueError:
+        flash("Enter a valid expiry date.", "error")
+        return redirect(url_for("owner.inventory", q=product.sku))
+    batch = InventoryBatch(product_id=product.id, batch_number=batch_number, expiry_date=expiry, quantity=quantity)
+    db.session.add(batch)
+    product.reorder_level = reorder_level
+    audit("inventory.batch.create", entity_type="product", entity_id=product.id, actor_id=g.user.id,
+          after={"batch_number": batch_number, "expiry_date": expiry.isoformat(), "quantity": quantity, "reorder_level": product.reorder_level})
+    db.session.commit()
+    flash("Inventory batch saved. Aggregate stock quantity was not changed; update stock separately when receiving stock.", "success")
+    return redirect(url_for("owner.inventory", q=product.sku))

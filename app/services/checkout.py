@@ -60,7 +60,7 @@ def _check_bundle_still_valid(item: CartItem, product: Product) -> None:
         raise CheckoutError(f"The bundle offer for “{product.name}” was updated. Remove it from your cart and add the bundle again to get the new price.")
 
 
-def place_order(user, address_id: int, method: str, coupon_code: str | None, note: str | None, delivery_date: str | None = None, delivery_slot: str | None = None) -> Order:
+def place_order(user, address_id: int, method: str, coupon_code: str | None, note: str | None, delivery_date: str | None = None, delivery_slot: str | None = None, gift_message: str | None = None, hide_prices: bool = False) -> Order:
     if method not in {m[0] for m in payment_methods()}:
         raise CheckoutError("Choose a payment method.")
     address = db.session.get(Address, address_id) if address_id else None
@@ -123,7 +123,7 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
                   subtotal=t.subtotal, discount_total=t.discount, delivery_fee=t.delivery or Decimal(0), tax_total=t.tax_included, total=t.total,
                   coupon_id=coupon.id if coupon else None, coupon_code=coupon.code if coupon else None, payment_method=method,
                   payment_status="pending", customer_notes=(note or "").strip()[:500] or None,
-                  delivery_date=chosen_delivery_date, delivery_slot=chosen_delivery_slot)
+                  delivery_date=chosen_delivery_date, delivery_slot=chosen_delivery_slot, gift_message=(gift_message or "").strip()[:500] or None, hide_prices=bool(hide_prices))
     for l in lines:
         order.items.append(OrderItem(product_id=l.product.id, variant_id=l.variant.id if l.variant else None,
                                      name=l.product.name + (f" ({l.variant.option_value})" if l.variant else ""), sku=l.sku, pack_size=l.product.pack_size,

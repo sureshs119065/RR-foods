@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"{% block htmlattrs %}{% endblock %}>
+<html lang="{{ current_language|default('en') }}"{% block htmlattrs %}{% endblock %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -57,5 +57,6 @@
   </main>
   {% endblock %}
   {% block after %}{% endblock %}
+<script src="{{ url_for('static', filename='js/share.js') }}" defer></script>
 </body>
 </html>

@@ -64,3 +64,9 @@
   .sa-donut-wrap { grid-template-columns:minmax(120px,.9fr) minmax(105px,1.1fr); gap:4px; }
 }
 @media (max-width: 390px) { .sa-metrics { grid-template-columns:1fr 1fr; gap:8px; } .sa-metric { padding:12px; } .sa-metric strong { font-size:1.08rem; } .sa-donut-wrap { grid-template-columns:1fr; } .sa-chart--donut { max-width:190px; } }
+
+/* Phase 4: compact mobile-first KPI grid */
+.sa-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sa-metric{min-width:0;overflow-wrap:anywhere}
+@media(min-width:900px){.sa-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:360px){.sa-metric{padding:10px}.sa-metric strong{font-size:1.15rem}}

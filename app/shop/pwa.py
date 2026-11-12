@@ -27,3 +27,9 @@ def service_worker():
 @bp.get("/offline")
 def offline():
     return render_template("shop/offline.html")
+
+
+@bp.get("/push/vapid-public-key")
+def vapid_public_key():
+    """Public VAPID key only; private key is never exposed."""
+    return jsonify(publicKey=current_app.config.get("VAPID_PUBLIC_KEY", ""))

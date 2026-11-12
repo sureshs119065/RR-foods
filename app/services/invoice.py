@@ -63,6 +63,23 @@ def amount_in_words(v) -> str:
 
 
 def build_invoice(order) -> bytes:
+    if getattr(order, "hide_prices", False):
+        F, FB, _ = _fonts()
+        style = ParagraphStyle("gift_slip", fontName=F, fontSize=11, leading=15)
+        title_style = ParagraphStyle("gift_title", fontName=FB, fontSize=16, leading=20)
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=18 * mm, bottomMargin=18 * mm)
+        addr = order.shipping_address or {}
+        story = [Paragraph("RR FOODS · Packing slip", title_style), Spacer(1, 8 * mm), Paragraph(f"Order: {escape(order.order_number)}", style),
+                 Paragraph(f"Deliver to: {escape(str(addr.get('full_name', '')))} · {escape(str(addr.get('phone', '')))}", style),
+                 Paragraph(escape(", ".join(str(addr.get(k) or "") for k in ("line1", "line2", "city", "state", "pincode"))), style), Spacer(1, 8 * mm)]
+        rows = [["Item", "Quantity"]] + [[escape(it.name), str(it.quantity)] for it in order.items]
+        table = Table(rows, colWidths=[145 * mm, 25 * mm])
+        table.setStyle(TableStyle([("GRID", (0,0), (-1,-1), 0.5, colors.grey), ("BACKGROUND", (0,0), (-1,0), colors.whitesmoke), ("PADDING", (0,0), (-1,-1), 7)]))
+        story.append(table)
+        if getattr(order, "gift_message", None): story += [Spacer(1, 10 * mm), Paragraph("Gift message", title_style), Paragraph(escape(order.gift_message), style)]
+        doc.build(story)
+        return buf.getvalue()
     F, FB, R = _fonts()
     rs = lambda v: f"{R}{q2(v):,.2f}"
     base = ParagraphStyle("b", fontName=F, fontSize=8.5, leading=11.5)

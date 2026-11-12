@@ -99,6 +99,8 @@ class RecipeVideo(TimestampMixin, db.Model):
     title: Mapped[str] = mapped_column(String(180))
     slug: Mapped[str] = mapped_column(String(200), unique=True, index=True)
     description: Mapped[str | None] = mapped_column(Text)
+    name_ta: Mapped[str | None] = mapped_column(String(180))
+    description_ta: Mapped[str | None] = mapped_column(Text)
     video_url: Mapped[str | None] = mapped_column(String(500))
     youtube_url: Mapped[str | None] = mapped_column(String(500))
     thumbnail_url: Mapped[str | None] = mapped_column(String(500))
@@ -140,3 +142,27 @@ class Combo(TimestampMixin, db.Model):
     festival_tag: Mapped[str] = mapped_column(String(40), default="diwali", server_default="diwali", index=True)
     bundle_id: Mapped[int] = mapped_column(ForeignKey("bundles.id", ondelete="CASCADE"), unique=True)
     bundle = relationship("Bundle")
+
+
+class PointsLedger(db.Model):
+    __tablename__ = "points_ledger"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    order_id: Mapped[int | None] = mapped_column(ForeignKey("orders.id", ondelete="SET NULL"), index=True)
+    points: Mapped[int] = mapped_column()
+    entry_type: Mapped[str] = mapped_column(String(12))
+    reason: Mapped[str] = mapped_column(String(240))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+class SearchTerm(db.Model):
+    __tablename__ = "search_terms"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    term: Mapped[str] = mapped_column(String(120), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+class RecipeFavourite(db.Model):
+    __tablename__ = "recipe_favourites"
+    __table_args__ = (db.UniqueConstraint("user_id", "recipe_id", name="uq_recipe_favourite"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipe_videos.id", ondelete="CASCADE"), index=True)

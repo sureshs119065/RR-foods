@@ -179,6 +179,7 @@ def cart_save(item_id):
 
 @bp.post("/cart/coupon")
 @user_only
+@limiter.limit("10 per minute")
 def cart_coupon():
     code = coupons.normalize_code(request.form.get("code"))
     if not code:

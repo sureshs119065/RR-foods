@@ -47,7 +47,17 @@
         <div class="pcell">
           {% set im = p.primary_image %}
           {% if im %}<img class="thumb" src="{{ im.thumb_url or im.url }}" alt="" loading="lazy" width="48" height="48">{% else %}<span class="thumb" aria-hidden="true"></span>{% endif %}
-          <span><b>{{ p.name }}</b><span class="hint">{{ p.sku }}{% if p.pack_size %} · {{ p.pack_size }}{% endif %}{% if not p.is_active %} · hidden from shop{% endif %}</span></span>
+          <span><b>{{ p.name }}</b><span class="hint">{{ p.sku }}{% if p.pack_size %} · {{ p.pack_size }}{% endif %}{% if not p.is_active %} · hidden from shop{% endif %}</span>
+          <details class="batch-entry"><summary>Add batch / expiry</summary>
+            <form method="post" action="{{ url_for('owner.inventory_batch_add', product_id=p.id) }}">
+              {{ m.csrf() }}
+              <label>Batch number<input name="batch_number" maxlength="80" required></label>
+              <label>Expiry date<input type="date" name="expiry_date" required></label>
+              <label>Batch quantity<input type="number" name="quantity" min="0" max="1000000" value="0" required></label>
+              <label>Reorder level<input type="number" name="reorder_level" min="0" max="100000" value="{{ p.reorder_level }}" required></label>
+              <button class="btn btn--sm" type="submit">Save batch</button>
+            </form>
+          </details></span>
         </div>
       </td>
       <td data-label="Stock">{{ qty_form('product', p.id, p.stock_qty, p.name, next_url) }}</td>

@@ -21,6 +21,8 @@
     <p class="notice">Cancelled by the customer. The items went back into stock.
     {% if order.payment_status == 'paid' %}<br><b>This order was marked paid. Send the refund to the customer yourself (UPI or bank transfer).</b>{% endif %}</p>
   {% endif %}
+  {% if order.gift_message %}<p class="notice"><b>Gift message:</b> {{ order.gift_message }}</p>{% endif %}
+  {% if order.hide_prices %}<p class="notice">Customer requested prices hidden on invoice.</p>{% endif %}
   {% if order.customer_notes %}<p class="notice"><b>Customer note:</b> {{ order.customer_notes }}</p>{% endif %}
   {% if order.delivery_date %}<p class="notice"><b>Delivery slot:</b> {{ order.delivery_date.strftime('%d %b %Y') }} · {{ order.delivery_slot or 'Not set' }}</p>{% endif %}
   <p><a class="btn btn--ghost" href="{{ url_for('owner.packing_slip', order_id=order.id) }}" target="_blank">Print packing slip</a></p>
@@ -80,6 +82,8 @@
     <button class="btn" type="submit">Save tracking details</button>
   </form>
 </section>
+
+<section class="panel"><h2>Send order update on WhatsApp</h2><p class="hint">Opens WhatsApp with a message in the customer's saved language. The history records that the message was opened; confirm sending in WhatsApp.</p><div class="row">{% for stage in ['confirmed','packed','shipped','delivered'] %}<form method="post" action="{{ url_for('owner.whatsapp_update', order_id=order.id) }}">{{ m.csrf() }}<input type="hidden" name="stage" value="{{ stage }}"><button class="btn btn--ghost" type="submit">{{ stage|title }}</button></form>{% endfor %}</div><p><a href="{{ url_for('owner.whatsapp_templates') }}">Edit message templates</a></p></section>
 
 <section class="panel" aria-labelledby="wa-h">
   <h2 id="wa-h">WhatsApp and payment</h2>

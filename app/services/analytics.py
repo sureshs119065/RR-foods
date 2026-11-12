@@ -11,7 +11,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 
 from ..extensions import db
-from ..models import Category, Order, OrderItem, Product
+from ..models import Category, Coupon, Order, OrderItem, Product, User
 from .orders import REVENUE_STATUSES
 
 
@@ -154,6 +154,35 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
         for name, amount in sorted(category_totals.items(), key=lambda pair: pair[1], reverse=True)
     ]
 
+    # Customer retention and coupon/pincode performance are computed only from
+    # accepted orders in the selected shop-local period.
+    customer_ids = [row[0] for row in db.session.execute(
+        select(Order.user_id).where(*base_filter).group_by(Order.user_id)
+    ).all()]
+    repeat_customers = 0
+    if customer_ids:
+        repeat_customers = db.session.scalar(
+            select(func.count()).select_from(
+                select(Order.user_id).where(*base_filter, Order.user_id.in_(customer_ids))
+                .group_by(Order.user_id).having(func.count(Order.id) >= 2).subquery()
+            )
+        ) or 0
+    repeat_rate = (repeat_customers / len(customer_ids) * 100) if customer_ids else 0.0
+    coupon_rows = db.session.execute(
+        select(Order.coupon_code, func.count(Order.id), func.coalesce(func.sum(Order.discount_total), 0),
+               func.coalesce(func.sum(Order.total), 0))
+        .where(*base_filter, Order.coupon_code.is_not(None))
+        .group_by(Order.coupon_code).order_by(func.count(Order.id).desc()).limit(12)
+    ).all()
+    pincode_totals = {}
+    for address, amount in db.session.execute(select(Order.shipping_address, Order.total).where(*base_filter)).all():
+        pin = (address or {}).get("pincode") or (address or {}).get("postal_code") or "Unknown"
+        pincode_totals[pin] = pincode_totals.get(pin, 0.0) + float(amount or 0)
+    slow_products = [
+        {"label": name, "value": float(amount)}
+        for (_, name), amount in sorted(product_totals.items(), key=lambda pair: pair[1])[:8]
+    ]
+
     return {
         "range_key": key,
         "start_date": start_day.isoformat(),
@@ -171,4 +200,16 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
         "daily_title": daily_title,
         "top_products": top_products,
         "categories": categories,
+        "repeat_customer_rate": round(repeat_rate, 1),
+        "repeat_customers": int(repeat_customers),
+        "unique_customers": len(customer_ids),
+        "coupon_performance": [
+            {"code": code, "orders": int(count), "discount": float(discount), "sales": float(sales)}
+            for code, count, discount, sales in coupon_rows
+        ],
+        "orders_by_pincode": [
+            {"label": pin, "value": round(value, 2)}
+            for pin, value in sorted(pincode_totals.items(), key=lambda item: item[1], reverse=True)[:12]
+        ],
+        "slow_products": slow_products,
     }

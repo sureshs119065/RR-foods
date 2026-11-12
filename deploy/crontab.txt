@@ -1,7 +1,3 @@
-# crontab -e  (as the nk user). Paths assume /srv/nk and a virtualenv in /srv/nk/venv.
-# send queued emails every minute (order updates, password reset)
-* * * * *  cd /srv/nk && set -a && . ./.env && set +a && ./venv/bin/flask send-emails >> /var/log/nk/emails.log 2>&1
-# database + uploads backup every night at 02:30
-30 2 * * * /srv/nk/scripts/backup.sh >> /var/log/nk/backup.log 2>&1
-# tell customers when a product they asked about is back in stock, every 5 minutes
-*/5 * * * *  cd /srv/nk && set -a && . ./.env && set +a && ./venv/bin/flask send-stock-alerts >> /var/log/nk/stock-alerts.log 2>&1
+# Daily PostgreSQL backup at 02:15 UTC. Set DATABASE_URL and BACKUP_DIR in cron environment.
+# Keep seven daily copies. BACKUP_DIR must be on persistent storage.
+15 2 * * * cd /opt/rr-foods && /bin/bash scripts/backup_postgres.sh >> /var/log/rr-foods-backup.log 2>&1

@@ -57,7 +57,7 @@ def checkout_place():
         return redirect(url_for("shop.orders"))
     try:
         order = svc.place_order(g.user, int(request.form.get("address_id") or 0) if (request.form.get("address_id") or "").isdigit() else 0,
-                                request.form.get("method", ""), session.get("coupon"), request.form.get("notes"), request.form.get("delivery_date"), request.form.get("delivery_slot"))
+                                request.form.get("method", ""), session.get("coupon"), request.form.get("notes"), request.form.get("delivery_date"), request.form.get("delivery_slot"), request.form.get("gift_message"), request.form.get("hide_prices") == "1")
         db.session.commit()
         session.pop("checkout_token", None)
     except svc.CheckoutError as e:

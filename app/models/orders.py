@@ -86,6 +86,8 @@ class Order(TimestampMixin, db.Model):
     tracking_url: Mapped[str | None] = mapped_column(String(500))
     delivery_date: Mapped[date | None] = mapped_column(Date)
     delivery_slot: Mapped[str | None] = mapped_column(String(20))
+    gift_message: Mapped[str | None] = mapped_column(String(500))
+    hide_prices: Mapped[bool] = mapped_column(default=False, server_default="false")
 
     user = relationship("User")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")

@@ -18,3 +18,5 @@ reportlab>=4.2,<5
 
 # Production server (used by Render / Docker / systemd)
 gunicorn>=22.0
+# Browser Push API (free library; delivery uses browser push services)
+pywebpush>=2.0,<3

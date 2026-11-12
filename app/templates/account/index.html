@@ -1,6 +1,8 @@
 {% extends "shop/layout.html" %}
-{% block robots %}noindex,nofollow{% endblock %}
-{% block title %}My account | RR FOODS{% endblock %}
+{% block robots %}noindex,nofollow
+{% endblock %}
+{% block title %}My account | RR FOODS
+{% endblock %}
 {% block content %}
 <div class="container account-dashboard">
   <section class="account-welcome">
@@ -34,6 +36,13 @@
         {% if default_address %}<b>{{ default_address.full_name }}</b><p>{{ default_address.line1 }}{% if default_address.line2 %}, {{ default_address.line2 }}{% endif %}, {{ default_address.city }}, {{ default_address.state }} {{ default_address.pincode }}</p><p class="muted">{{ default_address.phone }}</p>
         {% else %}<p class="muted">No saved address yet.</p><a href="{{ url_for('shop.address_form') }}">Add an address</a>{% endif %}
       </section>
+      <section class="account-card" id="push-notifications-card">
+        <div class="account-card__head"><h2>Browser notifications</h2></div>
+        <p class="muted">Optional alerts for order updates and back-in-stock products. You can turn them off anytime.</p>
+        <button class="btn btn--primary" type="button" id="enable-push" data-csrf="{{ csrf_token() }}">Enable notifications</button>
+        <button class="btn btn--ghost" type="button" id="disable-push" data-csrf="{{ csrf_token() }}">Turn off notifications</button>
+        <p class="small muted" id="push-status" role="status" aria-live="polite"></p>
+      </section>
       <section class="account-card"><div class="account-card__head"><h2>Recent notifications</h2><a href="{{ url_for('shop.notifications') }}">See all</a></div>
         {% for note in recent_notifications %}<a class="account-note {% if not note.is_read %}is-unread{% endif %}" href="{{ note.link or url_for('shop.notifications') }}"><b>{{ note.title }}</b><span class="muted small">{{ note.body or '' }}</span><span class="muted small">{{ note.created_at|ago }}</span></a>
         {% else %}<p class="muted">You're all caught up. New order updates will appear here.</p>{% endfor %}
@@ -42,4 +51,5 @@
     </div>
   </div>
 </div>
+<script src="{{ url_for('static', filename='js/push-optin.js') }}" defer></script>
 {% endblock %}

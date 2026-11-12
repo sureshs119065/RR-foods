@@ -104,7 +104,7 @@ def register():
                 errors["email"] = "An account with this email already exists. Try signing in."
 
         if not errors:
-            user = User(email=email, name=name, phone=phone, role="user", password_hash=hash_password(password))
+            user = User(email=email, name=name, phone=phone, role="user", password_hash=hash_password(password), referral_code="RR" + __import__("secrets").token_hex(4).upper())
             db.session.add(user)
             db.session.flush()
             audit("auth.register", entity_id=user.id, actor_id=user.id)

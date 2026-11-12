@@ -24,7 +24,7 @@ class Config:
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_UPLOAD_MB", "60")) * 1024 * 1024
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = os.environ.get("FLASK_ENV") == "production"
+    SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "1" if os.environ.get("FLASK_ENV") == "production" else "0") == "1"
     JSON_SORT_KEYS = False
     SHOP_TIMEZONE = os.environ.get("SHOP_TIMEZONE", "Asia/Kolkata")  # times typed in the admin panel are in this zone
 
@@ -54,7 +54,17 @@ class Config:
     SITE_URL = os.environ.get("SITE_URL", "http://localhost:5000").rstrip("/")  # used for links inside emails
     # scrolling bar above the header. Separate messages with "|". Leave empty to hide the bar. Only list things that are true.
     ANNOUNCEMENTS = [a.strip() for a in os.environ.get("ANNOUNCEMENTS", "").split("|") if a.strip()]
-    TRUST_PROXY = os.environ.get("TRUST_PROXY") == "1"  # set when running behind nginx/a load balancer
+    TRUST_PROXY = os.environ.get("TRUST_PROXY") == "1"
+    APP_VERSION = os.environ.get("APP_VERSION", "1.0.0")
+    LOG_DIR = str(BASE_DIR / os.environ.get("LOG_DIR", "logs"))
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+    LOG_MAX_BYTES = int(os.environ.get("LOG_MAX_BYTES", "5242880"))
+    LOG_BACKUP_COUNT = int(os.environ.get("LOG_BACKUP_COUNT", "5"))
+    LOGIN_IP_LOCKOUT_ENABLED = os.environ.get("LOGIN_IP_LOCKOUT_ENABLED", "1") == "1"
+    LOGIN_IP_MAX_FAILED = int(os.environ.get("LOGIN_IP_MAX_FAILED", "12"))
+    VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
+    VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
+    VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_CLAIMS_EMAIL", "mailto:admin@example.com")  # set when running behind nginx/a load balancer
 
 
 class TestConfig(Config):

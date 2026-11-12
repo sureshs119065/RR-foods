@@ -1,13 +1,13 @@
 import re
 
-from flask import abort, flash, g, make_response, redirect, render_template, request, url_for
+from flask import abort, flash, g, jsonify, make_response, redirect, render_template, request, url_for
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from ..admin.helpers import clean, page_number
 from ..auth.decorators import roles_required
-from ..extensions import db
-from ..models import Address, Order, OrderStatusHistory, Product, Review
+from ..extensions import db, limiter
+from ..models import Address, Order, OrderStatusHistory, Product, Review, PushSubscription
 from ..models.base import utcnow
 from ..services import invoice as invoice_svc
 from ..services import orders as order_svc
@@ -239,3 +239,76 @@ def address_delete(address_id):
     db.session.commit()
     flash("Address deleted.", "success")
     return redirect(url_for("shop.addresses"))
+
+
+@bp.post("/language")
+@user_only
+def set_language():
+    from flask import session
+    lang = request.form.get("language", "en")
+    if lang not in ("en", "ta"): abort(400)
+    g.user.preferred_language = lang; db.session.commit(); session["language"] = lang
+    return redirect(request.referrer or url_for("shop.account"))
+
+@bp.get("/account/referrals")
+@user_only
+def referrals():
+    import secrets, string
+    from ..models import PointsLedger
+    if not g.user.referral_code:
+        alphabet = string.ascii_uppercase + string.digits
+        g.user.referral_code = "RR" + "".join(secrets.choice(alphabet) for _ in range(8)); db.session.commit()
+    return render_template("account/referrals.html", referral_code=g.user.referral_code)
+
+@bp.get("/account/points")
+@user_only
+def points_history():
+    from ..models import PointsLedger
+    entries = db.session.scalars(select(PointsLedger).where(PointsLedger.user_id == g.user.id).order_by(PointsLedger.created_at.desc()).limit(100)).all()
+    return render_template("account/points.html", entries=entries, balance=g.user.wallet_points)
+
+
+@bp.post("/account/push/subscribe")
+@user_only
+@limiter.limit("10 per hour")
+def push_subscribe():
+    """Save or replace a browser subscription after an explicit account-page opt-in."""
+    from urllib.parse import urlparse
+    payload = request.get_json(silent=True) or {}
+    subscription = payload.get("subscription") or {}
+    endpoint = subscription.get("endpoint")
+    keys = subscription.get("keys") or {}
+    if not isinstance(endpoint, str) or len(endpoint) > 2000:
+        return jsonify(ok=False, message="Invalid subscription endpoint."), 400
+    parsed = urlparse(endpoint)
+    if parsed.scheme != "https" or not parsed.netloc:
+        return jsonify(ok=False, message="Invalid subscription endpoint."), 400
+    p256dh, auth = keys.get("p256dh"), keys.get("auth")
+    if not isinstance(p256dh, str) or not isinstance(auth, str) or len(p256dh) > 255 or len(auth) > 255:
+        return jsonify(ok=False, message="Invalid subscription keys."), 400
+    row = db.session.scalar(select(PushSubscription).where(PushSubscription.endpoint == endpoint))
+    if row and row.user_id != g.user.id:
+        row.user_id = g.user.id
+    if row is None:
+        row = PushSubscription(user_id=g.user.id, endpoint=endpoint, p256dh=p256dh, auth=auth, is_enabled=True)
+        db.session.add(row)
+    else:
+        row.p256dh, row.auth, row.is_enabled = p256dh, auth, True
+    db.session.commit()
+    return jsonify(ok=True, message="Notifications enabled.")
+
+
+@bp.post("/account/push/unsubscribe")
+@user_only
+@limiter.limit("10 per hour")
+def push_unsubscribe():
+    payload = request.get_json(silent=True) or {}
+    endpoint = payload.get("endpoint")
+    if not isinstance(endpoint, str) or len(endpoint) > 2000:
+        return jsonify(ok=False), 400
+    row = db.session.scalar(select(PushSubscription).where(
+        PushSubscription.endpoint == endpoint, PushSubscription.user_id == g.user.id))
+    if row:
+        row.is_enabled = False
+        db.session.commit()
+    return jsonify(ok=True, message="Notifications disabled.")

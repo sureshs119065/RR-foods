@@ -20,6 +20,8 @@ class Category(TimestampMixin, SoftDeleteMixin, db.Model):
     name: Mapped[str] = mapped_column(String(120))
     slug: Mapped[str] = mapped_column(String(140))
     description: Mapped[str | None] = mapped_column(Text)
+    name_ta: Mapped[str | None] = mapped_column(String(120))
+    description_ta: Mapped[str | None] = mapped_column(Text)
     image: Mapped[str | None] = mapped_column(String(500))
     sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
     is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
@@ -49,6 +51,7 @@ class Product(TimestampMixin, SoftDeleteMixin, db.Model):
         CheckConstraint("mrp >= 0", name="ck_products_mrp_nonneg"),
         CheckConstraint("final_price >= 0", name="ck_products_final_nonneg"),
         CheckConstraint("stock_qty >= 0", name="ck_products_stock_nonneg"),
+        CheckConstraint("reorder_level >= 0", name="ck_products_reorder_level_nonneg"),
         CheckConstraint("discount_type in ('none','percent','flat')", name="ck_products_discount_type"),
         CheckConstraint(
             "(discount_type <> 'percent' or (discount_value >= 0 and discount_value <= 100))"
@@ -73,6 +76,8 @@ class Product(TimestampMixin, SoftDeleteMixin, db.Model):
     name: Mapped[str] = mapped_column(String(200))
     brand: Mapped[str | None] = mapped_column(String(120), index=True)
     short_description: Mapped[str | None] = mapped_column(String(300))
+    name_ta: Mapped[str | None] = mapped_column(String(200))
+    description_ta: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), index=True)
     subcategory_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"))
@@ -85,6 +90,7 @@ class Product(TimestampMixin, SoftDeleteMixin, db.Model):
 
     stock_qty: Mapped[int] = mapped_column(default=0, server_default="0")
     low_stock_threshold: Mapped[int] = mapped_column(default=5, server_default="5")
+    reorder_level: Mapped[int] = mapped_column(default=5, server_default="5")
     tags: Mapped[list] = mapped_column(JsonType, default=list)
     specifications: Mapped[dict] = mapped_column(JsonType, default=dict)
     ingredients: Mapped[str | None] = mapped_column(Text)

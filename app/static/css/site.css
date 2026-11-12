@@ -1,0 +1,6 @@
+/* Tamil glyph fallback and safe wrapping on narrow storefront layouts. */
+html[lang="ta"], html[lang="ta"] body { font-family: "Noto Sans Tamil", "Latha", "Nirmala UI", system-ui, sans-serif; }
+html[lang="ta"] :where(h1,h2,h3,p,a,button,label,small,li) { overflow-wrap: anywhere; }
+[data-share-url], [data-cook-start], .cook-dialog button { min-height: 44px; }
+.cook-dialog { width: min(92vw, 680px); max-height: 85vh; border: 0; border-radius: 16px; padding: 1.25rem; }
+.cook-dialog::backdrop { background: rgb(0 0 0 / .65); }

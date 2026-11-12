@@ -13,3 +13,26 @@ self.addEventListener("fetch", function (e) {
   if (e.request.mode !== "navigate") return;
   e.respondWith(fetch(e.request).catch(function () { return caches.match("/offline"); }));
 });
+
+self.addEventListener("push", function (event) {
+  var payload = {};
+  try { payload = event.data ? event.data.json() : {}; } catch (_) { payload = { body: event.data ? event.data.text() : "" }; }
+  var title = payload.title || "RR FOODS";
+  var options = {
+    body: payload.body || "You have a new update.",
+    icon: "/static/img/rr-foods-icon-192.png",
+    badge: "/static/img/rr-foods-icon-192.png",
+    data: { url: payload.url || "/account" }
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+self.addEventListener("notificationclick", function (event) {
+  event.notification.close();
+  var target = new URL((event.notification.data && event.notification.data.url) || "/account", self.location.origin).href;
+  event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (windows) {
+    for (var i = 0; i < windows.length; i++) {
+      if (windows[i].url.indexOf(self.location.origin) === 0) return windows[i].navigate(target).then(function (w) { return w.focus(); });
+    }
+    return clients.openWindow(target);
+  }));
+});

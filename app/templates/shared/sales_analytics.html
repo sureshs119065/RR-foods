@@ -20,6 +20,7 @@
     </form>
   </div>
 
+  <p><a class="btn btn--ghost" href="{{ url_for('owner.analytics_csv', range=request.args.get('range'), start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}">Download CSV</a></p>
   <div class="sa-metrics">
     <article class="sa-metric sa-metric--primary">
       <span class="sa-metric-label" id="sa-sales-label">{{ sales_analytics.sales_label }}</span>
@@ -35,6 +36,11 @@
       <span class="sa-metric-label">Average Order Value</span>
       <strong id="sa-average-order-value">{{ '₹{:,.2f}'.format(sales_analytics.average_order_value) }}</strong>
       <small>From <span id="sa-accepted-orders">{{ sales_analytics.accepted_orders }}</span> accepted orders</small>
+    </article>
+    <article class="sa-metric">
+      <span class="sa-metric-label">Repeat-customer rate</span>
+      <strong>{{ sales_analytics.repeat_customer_rate }}%</strong>
+      <small>{{ sales_analytics.repeat_customers }} of {{ sales_analytics.unique_customers }} customers ordered more than once</small>
     </article>
     <article class="sa-metric">
       <span class="sa-metric-label">Products Sold</span>
@@ -63,6 +69,11 @@
         <div class="sa-legend" id="sa-category-legend" aria-label="Category chart legend"></div>
       </div>
     </article>
+  </div>
+  <div class="sa-chart-grid">
+    <article class="sa-chart-card"><h3>Slowest products</h3>{% for item in sales_analytics.slow_products %}<p>{{ item.label }} · ₹{{ '%.2f'|format(item.value) }}</p>{% else %}<p>No product sales in this range.</p>{% endfor %}</article>
+    <article class="sa-chart-card"><h3>Orders by pincode</h3>{% for item in sales_analytics.orders_by_pincode %}<p>{{ item.label }} · ₹{{ '%.2f'|format(item.value) }}</p>{% else %}<p>No pincode data.</p>{% endfor %}</article>
+    <article class="sa-chart-card"><h3>Coupon performance</h3>{% for item in sales_analytics.coupon_performance %}<p>{{ item.code }} · {{ item.orders }} orders · ₹{{ '%.2f'|format(item.discount) }} discount</p>{% else %}<p>No coupon usage.</p>{% endfor %}</article>
   </div>
   <p class="sa-footnote">Sales include orders in Confirmed, Packed, Shipped, Out for delivery and Delivered status. Placed, rejected, cancelled, returned and refunded orders are excluded. Product/category charts use saved order-item line totals.</p>
   <script>
