@@ -10,7 +10,7 @@ Rules
 from sqlalchemy import select
 
 from ..extensions import db
-from ..models import InventoryLog, Product, ProductVariant
+from ..models import InventoryLog, Notification, Product, ProductVariant, User
 
 MAX_QTY = 1_000_000
 
@@ -44,6 +44,23 @@ def _log(product_id: int, variant_id: int | None, old: int, new: int, reason: st
                                 old_qty=old, new_qty=new, reason=(reason or "")[:200] or None))
 
 
+def notify_admin_stock_transition(product: Product, old_qty: int, new_qty: int) -> None:
+    """Create admin notifications when a stock reduction crosses a product alert state."""
+    old_state = stock_state(old_qty, product.low_stock_threshold)
+    new_state = stock_state(new_qty, product.low_stock_threshold)
+    if new_qty >= old_qty or new_state not in ("low", "out") or new_state == old_state:
+        return
+    admins = db.session.scalars(select(User).where(User.role == "admin", User.is_deleted.is_(False))).all()
+    label = "Out of stock" if new_state == "out" else "Low stock"
+    for admin in admins:
+        db.session.add(Notification(
+            user_id=admin.id, channel="in_app", kind="stock_alert",
+            title=f"{label}: {product.name}",
+            body=f"{product.name} has {new_qty} unit(s) left (alert level: {product.low_stock_threshold}). Update stock to restore availability.",
+            link="/admin/stock-alerts", is_read=False,
+        ))
+
+
 def set_quantity(row: Product | ProductVariant, new_qty: int, reason: str, actor_id: int | None, expected: int | None = None) -> int:
     """Set a locked product/variant row to `new_qty`. Returns the old quantity. No log row if nothing changed."""
     if not isinstance(new_qty, int) or new_qty < 0 or new_qty > MAX_QTY:
@@ -54,6 +71,8 @@ def set_quantity(row: Product | ProductVariant, new_qty: int, reason: str, actor
     if new_qty == old:
         return old
     row.stock_qty = new_qty
+    product = row.product if isinstance(row, ProductVariant) else row
+    notify_admin_stock_transition(product, old, new_qty)
     is_variant = isinstance(row, ProductVariant)
     _log(row.product_id if is_variant else row.id, row.id if is_variant else None, old, new_qty, reason, actor_id)
     return old

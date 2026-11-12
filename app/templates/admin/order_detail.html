@@ -1,45 +1,14 @@
 {% extends "admin/layout.html" %}
-{% block title %}Order {{ order.order_number }}{% endblock %}
-{% block heading %}Order {{ order.order_number }}{% endblock %}
+{% import "admin/_macros.html" as m %}
+{% block title %}Order {{ order.order_number }}{% endblock %}{% block heading %}Order details{% endblock %}
 {% block content %}
-<div class="pagehead"><h2>Order details</h2><a class="btn btn--ghost" href="{{ url_for('admin.orders') }}">Back to orders</a></div>
-<section class="panel">
-  <p><b>Customer:</b> {{ order.user.name if order.user else 'Customer' }}</p>
-  <p><b>Status:</b> <span class="badge badge--{{ order.status }}">{{ order.status|replace('_',' ')|title }}</span></p>
-  <p><b>Placed:</b> {{ order.created_at|local_display }}</p>
-  <p><b>Payment:</b> {{ 'Paid' if order.payment_status == 'paid' else 'Not paid' if order.payment_status == 'pending' else order.payment_status|title }}</p>
-  {% set wa = wa_customer_link(order) %}{% if wa %}<p><a class="btn btn--sm" href="{{ wa }}" target="_blank" rel="noopener">Message customer on WhatsApp</a></p>{% endif %}
-  <p><b>Total:</b> ₹{{ '%.2f'|format(order.total) }}</p>
-  <h3>Items</h3><ul>{% for line in order.items %}<li>{{ line.name }} × {{ line.quantity }} — ₹{{ '%.2f'|format(line.line_total) }}</li>{% endfor %}</ul>
-</section>
-<section class="panel admin-order-status">
-  <h2>Update order status</h2>
-  <p class="muted">Only valid next steps are enabled. Every successful change is recorded and creates a customer notification.</p>
-  <div class="status-actions">
-  {% for status in ['confirmed','packed','shipped','delivered','rejected','cancelled','returned','refunded'] %}
-    <form method="post" action="{{ url_for('admin.order_status_update', order_id=order.id) }}" class="status-action-form" data-status="{{ status }}">
-      {{ m.csrf() }}
-      <input type="hidden" name="status" value="{{ status }}">
-      <label class="sr-only" for="reason-{{ status }}">Reason (optional)</label>
-      <input id="reason-{{ status }}" type="text" name="reason" maxlength="300" placeholder="Reason (required for reject/return)">
-      <button class="btn status-btn status-btn--{{ status }}" type="submit" {% if status not in next_actions or (status == 'refunded' and order.payment_status != 'paid') %}disabled title="Not available from the current order status"{% endif %}>{{ status|replace('_',' ')|title }}</button>
-    </form>
-  {% endfor %}
-  </div>
-</section>
-<section class="panel">
-  <h2>Order journey</h2>
-  {% set journey = ['placed','confirmed','packed','shipped','delivered'] %}
-  <ol class="admin-status-history admin-status-stepper">
-    {% for step in journey %}
-      {% set stamp = order.created_at if step == 'placed' else (history|selectattr('to_status','equalto',step)|map(attribute='created_at')|first) %}
-      <li class="{% if stamp %}is-complete{% endif %}"><b>{{ step|replace('_',' ')|title }}</b><span>{{ stamp|local_display if stamp else 'Not reached yet' }}</span></li>
-    {% endfor %}
-  </ol>
-</section>
-<section class="panel">
-  <h2>Status history</h2>
-  {% if history %}<ol class="admin-status-history">{% for h in history %}<li><b>{{ h.from_status|default('New', true)|replace('_',' ')|title }} → {{ h.to_status|replace('_',' ')|title }}</b><span>{{ h.created_at|local_display }}</span>{% if h.note %}<p>{{ h.note }}</p>{% endif %}</li>{% endfor %}</ol>{% else %}<p class="muted">No status changes have been recorded yet.</p>{% endif %}
-</section>
-<script src="{{ url_for('static', filename='js/admin-order-status.js') }}" defer></script>
+<div class="ops-page-head"><div><span class="ops-eyebrow">ORDER OVERVIEW</span><h2>{{ order.order_number }}</h2><p>Placed {{ order.created_at|local_display }}</p></div><a class="btn btn--ghost" href="{{ url_for('admin.orders') }}">← All orders</a></div>
+<div class="ops-detail-grid">
+<section class="ops-detail-card"><h3>Customer</h3><strong>{{ order.shipping_address.get('full_name') or (order.user.name if order.user else 'Customer') }}</strong><p>{{ order.shipping_address.get('phone','') }}</p><p>{{ order.user.email if order.user else '' }}</p><h4>Delivery address</h4><address>{{ order.shipping_address.get('line1','') }}{% if order.shipping_address.get('line2') %}, {{ order.shipping_address.get('line2') }}{% endif %}<br>{{ order.shipping_address.get('city','') }}, {{ order.shipping_address.get('state','') }} {{ order.shipping_address.get('pincode','') }}</address></section>
+<section class="ops-detail-card"><h3>Order & payment</h3><p><span>Status</span><b class="ops-state ops-state--{{ 'ok' if order.status == 'delivered' else 'low' }}">{{ order.status|replace('_',' ')|title }}</b></p><p><span>Payment</span><b>{{ order.payment_status|title }}</b></p><p><span>Method</span><b>{{ order.payment_method|replace('_',' ')|title }}</b></p>
+{% for payment in order.payments %}<p><span>{{ payment.provider|replace('_',' ')|title }} · {{ payment.status|title }}</span><b>₹{{ '%.2f'|format(payment.amount) }}{% if payment.provider_ref %}<small> · {{ payment.provider_ref }}</small>{% endif %}</b></p>{% endfor %}
+<p><span>Subtotal</span><b>₹{{ '%.2f'|format(order.subtotal) }}</b></p>{% if order.discount_total %}<p><span>Discount</span><b>−₹{{ '%.2f'|format(order.discount_total) }}</b></p>{% endif %}<p><span>Delivery</span><b>₹{{ '%.2f'|format(order.delivery_fee) }}</b></p><p class="ops-total"><span>Total</span><b>₹{{ '%.2f'|format(order.total) }}</b></p></section>
+</div>
+<section class="ops-detail-card ops-items"><h3>Items ordered</h3>{% for line in order.items %}<div class="ops-line-item"><div><b>{{ line.name }}</b><small>{{ line.sku or 'No SKU' }}</small></div><span>{{ line.quantity }} × ₹{{ '%.2f'|format(line.unit_price) }}</span><strong>₹{{ '%.2f'|format(line.line_total) }}</strong></div>{% else %}<p>No line items found.</p>{% endfor %}</section>
+<section class="ops-detail-card"><h3>Order timeline</h3><ol class="ops-timeline"><li><b>Order placed</b><time>{{ order.created_at|local_display }}</time></li>{% for h, who in history %}<li><b>{{ h.to_status|replace('_',' ')|title }}</b><time>{{ h.created_at|local_display }}{% if who %} · {{ who }}{% endif %}</time>{% if h.note %}<p>{{ h.note }}</p>{% endif %}</li>{% endfor %}</ol></section>
 {% endblock %}

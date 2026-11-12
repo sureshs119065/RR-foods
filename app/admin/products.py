@@ -4,6 +4,7 @@ from sqlalchemy import func, or_, select
 from ..extensions import db
 from ..models import Category, InventoryLog, Offer, Product, ProductImage, ProductVariant
 from ..uploads import MAX_FILE_BYTES, UploadError, copy_file, delete_files, save_image
+from ..services.inventory import notify_admin_stock_transition
 from . import bp
 from .helpers import log, page_number, unique_slug
 from .product_forms import (DISCOUNT_CHOICES, MAX_IMAGES, NUTRITION_FIELDS, parse_product, values_from_product,
@@ -89,6 +90,7 @@ def _apply(product: Product, data: dict, is_new: bool) -> None:
         db.session.add(product)
     db.session.flush()
     inventory_log(product.id, None, old_stock, product.stock_qty, "initial stock" if is_new else "admin edit")
+    notify_admin_stock_transition(product, old_stock, product.stock_qty)
 
     product.offers = [db.session.get(Offer, i) for i in data["offer_ids"]]
     product.related = [db.session.get(Product, i) for i in data["related_ids"]]
@@ -108,6 +110,7 @@ def _apply(product: Product, data: dict, is_new: bool) -> None:
         variant.mrp, variant.price, variant.stock_qty = row["mrp"], row["price"], row["stock"]
         db.session.flush()
         inventory_log(product.id, variant.id, old_qty, variant.stock_qty, "initial stock" if row["id"] is None else "admin edit")
+        notify_admin_stock_transition(product, old_qty, variant.stock_qty)
 
 
 def _store_images(product: Product, files, errors: dict) -> list[str]:

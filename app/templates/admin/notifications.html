@@ -1,0 +1,10 @@
+{% extends "admin/layout.html" %}
+{% import "admin/_macros.html" as m %}
+{% block title %}Notifications{% endblock %}{% block heading %}Notifications{% endblock %}
+{% block content %}
+<div class="ops-page-head"><div><span class="ops-eyebrow">ACTIVITY CENTRE</span><h2>Notifications <span class="ops-unread-count">{{ unread }} unread</span></h2><p>Stock alerts that need attention appear here automatically.</p></div>{% if unread %}<form method="post" action="{{ url_for('admin.notifications_read_all') }}">{{ m.csrf() }}<button class="btn btn--ghost" type="submit">Mark all as read</button></form>{% endif %}</div>
+<div class="ops-notification-list">
+{% for n in rows %}<article class="ops-notification {{ 'is-unread' if not n.is_read else '' }}"><span class="ops-notification-icon">{% if n.kind == 'stock_alert' %}⚠{% else %}●{% endif %}</span><div class="ops-notification-copy"><h3>{{ n.title }}</h3><p>{{ n.body or 'There is an update for your store.' }}</p><time>{{ n.created_at|local_display }}</time></div><div class="ops-notification-actions">{% if n.link %}<a class="btn btn--sm" href="{{ n.link }}">Update stock</a>{% endif %}{% if not n.is_read %}<form method="post" action="{{ url_for('admin.notification_read', notification_id=n.id) }}">{{ m.csrf() }}<button class="btn btn--ghost btn--sm" type="submit">Mark as read</button></form>{% else %}<span class="ops-read-label">Read</span>{% endif %}</div></article>
+{% else %}<div class="ops-empty"><strong>No notifications yet.</strong><p>New stock alerts will appear here when products reach their warning level.</p></div>{% endfor %}
+</div>
+{% endblock %}

@@ -59,6 +59,23 @@
     </main>
   </div>
 </div>
+<nav class="owner-bottom-nav" aria-label="Quick navigation">
+  <a href="{{ url_for('owner.dashboard') }}" class="{% if here == 'owner.dashboard' %}is-current{% endif %}" {% if here == 'owner.dashboard' %}aria-current="page"{% endif %}>
+    {{ m.icon('home') }}<span>Home</span>
+  </a>
+  <a href="{{ url_for('owner.orders') }}" class="{% if here and here.startswith('owner.order') %}is-current{% endif %}" {% if here and here.startswith('owner.order') %}aria-current="page"{% endif %}>
+    {{ m.icon('cart') }}<span>Orders{% if pending_count %}<i>{{ pending_count if pending_count < 100 else '99+' }}</i>{% endif %}</span>
+  </a>
+  <a href="{{ url_for('owner.inventory') }}" class="{% if here == 'owner.inventory' and request.args.get('stock') != 'attention' %}is-current{% endif %}" {% if here == 'owner.inventory' and request.args.get('stock') != 'attention' %}aria-current="page"{% endif %}>
+    {{ m.icon('box') }}<span>Inventory</span>
+  </a>
+  <a href="{{ url_for('owner.inventory', stock='attention') }}" class="{% if here == 'owner.inventory' and request.args.get('stock') == 'attention' %}is-current{% endif %}" {% if here == 'owner.inventory' and request.args.get('stock') == 'attention' %}aria-current="page"{% endif %}>
+    {{ m.icon('alert-triangle') }}<span>Alerts{% if low_stock_count %}<i>{{ low_stock_count if low_stock_count < 100 else '99+' }}</i>{% endif %}</span>
+  </a>
+  <a href="{{ url_for('owner.inbox') }}" class="{% if here and here.startswith('owner.inbox') %}is-current{% endif %}" {% if here and here.startswith('owner.inbox') %}aria-current="page"{% endif %}>
+    {{ m.icon('message-circle') }}<span>Inbox</span>
+  </a>
+</nav>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>
