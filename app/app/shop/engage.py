@@ -33,6 +33,17 @@ def in_wishlist(product_id: int) -> bool:
     return product_id in ids
 
 
+def wishlist_count() -> int:
+    u = g.get("user")
+    if u is None or u.role != "user":
+        return 0
+    cached = request.environ.get("nk.wishlist_count")
+    if cached is None:
+        cached = db.session.scalar(select(func.count(WishlistItem.id)).where(WishlistItem.user_id == u.id)) or 0
+        request.environ["nk.wishlist_count"] = cached
+    return cached
+
+
 def unread_count() -> int:
     u = g.get("user")
     if u is None:
@@ -51,7 +62,7 @@ def compare_count() -> int:
 
 @bp.record_once
 def _register_globals(state):
-    state.app.jinja_env.globals.update(in_wishlist=in_wishlist, unread_count=unread_count, compare_count=compare_count, review_thanks=review_thanks)
+    state.app.jinja_env.globals.update(in_wishlist=in_wishlist, unread_count=unread_count, wishlist_count=wishlist_count, compare_count=compare_count, review_thanks=review_thanks)
 
 
 def _shopper_or_response():

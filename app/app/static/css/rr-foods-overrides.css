@@ -5,3 +5,45 @@
 .cart-suggestions{grid-column:1/-1}
 
 .delivery-settings-panel{max-width:760px}
+
+
+/* RR FOODS customer storefront refinement (consolidated overrides) */
+html[data-shop] .rr-brand__logo { width:60px; height:60px; object-fit:contain; }
+html[data-shop] .rr-brand > span { display:none !important; }
+html[data-shop] .sh__row { gap:.65rem; }
+html[data-shop] .sh__search { max-width:420px; flex:1 1 360px; margin-inline:auto; }
+html[data-shop] .sh__bell { order:0; display:inline-flex; }
+html[data-shop] .sh__actions { gap:.25rem; }
+html[data-shop] .sh__wish, html[data-shop] .sh__track { display:inline-flex; flex-direction:column; justify-content:center; gap:2px; min-width:48px; min-height:48px; }
+html[data-shop] .sh__action-label { font-size:.65rem; line-height:1; white-space:nowrap; }
+html[data-shop] .step__n { background:linear-gradient(135deg,#16834b,#075b35); color:#fff; border:2px solid #b8e5c9; box-shadow:0 0 0 2px #16834b; font-weight:900; }
+html[data-shop] .trust--two { grid-template-columns:repeat(2,minmax(0,1fr)); }
+html[data-shop] .home-about { color:#fff; background:linear-gradient(110deg,rgba(5,65,39,.94),rgba(12,105,59,.78)),url('../img/our-story-bg.jpg') center/cover no-repeat,linear-gradient(135deg,#075b35,#16834b); padding-block:clamp(3rem,8vw,6rem); }
+html[data-shop] .home-about .sec__h, html[data-shop] .home-about p, html[data-shop] .home-about a { color:#fff; }
+html[data-shop] .home-reviews .snaprow { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:1rem; padding:.5rem 0 1rem; }
+html[data-shop] .review-card { flex:0 0 min(82vw,320px); scroll-snap-align:start; }
+html[data-shop] .review-card small { display:block; margin-top:.5rem; }
+html[data-shop] .review-stars { color:#d69a18; font-size:1.2rem; }
+html[data-shop] .offers-combo { overflow:hidden; }
+html[data-shop] #offers-track { display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; gap:1rem; padding:.75rem 0 1rem; }
+html[data-shop] #offers-track > li { flex:0 0 auto; scroll-snap-align:start; }
+html[data-shop] .contact-quicklinks { display:flex; flex-wrap:wrap; gap:.75rem; margin:1rem 0; }
+html[data-shop] input, html[data-shop] textarea, html[data-shop] select { font-size:16px; }
+@media(max-width:767px) {
+ html[data-shop] .sh__row { min-height:58px; flex-wrap:nowrap; justify-content:space-between; gap:.25rem; }
+ html[data-shop] .rr-brand { position:absolute; left:50%; transform:translateX(-50%); }
+ html[data-shop] .rr-brand__logo { width:50px; height:50px; }
+ html[data-shop] .sh__search { display:none !important; }
+ html[data-shop] .sh__searchbtn { display:inline-flex !important; }
+ html[data-shop] .sh__bell { display:inline-flex; }
+ html[data-shop] .sh__actions { width:auto; margin-left:auto; display:flex; gap:0; }
+ html[data-shop] .sh__wish, html[data-shop] .sh__track { min-width:40px; width:40px; min-height:44px; }
+ html[data-shop] .sh__action-label, html[data-shop] .sh__acct-t, html[data-shop] .sh__cart-t { display:none !important; }
+ html[data-shop] .sh__whatsapp { display:none !important; }
+ html[data-shop] .trust--two { grid-template-columns:1fr; }
+ html[data-shop] .steps { display:grid; grid-template-columns:1fr; }
+}
+@media(max-width:360px) {
+ html[data-shop] .sh__menu, html[data-shop] .sh__searchbtn, html[data-shop] .sh__acct, html[data-shop] .sh__cart, html[data-shop] .sh__wish, html[data-shop] .sh__track, html[data-shop] .sh__bell { min-width:40px; width:40px; padding:0; }
+ html[data-shop] .sh__row { gap:0; }
+}
