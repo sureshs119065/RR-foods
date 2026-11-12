@@ -1,5 +1,6 @@
 """Sign-in logic. One place for password checks, lockout, sessions and audit entries."""
 import hashlib
+import hmac
 from datetime import timedelta
 from urllib.parse import urlparse
 
