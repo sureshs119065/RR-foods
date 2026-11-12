@@ -195,9 +195,102 @@
 
   const rangeSelect = document.getElementById('sa-range');
   const customDates = document.getElementById('sa-custom-dates');
+  const filterForm = document.getElementById('sales-range-filter');
+  const startInput = filterForm?.querySelector('input[name="start_date"]');
+  const endInput = filterForm?.querySelector('input[name="end_date"]');
+  const applyButton = filterForm?.querySelector('button[type="submit"]');
+
+  function syncCustomDateControls() {
+    if (!rangeSelect || !customDates) return;
+    const isCustom = rangeSelect.value === 'custom';
+    customDates.hidden = !isCustom;
+    if (startInput) startInput.required = isCustom;
+    if (endInput) endInput.required = isCustom;
+  }
+
+  function showFilterFeedback(message, isError = false) {
+    let status = document.getElementById('sa-filter-feedback');
+    if (!status && filterForm) {
+      status = document.createElement('p');
+      status.id = 'sa-filter-feedback';
+      status.className = 'sa-filter-feedback';
+      status.setAttribute('role', 'status');
+      filterForm.insertAdjacentElement('afterend', status);
+    }
+    if (status) {
+      status.textContent = message;
+      status.dataset.state = isError ? 'error' : 'success';
+      status.hidden = !message;
+    }
+  }
+
   if (rangeSelect && customDates) {
-    rangeSelect.addEventListener('change', () => {
-      customDates.hidden = rangeSelect.value !== 'custom';
+    rangeSelect.addEventListener('change', syncCustomDateControls);
+    syncCustomDateControls();
+  }
+
+  if (filterForm && rangeSelect && startInput && endInput) {
+    const today = new Date().toISOString().slice(0, 10);
+    startInput.max = today;
+    endInput.max = today;
+    startInput.addEventListener('change', () => {
+      endInput.min = startInput.value || '';
+      if (endInput.value && startInput.value && endInput.value < startInput.value) endInput.value = startInput.value;
+    });
+    endInput.addEventListener('change', () => { startInput.max = endInput.value || today; });
+
+    filterForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      syncCustomDateControls();
+      const params = new URLSearchParams({ range: rangeSelect.value });
+      if (rangeSelect.value === 'custom') {
+        if (!startInput.value || !endInput.value) {
+          showFilterFeedback('Choose both a start date and an end date.', true);
+          (!startInput.value ? startInput : endInput).focus();
+          return;
+        }
+        if (endInput.value < startInput.value) {
+          showFilterFeedback('The end date must be on or after the start date.', true);
+          endInput.focus();
+          return;
+        }
+        params.set('start_date', startInput.value);
+        params.set('end_date', endInput.value);
+      }
+      const oldLabel = applyButton?.textContent;
+      if (applyButton) {
+        applyButton.disabled = true;
+        applyButton.textContent = 'Loading…';
+        applyButton.setAttribute('aria-busy', 'true');
+      }
+      showFilterFeedback('Updating sales analytics…');
+      try {
+        const endpoint = analyticsRoot?.dataset.refreshUrl;
+        if (!endpoint) throw new Error('Analytics refresh endpoint is unavailable.');
+        const response = await fetch(`${endpoint}?${params.toString()}`, {
+          headers: { Accept: 'application/json' }, cache: 'no-store', credentials: 'same-origin'
+        });
+        if (!response.ok) throw new Error('Unable to load this date range. Please try again.');
+        const nextData = await response.json();
+        if (rangeSelect.value === 'custom' && nextData.range_key !== 'custom') {
+          throw new Error('That date range could not be applied. Check the dates and try again.');
+        }
+        data = nextData;
+        updateMetrics();
+        renderAll();
+        const nextUrl = new URL(window.location.href);
+        nextUrl.search = params.toString();
+        window.history.replaceState({}, '', nextUrl);
+        showFilterFeedback('Sales analytics updated successfully.');
+      } catch (error) {
+        showFilterFeedback(error.message || 'Unable to update sales analytics.', true);
+      } finally {
+        if (applyButton) {
+          applyButton.disabled = false;
+          applyButton.textContent = oldLabel || 'Apply';
+          applyButton.removeAttribute('aria-busy');
+        }
+      }
     });
   }
 })();

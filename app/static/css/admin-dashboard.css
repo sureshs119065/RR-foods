@@ -162,3 +162,61 @@
 @media(max-width:760px){.ops-dashboard-columns{grid-template-columns:1fr}}
 
 @media(max-width:760px){.table-wrap .table tbody td.cell-actions .btn{min-height:44px}.ops-product-edit{min-height:44px;display:flex;align-items:center}.ops-order-open{min-height:44px;display:flex;align-items:center}}
+
+/* Mobile legibility and dashboard contrast fixes */
+.admin-hero h2,
+.adm__main .admin-hero h2 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .12);
+}
+.admin-hero p:last-child { color: #e5f1e8 !important; }
+.admin-bottom-nav a {
+  position: relative;
+  color: #52665a !important;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-size: .7rem !important;
+  font-weight: 750 !important;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+.admin-bottom-nav a span {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: inherit !important;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.admin-bottom-nav a.is-current { color: #1d6139 !important; }
+.admin-bottom-nav a.is-current::before { left: 50%; transform: translateX(-50%); }
+
+/* The HTML hidden attribute must win over the flex layout declaration. */
+.sa-custom-dates[hidden] { display: none !important; }
+.sa-filter-feedback {
+  margin: 8px 2px 0;
+  color: #286440;
+  font-size: .78rem;
+  font-weight: 650;
+}
+.sa-filter-feedback[data-state="error"] { color: #a33e35; }
+.sa-filter .btn:disabled { opacity: .65; cursor: wait; }
+@media (max-width: 680px) {
+  .sa-filter {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: end;
+    gap: 10px;
+  }
+  .sa-filter > label,
+  .sa-filter > select,
+  .sa-filter > .btn,
+  .sa-custom-dates { grid-column: 1 / -1; }
+  .sa-custom-dates:not([hidden]) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+  .sa-custom-dates label { min-width: 0; }
+  .sa-custom-dates input { min-height: 44px; width: 100%; }
+  .admin-bottom-nav a { min-height: 3.45rem; font-size: .68rem !important; }
+}
