@@ -101,27 +101,3 @@
       .then(function () { if (btn) btn.disabled = false; });
   });
 })();
-
-/* RR FOODS homepage horizontal rails and mobile product accordions */
-(function () {
-  "use strict";
-  document.addEventListener("click", function (event) {
-    var arrow = event.target.closest("[data-rr-scroll]");
-    if (arrow) {
-      var track = document.getElementById(arrow.getAttribute("data-rr-scroll"));
-      if (track) track.scrollBy({ left: Number(arrow.getAttribute("data-dir") || 1) * Math.max(220, track.clientWidth * .8), behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-    }
-    var toggle = event.target.closest(".rr-mobile-accordion");
-    if (toggle) {
-      var section = toggle.closest(".rr-mini-section");
-      var wasOpen = section.classList.contains("is-open");
-      document.querySelectorAll(".rr-mini-section.is-open").forEach(function (item) {
-        item.classList.remove("is-open");
-        var button = item.querySelector(".rr-mobile-accordion");
-        if (button) button.setAttribute("aria-expanded", "false");
-      });
-      if (!wasOpen) { section.classList.add("is-open"); toggle.setAttribute("aria-expanded", "true"); }
-      else toggle.setAttribute("aria-expanded", "false");
-    }
-  });
-})();
