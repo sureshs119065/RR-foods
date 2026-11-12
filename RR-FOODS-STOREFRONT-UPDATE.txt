@@ -1,0 +1,18 @@
+RR FOODS CUSTOMER STOREFRONT UPDATE
+====================================
+
+Changed:
+- app/templates/shop/home.html: replaced old storefront blocks with mockup-led sections, database-backed deal/category/bestseller/new-arrival/recent/review content, active bundle cards, trust/how-it-works, story, ready-to-order and contact/FAQ cards.
+- app/templates/shop/layout.html: simplified customer navigation, compact header actions, mobile drawer and five-item mobile bottom navigation. Existing footer markup is intentionally unchanged.
+- app/templates/shop/_macros.html: added inline SVG icons and routed carousel add buttons through the existing single delegated quick-add handler.
+- app/static/css/shop.css: added responsive RR Foods visual tokens and storefront layout rules; removed the duplicate design/mobile override stylesheet includes from the customer layout.
+- app/shop/catalog.py: supplies active, currently valid bundles to the home template.
+
+Validation:
+- Python compileall passed.
+- Jinja parsing passed for the modified home, layout and macro templates.
+
+Important remaining work:
+- The previous prompt's full Buy Now isolation and persistent server-side idempotency guard are not implemented by this visual update. The existing product Buy Now path still needs a separate session-backed checkout implementation before the cart acceptance criteria can be considered complete.
+- The contact form still uses the existing signed-in customer message flow; guest submission and the new configurable contact model/route are not included.
+- The story background image file is not included; CSS has a gradient fallback.

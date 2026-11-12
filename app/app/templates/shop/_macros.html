@@ -26,6 +26,16 @@
 {%- elif name == 'clock' %}<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
 {%- elif name == 'star' %}<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>
 {%- elif name == 'moon' %}<path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/>
+{%- elif name == 'bell' %}<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10 21h4"/>
+{%- elif name == 'gift' %}<rect x="3" y="9" width="18" height="12" rx="2"/><path d="M12 9v12M2 9h20V5H2zM12 5c-4-7-9 0 0 0 0-5 7-6 7-2 0 2-3 2-7 2"/>
+{%- elif name == 'award' %}<circle cx="12" cy="8" r="6"/><path d="m8 13-2 9 6-3 6 3-2-9"/>
+{%- elif name == 'sparkles' %}<path d="m12 3 1.5 6L20 11l-6.5 2L12 20l-1.5-7L4 11l6.5-2zM19 3v4M17 5h4M4 17v4M2 19h4"/>
+{%- elif name == 'coins' %}<ellipse cx="9" cy="6" rx="6" ry="3"/><path d="M3 6v5c0 1.7 2.7 3 6 3s6-1.3 6-3V6M3 11v5c0 1.7 2.7 3 6 3 1.2 0 2.3-.2 3.3-.5M15 10c3.3 0 6 1.3 6 3v5c0 1.7-2.7 3-6 3s-6-1.3-6-3"/>
+{%- elif name == 'truck' %}<path d="M3 6h11v12H3zM14 10h4l3 3v5h-7z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/>
+{%- elif name == 'history' %}<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>
+{%- elif name == 'mail' %}<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/>
+{%- elif name == 'message-circle' %}<path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 9 9 0 0 1-4-.9L3 20l1.5-4A7 7 0 0 1 4 12c0-4.2 3.6-7.5 8-7.5s8 2.8 8 7z"/>
+{%- elif name == 'help-circle' %}<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.6 2.6 0 1 1 4.5 1.8c-1.2 1.1-2 1.4-2 3M12 17h.01"/>
 {%- endif -%}
 </svg>
 {% endmacro %}
@@ -102,7 +112,7 @@
     <div class="rc__act">
       {% if left <= 0 %}<button class="btn btn--block" type="button" disabled>Sold out</button>
       {% elif opts %}<a class="btn btn--block" href="{{ url_for('shop.product', slug=p.slug) }}">Choose options</a>
-      {% else %}<form method="post" action="{{ url_for('shop.cart_add') }}" data-addcart data-name="{{ p.name }}">{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="qty" value="1"><button class="btn btn--block" type="submit" aria-label="Add {{ p.name }} to cart">Add to cart</button></form>{% endif %}
+      {% else %}<form method="post" action="{{ url_for('shop.cart_add') }}" data-quickadd data-name="{{ p.name }}">{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="qty" value="1"><button class="btn btn--block" type="submit" aria-label="Add {{ p.name }} to cart">Add to cart</button></form>{% endif %}
     </div>
   </div>
 </li>
