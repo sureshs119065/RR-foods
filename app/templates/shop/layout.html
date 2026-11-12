@@ -6,8 +6,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="{{ url_for('static', filename='img/rr-foods-icon-192.png') }}" type="image/png">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/rr-foods-icon-192.png') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-mobile-fix.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}?v=20261112-clean-layout1">
   {% block head_extra %}{% endblock %}
   <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
   <link rel="preload" href="{{ url_for('static', filename='fonts/bricolage-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
@@ -38,11 +37,11 @@
         <li><a class="nav-link" href="{{ url_for('shop.home') }}" {% if request.endpoint == 'shop.home' %}aria-current="page"{% endif %}>Home</a></li>
         <li><a class="nav-link" href="{{ url_for('shop.listing') }}" {% if request.endpoint in ('shop.listing', 'shop.bestsellers', 'shop.category_listing') %}aria-current="page"{% endif %}>Products</a></li>
         <li><a class="nav-link" href="{{ url_for('shop.offers') }}" {% if request.endpoint == 'shop.offers' %}aria-current="page"{% endif %}>Offers &amp; Combo</a></li>
+        <li><a class="nav-link" href="{{ url_for('shop.recipes') }}" {% if request.endpoint in ('shop.recipes', 'shop.recipe_detail') %}aria-current="page"{% endif %}>Recipes</a></li>
         <li><a class="nav-link" href="{{ url_for('shop.about') }}" {% if request.endpoint == 'shop.about' %}aria-current="page"{% endif %}>About Us</a></li>
         <li><a class="nav-link" href="{{ url_for('shop.help_page') }}" {% if request.endpoint == 'shop.help_page' %}aria-current="page"{% endif %}>Contact</a></li>
       </ul>
     </nav>
-    <span class="sh__br" aria-hidden="true"></span>
     {% if current_user and current_user.role == 'user' %}
       {% set un = unread_count() if unread_count is callable else unread_count|default(0) %}
       <a class="icon-btn sh__bell" href="{{ url_for('shop.notifications') }}" aria-label="Notifications{% if un %} ({{ un }} unread){% endif %}">{{ s.icon('bell') }}<span class="dot-n" data-notif-count {% if not un %}hidden{% endif %}>{{ un if un < 100 else '99+' }}</span></a>
@@ -51,13 +50,21 @@
       <input type="search" name="q" value="{{ request.args.get('q', '') if request.endpoint in ('shop.listing', 'shop.bestsellers', 'shop.category_listing') else '' }}" placeholder="Search for products" aria-label="Search products" autocomplete="off" enterkeyhint="search" data-suggest>
       <button class="sh__go" type="submit" aria-label="Search">{{ s.icon('search') }}</button>
     </form>
-    <div class="sh__actions">
-      <button class="icon-btn sh__searchbtn" type="button" data-open="search" aria-label="Search">{{ s.icon('search') }}</button>
+    <div class="sh__actions" aria-label="Shopping tools">
+      <button class="icon-btn sh__searchbtn" type="button" data-open="search" aria-label="Search products">{{ s.icon('search') }}</button>
       {% set wc = wishlist_count|default(0) if current_user and current_user.role == 'user' else 0 %}
-      <a class="icon-btn sh__wish" href="{{ url_for('shop.wishlist') if current_user and current_user.role == 'user' else url_for('auth.login', next=url_for('shop.wishlist')) }}" aria-label="Save your favourites">{{ s.icon('heart') }}<span class="sh__action-label">Favourites</span><span class="dot-n" {% if not wc %}hidden{% endif %}>{{ wc }}</span></a>
-      <a class="icon-btn sh__orders" href="{{ url_for('shop.orders') if current_user and current_user.role == 'user' else url_for('auth.login', next=url_for('shop.orders')) }}" aria-label="Track my orders">{{ s.icon('package') }}<span class="sh__action-label">Track orders</span></a>
-      <a class="icon-btn sh__acct" href="{{ '/account' if current_user and current_user.role == 'user' else ('/owner/' if current_user and current_user.role == 'owner' else ('/admin/' if current_user else '/login')) }}" aria-label="{{ 'My account' if current_user else 'Sign in' }}">{{ s.icon('user') }}<span class="sh__acct-t">{{ 'Account' if current_user else 'Sign in' }}</span></a>
-      <a class="icon-btn sh__cart" href="{{ url_for('shop.cart') }}" aria-label="Cart">{{ s.icon('cart') }}<span class="sh__cart-t">Cart</span>{% set n = cart_count() %}<span class="dot-n" data-cart-count {% if not n %}hidden{% endif %}>{{ n }}</span></a>
+      <a class="icon-btn sh__wish" href="{{ url_for('shop.wishlist') if current_user and current_user.role == 'user' else url_for('auth.login', next=url_for('shop.wishlist')) }}" aria-label="Save your favourites">
+        {{ s.icon('heart') }}<span class="sh__action-label">Favourites</span><span class="dot-n" data-wishlist-count {% if not wc %}hidden{% endif %}>{{ wc if wc < 100 else '99+' }}</span>
+      </a>
+      <a class="icon-btn sh__orders" href="{{ url_for('shop.orders') if current_user and current_user.role == 'user' else url_for('auth.login', next=url_for('shop.orders')) }}" aria-label="Track my orders">
+        {{ s.icon('package') }}<span class="sh__action-label">Track orders</span>
+      </a>
+      <a class="icon-btn sh__acct" href="{{ '/account' if current_user and current_user.role == 'user' else ('/owner/' if current_user and current_user.role == 'owner' else ('/admin/' if current_user else '/login')) }}" aria-label="{{ 'My account' if current_user else 'Sign in' }}">
+        {{ s.icon('user') }}<span class="sh__acct-t">{{ 'Account' if current_user else 'Sign in' }}</span>
+      </a>
+      <a class="icon-btn sh__cart" href="{{ url_for('shop.cart') }}" aria-label="Cart">
+        {{ s.icon('cart') }}<span class="sh__cart-t">Cart</span>{% set n = cart_count() %}<span class="dot-n" data-cart-count {% if not n %}hidden{% endif %}>{{ n }}</span>
+      </a>
     </div>
   </div>
 </header>

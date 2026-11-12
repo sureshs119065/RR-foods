@@ -26,6 +26,16 @@
 
 
 
+{% if rows.deals or home_bundles %}<section class="band offers-band" aria-labelledby="offers-home-title"><div class="container band__in">
+  <div class="sec__row"><div><h2 id="offers-home-title" class="sec__h">Offers &amp; Combo</h2><p class="sec__sub">Fresh savings on selected products.</p></div><div class="sec__tools">{{ s.row_arrows('offers-track') }}<a href="{{ url_for('shop.offers') }}">View all</a></div></div>
+  <ul class="snaprow" id="offers-track" tabindex="0" aria-label="Offers and combo products">
+    {% for p in rows.deals %}{{ s.rcard(p) }}{% endfor %}
+    {% for bundle in home_bundles %}<li class="rc"><a class="rc__img" href="{{ url_for('shop.bundles') }}">{% if bundle.image_url %}<img src="{{ bundle.image_url }}" alt="" loading="lazy" decoding="async" width="400" height="400">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}<span class="tag tag--off">Combo</span></a><div class="rc__body"><p class="rc__cat">Bundle offer</p><h3 class="rc__name"><a href="{{ url_for('shop.bundles') }}">{{ bundle.name }}</a></h3><p class="rc__price"><b>₹{{ '%.2f'|format(bundle.bundle_price) }}</b></p><div class="rc__act"><form method="post" action="{{ url_for('shop.add_bundle', bundle_id=bundle.id) }}">{{ s.csrf() }}<button class="btn btn--block" type="submit">Add combo</button></form></div></div></li>{% endfor %}
+  </ul>
+</div></section>{% endif %}
+
+
+
 <div class="container">
   {% if rows.categories %}
   <section class="sec" id="categories" aria-labelledby="cats-h">
@@ -58,13 +68,18 @@
 </section>
 {% endif %}
 
-{% if rows.deals or home_bundles %}<section class="band offers-band" aria-labelledby="offers-home-title"><div class="container band__in">
-  <div class="sec__row"><div><h2 id="offers-home-title" class="sec__h">Offers &amp; Combo</h2><p class="sec__sub">Fresh savings on selected products.</p></div><div class="sec__tools">{{ s.row_arrows('offers-track') }}<a href="{{ url_for('shop.offers') }}">View all</a></div></div>
-  <ul class="snaprow" id="offers-track" tabindex="0" aria-label="Offers and combo products">
-    {% for p in rows.deals %}{{ s.rcard(p) }}{% endfor %}
-    {% for bundle in home_bundles %}<li class="rc"><a class="rc__img" href="{{ url_for('shop.bundles') }}">{% if bundle.image_url %}<img src="{{ bundle.image_url }}" alt="" loading="lazy" decoding="async" width="400" height="400">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}<span class="tag tag--off">Combo</span></a><div class="rc__body"><p class="rc__cat">Bundle offer</p><h3 class="rc__name"><a href="{{ url_for('shop.bundles') }}">{{ bundle.name }}</a></h3><p class="rc__price"><b>₹{{ '%.2f'|format(bundle.bundle_price) }}</b></p><div class="rc__act"><form method="post" action="{{ url_for('shop.add_bundle', bundle_id=bundle.id) }}">{{ s.csrf() }}<button class="btn btn--block" type="submit">Add combo</button></form></div></div></li>{% endfor %}
-  </ul>
-</div></section>{% endif %}
+
+
+
+<section class="home-benefits" aria-label="RR FOODS shopping benefits">
+  <div class="container home-benefits__grid">
+    <div><span class="home-benefits__icon" aria-hidden="true">ϟ</span><b>Faster performance</b></div>
+    <div><span class="home-benefits__icon" aria-hidden="true">▣</span><b>Perfect mobile experience</b></div>
+    <div><span class="home-benefits__icon" aria-hidden="true">✓</span><b>Secure &amp; reliable shopping</b></div>
+    <div><span class="home-benefits__icon" aria-hidden="true">✿</span><b>Offers &amp; combo savings</b></div>
+    <div><span class="home-benefits__icon" aria-hidden="true">❧</span><b>Fresh &amp; healthy always</b></div>
+  </div>
+</section>
 
 <div class="container">
 
