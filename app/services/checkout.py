@@ -17,6 +17,7 @@ from ..models.base import utcnow
 from . import coupons, inventory
 from .cart import MAX_LINE_QTY, q2, totals_for, Line
 from .notify import notify
+from . import delivery_slots
 
 
 class CheckoutError(Exception):
@@ -31,7 +32,8 @@ def payment_methods() -> list[tuple[str, str, str]]:
 
 
 def zone_for(pincode: str) -> DeliveryZone | None:
-    return db.session.get(DeliveryZone, pincode)
+    from .delivery import zone_for as delivery_zone_for
+    return delivery_zone_for(pincode)
 
 
 def snapshot(a: Address) -> dict:
@@ -58,7 +60,7 @@ def _check_bundle_still_valid(item: CartItem, product: Product) -> None:
         raise CheckoutError(f"The bundle offer for “{product.name}” was updated. Remove it from your cart and add the bundle again to get the new price.")
 
 
-def place_order(user, address_id: int, method: str, coupon_code: str | None, note: str | None) -> Order:
+def place_order(user, address_id: int, method: str, coupon_code: str | None, note: str | None, delivery_date: str | None = None, delivery_slot: str | None = None) -> Order:
     if method not in {m[0] for m in payment_methods()}:
         raise CheckoutError("Choose a payment method.")
     address = db.session.get(Address, address_id) if address_id else None
@@ -67,6 +69,13 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
     zone = zone_for(address.pincode)
     if zone is None or not zone.is_serviceable:
         raise CheckoutError(f"Sorry, we do not deliver to {address.pincode} yet. Choose another address.")
+
+    if not delivery_date and not delivery_slot:  # legacy clients without slot fields get the first server-validated available slot
+        delivery_date, delivery_slot = delivery_slots.first_available()
+    try:
+        chosen_delivery_date, chosen_delivery_slot = delivery_slots.validate_and_lock(delivery_date, delivery_slot)
+    except ValueError as exc:
+        raise CheckoutError(str(exc)) from exc
 
     items = list(db.session.scalars(select(CartItem).where(CartItem.user_id == user.id, CartItem.saved_for_later.is_(False)).order_by(CartItem.id)))
     if not items:
@@ -113,7 +122,8 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
     order = Order(order_number=new_order_number(), user_id=user.id, status="placed", shipping_address=snapshot(address),
                   subtotal=t.subtotal, discount_total=t.discount, delivery_fee=t.delivery or Decimal(0), tax_total=t.tax_included, total=t.total,
                   coupon_id=coupon.id if coupon else None, coupon_code=coupon.code if coupon else None, payment_method=method,
-                  payment_status="pending", customer_notes=(note or "").strip()[:500] or None)
+                  payment_status="pending", customer_notes=(note or "").strip()[:500] or None,
+                  delivery_date=chosen_delivery_date, delivery_slot=chosen_delivery_slot)
     for l in lines:
         order.items.append(OrderItem(product_id=l.product.id, variant_id=l.variant.id if l.variant else None,
                                      name=l.product.name + (f" ({l.variant.option_value})" if l.variant else ""), sku=l.sku, pack_size=l.product.pack_size,

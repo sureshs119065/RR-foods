@@ -35,36 +35,26 @@
     var el = openEl; openEl = null;
     el.classList.remove("is-open"); el.setAttribute("aria-hidden", "true");
     if (backdrop) { backdrop.classList.remove("is-on"); setTimeout(function () { if (!openEl) backdrop.hidden = true; }, reduce ? 0 : 280); }
-    setTimeout(function () { if (el !== openEl && (el.classList.contains("so") || el.classList.contains("cat-sheet"))) el.hidden = true; }, reduce ? 0 : 280);
+    setTimeout(function () { if (el !== openEl && el.classList.contains("so")) el.hidden = true; }, reduce ? 0 : 280);
     lock(false);
     $$("[aria-controls=" + el.id + "]").forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
     if (opener && opener.focus) opener.focus();
   }
-  var drawer = $("#drawer"), searchO = $("#search-overlay"), categorySheet = $("#category-sheet");
+  var drawer = $("#drawer"), searchO = $("#search-overlay");
   document.addEventListener("click", function (e) {
     var o = e.target.closest("[data-open]");
-    if (o) { e.preventDefault(); var w = o.getAttribute("data-open"); if (w === "drawer" && drawer) open(drawer, o, true); if (w === "search" && searchO) { open(searchO, o, false); renderRecent(); } if (w === "categories" && categorySheet) open(categorySheet, o, true); return; }
+    if (o) { e.preventDefault(); var w = o.getAttribute("data-open"); if (w === "drawer" && drawer) open(drawer, o, true); if (w === "search" && searchO) { open(searchO, o, false); renderRecent(); } return; }
     if (e.target.closest("[data-close]") || e.target === backdrop) { close(); return; }
     var so = e.target.closest("[data-sheet-open]"); if (so) { var sh = $("#filter-form"); if (sh) open(sh, so, true); return; }
     if (e.target.closest("[data-sheet-close]") || e.target.id === "sheet-backdrop") close();
   });
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") { close(); closeZoom(); hideSugg(); }
-    if (e.key === "Tab" && openEl) {
-      var focusable = $$('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])', openEl).filter(function (x) { return x.offsetParent !== null; });
-      if (!focusable.length) return;
-      var first = focusable[0], last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
-  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { close(); closeZoom(); hideSugg(); } });
   window.addEventListener("resize", debounce(function () { if (openEl && openEl.id === "filter-form" && matchMedia("(min-width:1024px)").matches) { openEl.classList.remove("is-open"); openEl = null; if (backdrop) { backdrop.hidden = true; backdrop.classList.remove("is-on"); } lock(false); } }, 150));
   function debounce(fn, ms) { var t; return function () { var a = arguments, c = this; clearTimeout(t); t = setTimeout(function () { fn.apply(c, a); }, ms); }; }
 
   /* ---------- header shrinks smoothly on scroll ---------- */
   var sh = $("#sh"), tick = false;
-  var lastScrollY=window.scrollY, announcement=$("#announce");
-  window.addEventListener("scroll", function () { if (tick) return; tick = true; requestAnimationFrame(function () { var y=window.scrollY; if(sh)sh.classList.toggle("is-compact", y>40); if(announcement && y>100)announcement.classList.toggle("is-hidden-on-scroll", y>lastScrollY+2); if(announcement && y<40)announcement.classList.remove("is-hidden-on-scroll"); lastScrollY=y; tick = false; }); }, { passive: true });
+  window.addEventListener("scroll", function () { if (tick || !sh) return; tick = true; requestAnimationFrame(function () { sh.classList.toggle("is-compact", window.scrollY > 40); tick = false; }); }, { passive: true });
 
   /* ---------- theme ---------- */
   $$("[data-theme-toggle]").forEach(function (b) {
@@ -87,7 +77,7 @@
   /* ---------- accordions (animated by CSS: grid rows 0fr -> 1fr) ---------- */
   $$(".acc").forEach(function (a) {
     var h = $(".acc__h", a); if (!h) return;
-    if (a.hasAttribute("data-open") && !(matchMedia("(max-width:767px)").matches && a.closest(".det"))) a.classList.add("is-open");
+    if (a.hasAttribute("data-open")) a.classList.add("is-open");
     h.setAttribute("aria-expanded", a.classList.contains("is-open") ? "true" : "false");
     h.addEventListener("click", function () { var o = a.classList.toggle("is-open"); h.setAttribute("aria-expanded", o ? "true" : "false"); });
   });
@@ -173,9 +163,8 @@
   if (gal) {
     var main = $("#gal-main");
     $$(".gal__t", gal).forEach(function (t) {
-      t.addEventListener("click", function () { if (!main) return; main.src = t.getAttribute("data-src"); main.alt = t.getAttribute("data-alt"); $$(".gal__t", gal).forEach(function (x) { x.removeAttribute("aria-current"); }); t.setAttribute("aria-current", "true"); var index=$$(".gal__t",gal).indexOf(t); $$("[data-gallery-dot]",gal).forEach(function(d,i){ if(i===index)d.setAttribute("aria-current","true");else d.removeAttribute("aria-current"); }); });
+      t.addEventListener("click", function () { if (!main) return; main.src = t.getAttribute("data-src"); main.alt = t.getAttribute("data-alt"); $$(".gal__t", gal).forEach(function (x) { x.removeAttribute("aria-current"); }); t.setAttribute("aria-current", "true"); });
     });
-    $$("[data-gallery-dot]", gal).forEach(function(d){ d.addEventListener("click",function(){ var i=Number(d.getAttribute("data-gallery-dot")), t=$$(".gal__t",gal)[i]; if(t)t.click(); }); });
     // swipe between images on touch screens
     var sx = null; gal.addEventListener("touchstart", function (e) { sx = e.touches[0].clientX; }, { passive: true });
     gal.addEventListener("touchend", function (e) {
@@ -197,11 +186,13 @@
     function inr(v) { return "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     $$("input[name=variant_id]", form).forEach(function (r) {
       r.addEventListener("change", function () {
-        var p = parseFloat(r.dataset.price), m = parseFloat(r.dataset.mrp), s = parseInt(r.dataset.stock, 10), low = parseInt(r.dataset.low, 10); var bb=$("[data-buybar-price]"); if(bb)bb.textContent=inr(p);
+        var fbtVariant = $("[data-fbt-variant]"); if (fbtVariant) fbtVariant.value = r.value;
+        var p = parseFloat(r.dataset.price), m = parseFloat(r.dataset.mrp), s = parseInt(r.dataset.stock, 10), low = parseInt(r.dataset.low, 10);
         now.textContent = inr(p); var pct = m > p ? Math.floor((m - p) * 100 / m) : 0;
         mrp.textContent = inr(m); mrp.hidden = off.hidden = !pct; off.textContent = pct + "% off";
         note.innerHTML = s <= 0 ? '<span class="stock stock--out">Out of stock</span>' : (s <= low || s <= 5) ? '<span class="stock stock--low">Only ' + s + " left</span>" : '<span class="stock stock--ok">In stock</span>';
         var dis = s <= 0; $$("[data-add],[data-buy]", form).forEach(function (b) { b.disabled = dis; });
+        var fbtButton = $(".fbt button"); if (fbtButton) fbtButton.disabled = dis;
         qty.max = Math.max(1, Math.min(10, s)); if (+qty.value > +qty.max) qty.value = qty.max;
       });
     });
@@ -220,24 +211,76 @@
   }
   var pin = $("#pinform");
   if (pin) {
-    var pinInput = $("#pin");
-    try { var savedPin = localStorage.getItem("rr-foods-pincode"); if (savedPin && pinInput && !pinInput.value) pinInput.value = savedPin; } catch (e) {}
-    pinInput.addEventListener("input", function () { pinInput.value = pinInput.value.replace(/\D/g, "").slice(0, 6); if (pinInput.value.length === 6) pin.requestSubmit ? pin.requestSubmit() : pin.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+    var pinInput = $("#pin"), pinTimer = null;
+    try { var rememberedPin = localStorage.getItem("rr-foods-pincode"); if (rememberedPin && pinInput && !pinInput.value) pinInput.value = rememberedPin; } catch (e) {}
+    if (pinInput) pinInput.addEventListener("input", function () {
+      pinInput.value = pinInput.value.replace(/\D/g, "").slice(0, 6);
+      if (pinInput.value.length === 6) { try { localStorage.setItem("rr-foods-pincode", pinInput.value); } catch (e) {} }
+    });
     pin.addEventListener("submit", function (e) {
-    e.preventDefault(); var v = pinInput.value.trim(), msg = $("#pin-msg");
-    if (!/^\d{6}$/.test(v)) { msg.textContent = "Enter a 6 digit pincode."; msg.className = "pin__msg is-bad"; return; }
-    try { localStorage.setItem("rr-foods-pincode", v); } catch (e) {}
-    msg.textContent = "Checking…"; msg.className = "pin__msg";
-    fetch("/api/pincode/" + v, { headers: { Accept: "application/json" } }).then(function (r) { return r.json(); })
-      .then(function (d) { msg.textContent = d.message; msg.className = "pin__msg " + (d.deliverable ? "is-ok" : "is-bad"); })
-      .catch(function () { msg.textContent = "Could not check right now."; msg.className = "pin__msg is-bad"; });
+      e.preventDefault(); var v = pinInput.value.trim(), msg = $("#pin-msg");
+      if (!/^\d{6}$/.test(v)) { msg.textContent = "Enter a 6 digit pincode."; msg.className = "pin__msg is-bad"; return; }
+      try { localStorage.setItem("rr-foods-pincode", v); } catch (e) {}
+      msg.textContent = "Checking…"; msg.className = "pin__msg";
+      fetch("/api/pincode/" + v, { headers: { Accept: "application/json" } }).then(function (r) { return r.json(); })
+        .then(function (d) { msg.textContent = d.message; msg.className = "pin__msg " + (d.deliverable ? "is-ok" : "is-bad"); })
+        .catch(function () { msg.textContent = "Could not check right now."; msg.className = "pin__msg is-bad"; });
     });
   }
 
+  /* ---------- saved pincode on address forms + optional city/state lookup ---------- */
   var addressPin = document.querySelector('input[name="pincode"]');
   if (addressPin) {
-    try { var rememberedPin=localStorage.getItem("rr-foods-pincode"); if(rememberedPin && !addressPin.value) addressPin.value=rememberedPin; } catch(e) {}
-    addressPin.addEventListener("input",function(){ addressPin.value=addressPin.value.replace(/\D/g,"").slice(0,6); if(addressPin.value.length===6){ try{localStorage.setItem("rr-foods-pincode",addressPin.value);}catch(e){} } });
+    try { var rememberedAddressPin = localStorage.getItem("rr-foods-pincode"); if (rememberedAddressPin && !addressPin.value) addressPin.value = rememberedAddressPin; } catch (e) {}
+    var addressPinTimer;
+    addressPin.addEventListener("input", function () {
+      addressPin.value = addressPin.value.replace(/\D/g, "").slice(0, 6);
+      if (addressPin.value.length !== 6) return;
+      var pinValue = addressPin.value;
+      try { localStorage.setItem("rr-foods-pincode", pinValue); } catch (e) {}
+      clearTimeout(addressPinTimer);
+      addressPinTimer = setTimeout(function () {
+        fetch("/api/pincode/" + pinValue, { headers: { Accept: "application/json" } }).then(function (r) { return r.json(); }).then(function (d) {
+          if (addressPin.value !== pinValue || !d.ok || !d.deliverable) return;
+          var city = document.querySelector('input[name="city"]'), state = document.querySelector('input[name="state"]');
+          if (city && d.city && !city.value) city.value = d.city;
+          if (state && d.state && !state.value) state.value = d.state;
+        }).catch(function () {});
+      }, 180);
+    });
+    if (addressPin.value.length === 6) addressPin.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  /* ---------- delivery slot selection and remembered checkout pincode ---------- */
+  var checkoutForm = $("[data-checkout]");
+  if (checkoutForm) {
+    var dateSelect = $("[data-delivery-date]", checkoutForm), slotSelect = $("[data-delivery-slot]", checkoutForm);
+    function fetchSlots() {
+      if (!dateSelect || !slotSelect) return;
+      slotSelect.disabled = true; slotSelect.innerHTML = '<option value="">Checking availability…</option>';
+      fetch("/checkout/delivery-slots?date=" + encodeURIComponent(dateSelect.value), { headers: { Accept: "application/json" }, credentials: "same-origin" })
+        .then(function (r) { return r.json(); }).then(function (d) {
+          slotSelect.innerHTML = "";
+          (d.slots || []).forEach(function (slot) { var option = document.createElement("option"); option.value = slot; option.textContent = slot; slotSelect.appendChild(option); });
+          if (!(d.slots || []).length) { var empty = document.createElement("option"); empty.value = ""; empty.textContent = d.message || "No slots available"; slotSelect.appendChild(empty); }
+          slotSelect.disabled = !(d.slots || []).length;
+          slotSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        }).catch(function () { slotSelect.innerHTML = '<option value="">Could not load slots</option>'; slotSelect.disabled = true; slotSelect.dispatchEvent(new Event("change", { bubbles: true })); });
+    }
+    if (dateSelect && slotSelect) dateSelect.addEventListener("change", fetchSlots);
+    var lastAddressButton = $("[data-use-last-address]", checkoutForm);
+    if (lastAddressButton) lastAddressButton.addEventListener("click", function () {
+      var radio = checkoutForm.querySelector('input[name="address_id"][value="' + lastAddressButton.dataset.useLastAddress + '"]');
+      if (radio) { radio.checked = true; radio.dispatchEvent(new Event("change", { bubbles: true })); }
+    });
+    var checkoutPin = $("[data-checkout-pincode]", checkoutForm);
+    try { var lastPin = localStorage.getItem("rr-foods-pincode"); if (checkoutPin && lastPin && /^\d{6}$/.test(lastPin)) checkoutPin.value = lastPin; } catch (e) {}
+    checkoutForm.querySelectorAll('input[name="address_id"]').forEach(function (radio) {
+      radio.addEventListener("change", function () {
+        try { localStorage.setItem("rr-foods-pincode", radio.dataset.pincode || ""); } catch (e) {}
+        if (checkoutPin) checkoutPin.value = radio.dataset.pincode || "";
+      });
+    });
   }
 
   /* ---------- checkout: delivery fee and total follow the chosen address ---------- */
@@ -247,66 +290,11 @@
     var update = function () {
       var r = $("input[name=address_id]:checked", co); if (!r) return;
       var ok = r.dataset.ok === "1", d = $("#sum-delivery");
-      if (d) d.textContent = !ok ? "Not deliverable" : (parseFloat(r.dataset.delivery) === 0 ? "Free" : money(r.dataset.delivery));
+      if (d) d.textContent = !ok ? "Not deliverable" : money(r.dataset.delivery);
       var t = money(r.dataset.total); $("#sum-total").textContent = t; $("#bar-total").textContent = t;
-      var b = $("button[type=submit]", co); if (b && !co.hasAttribute("data-sent")) b.disabled = !ok;
+      var b = $("button[type=submit]", co); if (b) b.disabled = !ok || (slotSelect && (!slotSelect.value || slotSelect.disabled));
     };
-    $$('input[name=address_id]', co).forEach(function (r) { r.addEventListener("change", update); }); update();
-    co.addEventListener("submit", function (e) {
-      if (!co.reportValidity()) return;
-      if (co.getAttribute("data-place-busy") === "1") { e.preventDefault(); return; }
-      co.setAttribute("data-place-busy", "1"); var b = $("button[type=submit]", co);
-      if (b) { b.disabled = true; b.setAttribute("aria-busy", "true"); b.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span> Placing order…'; }
-    });
-  }
-
-  /* ---------- password visibility toggle: preserves autocomplete and password-manager semantics ---------- */
-  $$('input[type="password"]').forEach(function(input){
-    var toggle=document.createElement("button"); toggle.type="button"; toggle.className="password-toggle"; toggle.textContent="Show"; toggle.setAttribute("aria-label","Show password"); toggle.setAttribute("aria-pressed","false");
-    input.insertAdjacentElement("afterend",toggle);
-    toggle.addEventListener("click",function(){ var show=input.type==="password"; input.type=show?"text":"password"; toggle.textContent=show?"Hide":"Show"; toggle.setAttribute("aria-label",show?"Hide password":"Show password"); toggle.setAttribute("aria-pressed",show?"true":"false"); input.focus(); });
-  });
-
-  /* ---------- viewport keyboard detection: keep fixed navigation out of the way ---------- */
-  function syncKeyboard() {
-    var vv = window.visualViewport, open = false;
-    if (vv && window.innerHeight) open = (window.innerHeight - vv.height) > 150;
-    if (!open && /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || "")) open = true;
-    root.classList.toggle("keyboard-open", !!open && window.innerWidth < 768);
-  }
-  if (window.visualViewport) { window.visualViewport.addEventListener("resize", syncKeyboard); window.visualViewport.addEventListener("scroll", syncKeyboard); }
-  document.addEventListener("focusin", syncKeyboard); document.addEventListener("focusout", function () { setTimeout(syncKeyboard, 120); });
-
-  /* ---------- announcement marquee pauses on touch ---------- */
-  var marquee = $("#announce-marquee");
-  if (marquee) { marquee.addEventListener("touchstart", function () { marquee.setAttribute("data-touch-paused", "true"); }, { passive:true }); marquee.addEventListener("touchend", function () { setTimeout(function () { marquee.removeAttribute("data-touch-paused"); }, 1800); }, { passive:true }); }
-
-  /* ---------- defer page-specific enhancements until their section is visible ---------- */
-  var lazyModules = { reels:"reels.js", diwali:"diwali-fireworks.js", quality:"quality-journey.js" };
-  if ("IntersectionObserver" in window) {
-    var moduleObserver = new IntersectionObserver(function (entries, obs) { entries.forEach(function (entry) { if (!entry.isIntersecting) return; var key = entry.target.getAttribute("data-lazy-script"), file = lazyModules[key]; if (file) { var script = document.createElement("script"); script.src = "/static/js/" + file; script.defer = true; document.body.appendChild(script); } obs.unobserve(entry.target); }); }, { rootMargin:"180px" });
-    $$('[data-lazy-script]').forEach(function (el) { moduleObserver.observe(el); });
-  } else { $$('[data-lazy-script]').forEach(function (el) { var key=el.getAttribute("data-lazy-script"); if (lazyModules[key]) { var script=document.createElement("script"); script.src="/static/js/"+lazyModules[key]; script.defer=true; document.body.appendChild(script); } }); }
-
-  /* ---------- Add to Home Screen: once per visitor, only after browser offers install ---------- */
-  var installEvent = null, installBanner = $("#install-banner"), installButton = $("#install-app"), dismissInstall = $("#dismiss-install");
-  window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); installEvent=e; try { if (localStorage.getItem("rr-install-dismissed") === "1" || localStorage.getItem("rr-install-shown") === "1") return; localStorage.setItem("rr-install-shown","1"); } catch (x) {} if (installBanner) installBanner.hidden=false; });
-  if (installButton) installButton.addEventListener("click", function () { if (!installEvent) return; installEvent.prompt(); installEvent.userChoice.then(function () { installEvent=null; if (installBanner) installBanner.hidden=true; }); });
-  if (dismissInstall) dismissInstall.addEventListener("click", function () { if (installBanner) installBanner.hidden=true; try { localStorage.setItem("rr-install-dismissed","1"); } catch (e) {} });
-
-  /* ---------- English / Tamil main navigation labels ---------- */
-  var language = "en", labels = { en:{home:"Home",categories:"Categories",search:"Search",cart:"Cart",account:"Account"}, ta:{home:"முகப்பு",categories:"வகைகள்",search:"தேடல்",cart:"கூடை",account:"கணக்கு"} };
-  try { language=localStorage.getItem("rr-language") || "en"; } catch(e) {}
-  function applyLanguage() { root.lang=language === "ta" ? "ta" : "en"; $$('[data-i18n]').forEach(function(el){ var k=el.getAttribute('data-i18n'); if(labels[language][k]) el.textContent=labels[language][k]; }); }
-  $$('[data-language-toggle]').forEach(function(b){ b.addEventListener('click',function(){ language=language === "en" ? "ta" : "en"; try{localStorage.setItem("rr-language",language);}catch(e){} applyLanguage(); }); });
-  applyLanguage();
-
-  /* ---------- collapsible home extras on phones ---------- */
-  var home = $("[data-home-sections]");
-  if (home && matchMedia("(max-width:767px)").matches) {
-    var extras = $$("[data-home-extra]", home), toggle = $("[data-home-more]", home);
-    extras.forEach(function(el){ el.hidden=true; });
-    if (toggle) toggle.addEventListener("click",function(){ var show=toggle.getAttribute("aria-expanded") !== "true"; extras.forEach(function(el){el.hidden=!show;}); toggle.setAttribute("aria-expanded",show?"true":"false"); toggle.textContent=show?"Show less":"Show more"; });
+    $$("input[name=address_id]", co).forEach(function (r) { r.addEventListener("change", update); }); update();
   }
 
   /* ---------- installable app: register the small service worker ---------- */
@@ -407,6 +395,13 @@
       if (wait || document.hidden) return;
       wait = true;
       getJSON(url).then(function (d) {
+        var shipment = document.querySelector("[data-order-shipment]");
+        if (shipment) {
+          var courier = shipment.querySelector("[data-track-courier]"), trackingId = shipment.querySelector("[data-track-id]"), trackingLink = shipment.querySelector("[data-track-link]");
+          if (courier) courier.textContent = d.courier_name ? "Courier: " + d.courier_name : "Courier details will appear when the order is dispatched.";
+          if (trackingId) trackingId.textContent = d.tracking_id ? "Tracking ID: " + d.tracking_id : "";
+          if (trackingLink) { if (d.tracking_url) { trackingLink.href = d.tracking_url; trackingLink.hidden = false; } else { trackingLink.hidden = true; } }
+        }
         if (d.status !== shown) {
           if (live) live.textContent = "Updated: " + d.label;
           trk.classList.add("trk--flash");
@@ -480,7 +475,8 @@
     var b = e.target.closest ? e.target.closest("[data-share]") : null; if (!b) return;
     var url = b.getAttribute("data-share-url") || location.href, title = b.getAttribute("data-share-title") || document.title;
     if (navigator.share) { navigator.share({ title: title, url: url }).catch(function () { /* the person closed the sheet */ }); return; }
-    var wa = "https://wa.me/?text=" + encodeURIComponent(title + " " + url); window.open(wa, "_blank", "noopener,noreferrer");
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(url).then(function () { say("Link copied."); }, function () { window.prompt("Copy this link", url); }); }
+    else { window.prompt("Copy this link", url); }
   });
 })();
 

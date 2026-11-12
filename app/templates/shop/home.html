@@ -10,7 +10,6 @@
   {% if carousel.banners and (carousel.banners[0].mobile_image or carousel.banners[0].desktop_image) %}<link rel="preload" as="image" href="{{ carousel.banners[0].mobile_image or carousel.banners[0].desktop_image }}" fetchpriority="high" media="(max-width: 767px)">{% endif %}
 {% endblock %}
 {% block content %}
-<div data-home-sections>
 {% include "partials/header_carousel.html" %}
 {% if not (carousel and carousel.banners) %}
 <section class="hero" aria-labelledby="hero-t">
@@ -24,13 +23,13 @@
 {% endif %}
 
 {% if reels_enabled and home_reels %}
-<section class="container sec home-reels" data-home-extra data-lazy-script="reels" aria-labelledby="reels-title">
+<section class="container sec home-reels" aria-labelledby="reels-title">
   <div class="sec__row"><div><h2 id="reels-title" class="sec__h">From our kitchen</h2><p class="sec__sub">Quick ideas, product stories and everyday inspiration.</p></div></div>
   <div class="reels-track" aria-label="Short videos">
     {% for reel in home_reels %}
     <article class="reel-card">
       <button class="reel-play" type="button" data-reel-open data-video="{{ reel.video_url }}" aria-label="Play {{ reel.title }}">
-        {% if reel.thumbnail_url %}<img src="{{ reel.thumbnail_url }}" alt="" loading="lazy" decoding="async" width="400" height="400">{% endif %}
+        {% if reel.thumbnail_url %}<img src="{{ reel.thumbnail_url }}" alt="" loading="lazy" decoding="async">{% endif %}
         <video class="reel-preview" muted playsinline loop preload="none" data-reel-preview="{{ reel.video_url }}" {% if reel.thumbnail_url %}poster="{{ reel.thumbnail_url }}"{% endif %}></video>
         <span class="reel-play-icon" aria-hidden="true">▶</span>
       </button>
@@ -41,10 +40,10 @@
   </div>
 </section>
 <dialog class="reel-dialog" id="reel-dialog" aria-label="Reel video viewer"><button type="button" data-reel-close class="reel-close" aria-label="Close video">×</button><video controls playsinline autoplay muted></video></dialog>
-
+<script src="{{ url_for('static', filename='js/reels.js') }}" defer></script>
 {% endif %}
 
-<section class="container facts-wrap" data-home-extra aria-label="Shopping here">
+<section class="container facts-wrap" aria-label="Shopping here">
   <ul class="facts">
     <li>{{ s.icon('package') }}<span><b>Track every order</b><small>From placed to delivered</small></span></li>
     <li>{{ s.icon('heart') }}<span><b>Save your favourites</b><small>Wishlist on every product</small></span></li>
@@ -111,7 +110,7 @@
   {% endif %}
 </div>
 
-<section class="band band--soft" data-home-extra aria-labelledby="coll-h">
+<section class="band band--soft" aria-labelledby="coll-h">
   <div class="container band__in">
     <h2 id="coll-h" class="sec__h">Shop by need</h2><p class="sec__sub">Start from what matters to you today.</p>
     <ul class="needs">
@@ -125,7 +124,7 @@
 </section>
 
 {% if rows.new %}
-<section class="band band--dark" data-home-extra aria-labelledby="new-h">
+<section class="band band--dark" aria-labelledby="new-h">
   <div class="container band__in">
     <div class="sec__row"><div><h2 id="new-h" class="sec__h">New arrivals</h2><p class="sec__sub">Fresh additions to the shop. Scroll sideways for more.</p></div><div class="sec__tools">{{ s.row_arrows('new-track') }}<a href="{{ url_for('shop.listing', sort='newest') }}">See all</a></div></div>
     <ul class="snaprow" id="new-track" tabindex="0" aria-label="New arrivals, scroll sideways for more">{% for p in rows.new %}{{ s.rcard(p) }}{% endfor %}</ul>
@@ -151,9 +150,9 @@
     </ul>
   </section>
 
-  {% if recent %}<section class="sec" data-home-extra aria-labelledby="rv-h"><h2 id="rv-h" class="sec__h">Recently viewed</h2>{{ s.grid(recent) }}</section>{% endif %}
+  {% if recent %}<section class="sec" aria-labelledby="rv-h"><h2 id="rv-h" class="sec__h">Recently viewed</h2>{{ s.grid(recent) }}</section>{% endif %}
 
-  <section class="sec" data-home-extra aria-labelledby="how-h">
+  <section class="sec" aria-labelledby="how-h">
     <div class="sec__row"><h2 id="how-h" class="sec__h">How ordering works</h2></div>
     <ol class="steps">
       {% for t, d in [('Browse the shop', 'Every product shows its price, discount and pack size.'), ('Add to cart', 'Choose the quantity for each item.'), ('Sign in and add your address', 'Create an account once and reuse it.'), ('Place your order', 'Review the total and confirm.'), ('Track it', 'Follow the order until it reaches you.')] %}
@@ -164,9 +163,8 @@
 
   {% if not (rows.deals or rows.best or rows.new) %}<p class="muted sec">Products are coming soon.</p>{% endif %}
 </div>
-<button class="btn btn--ghost home-more-toggle" type="button" data-home-more aria-expanded="false">Show more</button>
 
-<section class="band band--soft home-about" data-home-extra aria-labelledby="home-about-h">
+<section class="band band--soft home-about" aria-labelledby="home-about-h">
   <div class="container band__in">
     <p class="eyebrow">Our story</p>
     <h2 id="home-about-h" class="sec__h">A Mother's Dream. A Healthier Tomorrow.</h2>
@@ -177,7 +175,7 @@
 
 
 
-<section class="cta" data-home-extra aria-labelledby="cta-h">
+<section class="cta" aria-labelledby="cta-h">
   <div class="cta__in"><h2 id="cta-h">Ready to order?</h2><p>Browse everything we sell and add your favourites to the cart.</p><a class="btn btn--accent btn--lg" href="{{ url_for('shop.listing') }}">Shop all products</a></div>
 </section>
 
@@ -209,5 +207,4 @@
     {% endif %}
   </div>
 </section>
-</div>
 {% endblock %}

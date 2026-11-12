@@ -19,6 +19,7 @@ from .models import Address, Order, OrderItem, OrderStatusHistory, Product, User
 from .models.base import utcnow
 from .security import hash_password
 from .services.storefront import money_setting
+from .services.delivery import zone_for as delivery_zone_for
 
 IST = ZoneInfo("Asia/Kolkata")
 PREFIX = "MOCK-"
@@ -87,7 +88,6 @@ def seed_mock(orders: int = 300, days: int = 365, seed: int = 7) -> dict:
     day_list = [today - timedelta(days=days - 1 - i) for i in range(days)]
     dweights = [_day_weight(d, i, days) for i, d in enumerate(day_list)]
     rate = money_setting("tax_percent", "0")
-    free_min = money_setting("free_delivery_min_cart", "499") or Decimal(499)
     seq: dict = {}
     made = 0
     for _ in range(orders):
@@ -111,7 +111,8 @@ def seed_mock(orders: int = 300, days: int = 365, seed: int = 7) -> dict:
             subtotal += line
             items.append(OrderItem(product_id=p.id, name=p.name, sku=p.sku, unit_price=price, mrp=q2(p.mrp or price), quantity=qty, line_total=line))
         discount = q2(subtotal * Decimal(rnd.choice([5, 10, 15])) / 100) if rnd.random() < 0.18 else Decimal(0)
-        delivery = Decimal(0) if subtotal - discount >= free_min else Decimal(rnd.choice([40, 50]))
+        zone = delivery_zone_for(a.pincode)
+        delivery = q2(Decimal(str(zone.delivery_fee or 0))) if zone is not None else Decimal(0)
         total = q2(subtotal - discount + delivery)
         tax = q2((subtotal - discount) * rate / (Decimal(100) + rate)) if rate > 0 else Decimal(0)
         method = rnd.choices(["cod", "online", "upi_manual"], [40, 35, 25])[0]

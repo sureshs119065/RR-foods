@@ -12,8 +12,8 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-design.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/sales-analytics.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-white-ui.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-dashboard.css', v='20261112-icons-final3') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-overrides.css') }}">
   <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/sales-analytics.js', v='20261112-range-final3') }}" defer></script>
 </head>
@@ -24,7 +24,7 @@
 {% endmacro %}
 <div class="adm">
   <aside class="adm__side" id="adm-side" aria-label="Admin menu">
-    <a class="adm__brand" href="{{ url_for('admin.dashboard') }}"><img class="adm__brand-logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="54" height="54" alt="RR FOODS logo" decoding="async"><span class="label">RR FOODS <small>ADMIN</small></span></a>
+    <a class="adm__brand" href="{{ url_for('admin.dashboard') }}"><img class="adm__brand-logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="54" height="54" alt="RR FOODS logo"><span class="label">RR FOODS <small>ADMIN</small></span></a>
     <nav>
       <ul class="nav">
         {{ item('admin.dashboard', 'Dashboard', 'home', 'admin.dashboard') }}

@@ -61,3 +61,5 @@ class DeliveryZone(db.Model):
     is_serviceable: Mapped[bool] = mapped_column(default=True, server_default="true")
     eta_days: Mapped[int] = mapped_column(default=3, server_default="3")
     delivery_fee: Mapped[float] = mapped_column(default=0, server_default="0")
+    city: Mapped[str | None] = mapped_column(String(80))
+    state: Mapped[str | None] = mapped_column(String(80))

@@ -4,10 +4,11 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from ..admin.helpers import page_number
 from ..auth.service import safe_next
-from ..extensions import db
+from ..extensions import db, limiter
 from ..models import Order, OrderStatusHistory, User
 from ..services import invoice as invoice_svc
 from ..services import orders as svc
+from ..services import tracking as tracking_svc
 from . import bp
 
 PER_PAGE = 20
@@ -98,3 +99,28 @@ def order_payment(order_id):
     else:
         flash(f"Order {order.order_number} was already marked as {'paid' if paid else 'not paid'}.", "info")
     return redirect(back)
+
+
+@bp.post("/orders/<int:order_id>/tracking")
+@limiter.limit("20 per minute")
+def order_tracking(order_id):
+    order = db.session.get(Order, order_id)
+    if order is None:
+        abort(404)
+    try:
+        tracking_svc.update_tracking(order, request.form.get("courier_name"), request.form.get("tracking_id"), request.form.get("tracking_url"), g.user)
+        db.session.commit()
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), "error")
+    else:
+        flash("Courier tracking details saved.", "success")
+    return redirect(url_for("owner.order_detail", order_id=order_id))
+
+
+@bp.get("/orders/<int:order_id>/packing-slip")
+def packing_slip(order_id):
+    order = db.session.scalar(select(Order).where(Order.id == order_id).options(selectinload(Order.items)))
+    if order is None:
+        abort(404)
+    return render_template("owner/packing_slip.html", order=order)

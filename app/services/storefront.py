@@ -231,18 +231,8 @@ def you_may_like(p: Product, limit: int = 8) -> list[Product]:
 
 
 def bought_together(p: Product, limit: int = 3) -> list[Product]:
-    """Products that appear in the same (not rejected/cancelled) orders as this one, most often first."""
-    a, b = aliased(OrderItem), aliased(OrderItem)
-    rows = db.session.execute(
-        select(b.product_id, func.count(func.distinct(b.order_id)).label("n"))
-        .join(a, and_(a.order_id == b.order_id, a.product_id == p.id, b.product_id != p.id))
-        .join(Order, Order.id == a.order_id).where(Order.status.not_in(("rejected", "cancelled")), b.product_id.is_not(None))
-        .group_by(b.product_id).order_by(func.count(func.distinct(b.order_id)).desc()).limit(limit * 3)).all()
-    ids = [r[0] for r in rows]
-    if not ids:
-        return []
-    prods = {x.id: x for x in db.session.scalars(select(Product).where(Product.id.in_(ids), LIVE, in_stock_sql()).options(selectinload(Product.images), selectinload(Product.variants)))}
-    return [prods[i] for i in ids if i in prods][:limit]
+    from .recommendations import frequently_bought_together
+    return frequently_bought_together(p, limit=limit)
 
 
 def home_rows() -> dict:

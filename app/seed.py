@@ -149,7 +149,6 @@ def seed_all() -> dict:
         "header_carousel_autoplay": True,
         "header_carousel_transition": "slide",
         "header_carousel_max_banners": 5,
-        "free_delivery_min_cart": 500,  # sample value, used by the "Free Delivery" banner text
         "low_stock_default_threshold": 5,
     }
     for key, value in settings.items():
@@ -174,8 +173,6 @@ def seed_header_banners() -> int:
              start_at=now - timedelta(hours=1), end_at=now + timedelta(hours=6), countdown_enabled=True),
         dict(title="Extra 10% off with coupon", subtitle="Use code WELCOME10 on orders above 299", badge_text="COUPON",
              bg_color="#0f3d27", button_text="Copy offer", link_type="coupon", link_target="WELCOME10"),
-        dict(title="Free delivery", subtitle="On orders above the free-delivery amount", badge_text="DELIVERY",
-             bg_color="#8a5a00", button_text="Start shopping", link_type="url", link_target="/shop"),
     ]
     added = 0
     for i, data in enumerate(samples):

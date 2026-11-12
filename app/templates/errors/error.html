@@ -6,7 +6,6 @@
   <p class="muted">Error {{ code }}</p>
   <h1>{{ title }}</h1>
   <p>{{ message }}</p>
-  <form class="error-search" action="{{ url_for('shop.listing') }}" method="get" role="search"><label class="field"><span>Search the shop</span><input type="search" name="q" placeholder="Search products" aria-label="Search products"></label><button class="btn" type="submit">Search</button></form>
-  <p class="error-links"><a class="btn" href="{{ url_for('shop.home') }}">Back to shop</a> <a class="btn btn--ghost" href="{{ url_for('shop.help_page') }}">Contact support</a></p>
+  <p><a class="btn" href="/">Back to home</a></p>
 </section>
 {% endblock %}

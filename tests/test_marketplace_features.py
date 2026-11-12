@@ -1,4 +1,4 @@
-"""Marketplace-style storefront additions: rating bars, share button, trust strip, free-delivery progress bar,
+"""Marketplace-style storefront additions: rating bars, share button, trust strip,
 card quick-add, and a richer empty search result."""
 import pytest
 from sqlalchemy import select
@@ -28,15 +28,14 @@ def test_product_page_has_share_trust_and_rating_bars(cust, session, catalog):
     assert " style=" not in html
 
 
-def test_cart_shows_free_delivery_progress_bar(cust, session, catalog):
+def test_cart_never_shows_free_delivery_threshold_or_progress(cust, session, catalog):
     _, p = catalog
     add(cust, p, 2)
-    assert 'class="fship"' not in cust.get("/cart").get_data(as_text=True)  # no threshold set, nothing to show
-    session.add(SiteSetting(key="free_delivery_min_cart", value=500))
+    session.add(SiteSetting(key="free_delivery_min_cart", value=500))  # legacy setting must be ignored
     session.commit()
     html = cust.get("/cart").get_data(as_text=True)
-    assert 'class="fship__bar"' in html and 'value="32"' in html and "Add ₹340.00 more for free delivery" in html
-    assert " style=" not in html
+    assert 'class="fship"' not in html
+    assert "free delivery" not in html.lower()
 
 
 def test_listing_cards_have_quick_add_and_empty_search_helps(app, cust, session, catalog):

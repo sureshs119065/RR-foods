@@ -3,7 +3,7 @@
 {% block robots %}noindex,nofollow{% endblock %}
 {% macro line(l, saved=False) %}
 <li class="cl {% if l.error %}cl--bad{% endif %}">
-  <a class="cl__img" href="{{ url_for('shop.product', slug=l.product.slug) }}">{% if l.image %}<img src="{{ l.image.thumb_url or l.image.url }}" alt="" loading="lazy" width="96" height="96" decoding="async">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}</a>
+  <a class="cl__img" href="{{ url_for('shop.product', slug=l.product.slug) }}">{% if l.image %}<img src="{{ l.image.thumb_url or l.image.url }}" alt="" loading="lazy" width="96" height="96">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}</a>
   <div class="cl__main">
     <a class="cl__name" href="{{ url_for('shop.product', slug=l.product.slug) }}">{{ l.product.name }}</a>
     {% if l.label %}<span class="muted small">{{ l.label }}</span>{% endif %}
@@ -29,8 +29,8 @@
 {% endmacro %}
 {% block content %}
 <div class="container">
-  <nav class="checkout-progress" aria-label="Checkout progress"><span class="is-current" data-i18n="step_cart">1. Cart</span><span data-i18n="step_address">2. Address</span><span data-i18n="step_pay">3. Pay</span></nav>
   <h1 class="pg-h">Your cart {% if view.count %}<span class="muted">({{ view.count }} item{{ '' if view.count == 1 else 's' }})</span>{% endif %}</h1>
+  {% if view.lines %}<p class="muted small">Order before {{ delivery_settings.cutoff_time }} for next-day delivery, subject to available slots.</p>{% endif %}
   {% if not view.lines and not view.saved %}
     <div class="empty"><h2>Your cart is empty</h2><p class="muted">Add something tasty and it will wait for you here.</p><a class="btn" href="{{ url_for('shop.listing') }}">Start shopping</a></div>
   {% else %}
@@ -54,24 +54,19 @@
             <div><dt>Items ({{ view.count }})</dt><dd>{{ s.inr(t.mrp_total) }}</dd></div>
             {% if t.mrp_total > t.subtotal %}<div class="good"><dt>Discount on MRP</dt><dd>− {{ s.inr(t.mrp_total - t.subtotal) }}</dd></div>{% endif %}
             {% if view.coupon and not view.coupon_error %}<div class="good"><dt>Coupon {{ view.coupon.code }}</dt><dd>− {{ s.inr(t.discount) }}</dd></div>{% endif %}
-            <div><dt>Delivery</dt><dd>{% if t.free_min > 0 and t.free_gap == 0 %}<span class="good">Free</span>{% else %}Calculated at checkout{% endif %}</dd></div>
+            <div><dt>Delivery</dt><dd>Calculated at checkout</dd></div>
             {% if t.tax_included %}<div class="muted"><dt>Includes tax</dt><dd>{{ s.inr(t.tax_included) }}</dd></div>{% endif %}
             <div class="totals__grand"><dt>Total</dt><dd>{{ s.inr(t.total) }}</dd></div>
           </dl>
-          {% if t.free_min > 0 %}{% set fpct = (((t.free_min - t.free_gap) * 100 / t.free_min)|float|round|int) %}
-          <div class="fship" role="group" aria-label="Free delivery progress">
-            <p class="fship__t">{% if t.free_gap > 0 %}Add {{ s.inr(t.free_gap) }} more for free delivery{% else %}<span class="good">You have unlocked free delivery</span>{% endif %}</p>
-            <progress class="fship__bar" max="100" value="{{ [fpct, 100]|min }}" aria-label="Progress towards free delivery">{{ [fpct, 100]|min }}%</progress>
-          </div>{% endif %}
           {% if t.savings > 0 %}<p class="good"><b>You save {{ s.inr(t.savings) }} on this order</b></p>{% endif %}
         </div></div></div>
       </div>
 
-      <details class="coupon-collapse"><summary>Have a coupon?</summary><form class="coupon" method="post" action="{{ url_for('shop.cart_coupon') }}">
+      <form class="coupon" method="post" action="{{ url_for('shop.cart_coupon') }}">
         {{ s.csrf() }}
         <label for="code">Coupon code</label>
         <div class="coupon__row"><input id="code" name="code" type="text" autocomplete="off" autocapitalize="characters" maxlength="40" value="{{ view.coupon.code if view.coupon else '' }}" placeholder="Enter code"><button class="btn btn--ghost" type="submit">Apply</button></div>
-      </form></details>
+      </form>
       {% if view.coupon_error %}<p class="cl__err" role="alert">{{ view.coupon_error }}</p>{% endif %}
       {% if view.coupon %}<form method="post" action="{{ url_for('shop.cart_coupon_remove') }}">{{ s.csrf() }}<button class="linkish" type="submit">Remove coupon</button></form>{% endif %}
 
@@ -80,6 +75,27 @@
         {% if view.can_checkout %}<a class="btn" href="{{ url_for('shop.checkout_page') }}">Checkout</a>{% else %}<button class="btn" type="button" disabled>Checkout</button>{% endif %}
       </div>
     </aside>
+    {% endif %}
+
+    {% if suggestions %}
+      <section class="sec cart-suggestions" aria-labelledby="cart-suggest-title">
+        <h2 id="cart-suggest-title" class="sec__h">You may also like</h2>
+        <div class="cart-suggestions__grid">
+          {% for product in suggestions %}
+            <article class="cart-suggestion">
+              <a href="{{ url_for('shop.product', slug=product.slug) }}" class="cart-suggestion__name">{{ product.name }}</a>
+              <span class="cart-suggestion__price">{{ s.inr(product.final_price) }}</span>
+              {% set options = product.variants|selectattr('is_active')|rejectattr('is_deleted')|list %}
+              {% if not options %}
+                <form method="post" action="{{ url_for('shop.cart_add') }}" data-quick-add>
+                  {{ s.csrf() }}<input type="hidden" name="product_id" value="{{ product.id }}"><input type="hidden" name="qty" value="1">
+                  <button class="btn btn--sm" type="submit">Add to cart</button>
+                </form>
+              {% else %}<a class="btn btn--ghost btn--sm" href="{{ url_for('shop.product', slug=product.slug) }}">Choose option</a>{% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      </section>
     {% endif %}
   </div>
   {% endif %}

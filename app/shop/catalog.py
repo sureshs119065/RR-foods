@@ -169,13 +169,15 @@ def product(slug):
     crumbs.append((p.name, None))
     variants = active_variants(p)
     alert_on = bool(shopper and stock_alerts.has_alert(g.user.id, p.id))
-    together = storefront.bought_together(p)
+    together = [item for item in storefront.bought_together(p) if not active_variants(item)]
+    from ..services.delivery_slots import get_settings as get_delivery_settings
+    delivery_settings = get_delivery_settings()
     from ..models import Bundle
     bundles = db.session.scalars(select(Bundle).where(Bundle.is_active.is_(True))).all()
     product_bundles = [b for b in bundles if any(int(x.get("product_id", 0)) == p.id for x in (b.product_quantities or []))]
     return render_template("shop/product.html", p=p, variants=variants, stock=available_qty(p), offers=offers, coupons=coupons, reviews=reviews,
                            questions=questions, crumbs=crumbs, together=together, together_ids=[t.id for t in together if not active_variants(t)],
-                           similar=storefront.you_may_like(p), shopper=shopper, can_review=can_review, my_review=my_review, voted=voted, recent=storefront.recently_viewed(exclude=p.id), rating_dist=rating_dist, alert_on=alert_on, now=now, product_bundles=product_bundles)
+                           similar=storefront.you_may_like(p), shopper=shopper, can_review=can_review, my_review=my_review, voted=voted, recent=storefront.recently_viewed(exclude=p.id), rating_dist=rating_dist, alert_on=alert_on, now=now, product_bundles=product_bundles, delivery_settings=delivery_settings)
 
 
 @bp.get("/offers")
@@ -215,13 +217,16 @@ def api_suggest():
 def api_pincode(pin):
     if not re.fullmatch(r"\d{6}", pin):
         return jsonify(ok=False, message="Enter a 6 digit pincode."), 422
-    zone = db.session.get(DeliveryZone, pin)
-    if zone is None or not zone.is_serviceable:
+    from ..services.delivery import zone_for, is_tamil_nadu_pincode
+    zone = zone_for(pin)
+    if zone is None:
         return jsonify(ok=True, deliverable=False, message=f"Sorry, we do not deliver to {pin} yet.")
     days = zone.eta_days or 3
     fee = float(zone.delivery_fee or 0)
-    return jsonify(ok=True, deliverable=True, eta_days=days, fee=fee,
-                   message=f"Delivery to {pin} in about {days} day{'s' if days != 1 else ''}" + (" (free delivery)." if fee == 0 else f" (delivery ₹{fee:,.0f})."))
+    city = zone.city or ""
+    state = zone.state or ("Tamil Nadu" if is_tamil_nadu_pincode(pin) else "")
+    return jsonify(ok=True, deliverable=True, eta_days=days, fee=fee, city=city, state=state,
+                   message=f"Delivery to {pin} in about {days} day{'s' if days != 1 else ''}" + (f" (delivery fee ₹{fee:,.0f})."))
 
 
 # ---------------------------------------------------------------- SEO

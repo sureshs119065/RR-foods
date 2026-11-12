@@ -56,7 +56,9 @@ def order_message(order) -> str:
     lines.append("")
     if order.discount_total:
         lines.append(f"Discount{' (' + order.coupon_code + ')' if order.coupon_code else ''}: -{_inr(order.discount_total)}")
-    lines.append(f"Delivery: {_inr(order.delivery_fee) if order.delivery_fee else 'Free'}")
+    lines.append(f"Delivery: {_inr(order.delivery_fee)}")
+    if getattr(order, "delivery_date", None):
+        lines.append(f"Preferred delivery: {order.delivery_date:%d %b %Y} · {order.delivery_slot or 'To be confirmed'}")
     lines.append(f"Total: {_inr(order.total)}")
     lines += ["", f"Name: {name}", f"Phone: {phone}", f"Address: {address}"]
     if order.customer_notes:

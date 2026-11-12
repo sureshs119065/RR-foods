@@ -3,7 +3,8 @@ from flask import abort, flash, g, redirect, render_template, request, url_for
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import joinedload, selectinload
 
-from ..extensions import db
+from ..extensions import db, limiter
+from ..services import tracking as tracking_svc
 from ..models import Notification, Order, OrderStatusHistory, Product, User
 from ..services import inventory as stock
 from ..services.inventory import MAX_QTY, StockError
@@ -139,3 +140,20 @@ def help_center():
     with source.open(encoding="utf-8") as handle:
         faqs = json.load(handle)
     return render_template("admin/help.html", faqs=faqs)
+
+
+@bp.post("/orders/<int:order_id>/tracking")
+@limiter.limit("20 per minute")
+def order_tracking(order_id):
+    order = db.session.get(Order, order_id)
+    if order is None:
+        abort(404)
+    try:
+        tracking_svc.update_tracking(order, request.form.get("courier_name"), request.form.get("tracking_id"), request.form.get("tracking_url"), g.user)
+        db.session.commit()
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), "error")
+    else:
+        flash("Courier tracking details saved.", "success")
+    return redirect(url_for("admin.order_detail", order_id=order_id))

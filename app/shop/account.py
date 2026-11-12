@@ -17,9 +17,8 @@ from .cart import _add_one
 
 user_only = roles_required("user")
 MAX_ADDRESSES = 10
-STEPS = (("placed", "Order placed"), ("confirmed", "Order confirmed"), ("shipped", "Shipped"), ("out_for_delivery", "Out for delivery"), ("delivered", "Delivered"))
-# "packed" is a step inside the shop; the customer sees it as part of Confirmed.
-STEP_OF = {"packed": "confirmed"}
+STEPS = (("placed", "Order placed"), ("confirmed", "Confirmed"), ("packed", "Packed"), ("shipped", "Shipped"), ("out_for_delivery", "Out for delivery"), ("delivered", "Delivered"))
+STEP_OF = {}
 
 
 # ---------------------------------------------------------------- orders
@@ -49,6 +48,10 @@ def order_detail(order_number):
         when.setdefault(STEP_OF.get(h.to_status, h.to_status), h.created_at)
     if "delivered" in when and "shipped" not in when:  # shipped straight to delivered: still show the earlier stages as done
         when["shipped"] = when["delivered"]
+    if "delivered" in when and "packed" not in when:
+        when["packed"] = when.get("confirmed", when["delivered"])
+    if "delivered" in when and "confirmed" not in when:
+        when["confirmed"] = when.get("placed", when["delivered"])
     # a return only happens after delivery, so the timeline stays at Delivered for those
     reached = [i for i, (k, _) in enumerate(STEPS) if k in when]
     current = max(reached) if reached else 0
@@ -75,7 +78,7 @@ def order_status_json(order_number):
     order = db.session.scalar(select(Order).where(Order.order_number == order_number, Order.user_id == g.user.id))
     if order is None:
         abort(404)
-    resp = jsonify(status=order.status, label=order_svc.LABELS.get(order.status, order.status), updated=order.updated_at.isoformat() if order.updated_at else None)
+    resp = jsonify(status=order.status, label=order_svc.LABELS.get(order.status, order.status), updated=order.updated_at.isoformat() if order.updated_at else None, courier_name=order.courier_name, tracking_id=order.tracking_id, tracking_url=order.tracking_url, delivery_date=order.delivery_date.isoformat() if order.delivery_date else None, delivery_slot=order.delivery_slot)
     resp.headers["Cache-Control"] = "no-store"
     return resp
 

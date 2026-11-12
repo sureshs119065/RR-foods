@@ -27,4 +27,4 @@ def _owner_menu():
 
 
 # Importing the modules registers their routes on `bp`.
-from . import account, dashboard, inventory, orders, questions, inbox  # noqa: E402,F401
+from . import account, dashboard, inventory, orders, questions, inbox, delivery  # noqa: E402,F401

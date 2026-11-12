@@ -12,8 +12,8 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-design.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/sales-analytics.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-white-ui.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/owner.css', v='20261112-owner-header-contrast-final4') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-overrides.css') }}">
   <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/sales-analytics.js', v='20261112-range-final3') }}" defer></script>
   <script src="{{ url_for('static', filename='js/owner.js') }}" defer></script>
@@ -25,12 +25,13 @@
 {% endmacro %}
 <div class="adm">
   <aside class="adm__side" id="adm-side" aria-label="Owner menu">
-    <a class="adm__brand" href="{{ url_for('owner.dashboard') }}"><img class="adm__brand-logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="54" height="54" alt="RR FOODS logo" decoding="async"><span class="label">RR FOODS <small>OWNER</small></span></a>
+    <a class="adm__brand" href="{{ url_for('owner.dashboard') }}"><img class="adm__brand-logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="54" height="54" alt="RR FOODS logo"><span class="label">RR FOODS <small>OWNER</small></span></a>
     <nav>
       <ul class="nav">
         {{ item('owner.dashboard', 'Dashboard', 'home', 'owner.dashboard') }}
         {{ item('owner.orders', 'Orders', 'cart', 'owner.order', pending_count) }}
         {{ item('owner.inventory', 'Inventory', 'box', 'owner.inventory') }}
+        {{ item('owner.delivery_settings', 'Delivery slots', 'clock', 'owner.delivery_settings') }}
         <li><a href="{{ url_for('owner.inventory', stock='attention') }}" {% if here == 'owner.inventory' and request.args.get('stock') == 'attention' %}aria-current="page"{% endif %}>{{ m.icon('alert-triangle') }}<span class="label">Stock alerts</span>{% if low_stock_count %}<span class="nav__count" aria-label="{{ low_stock_count }} low-stock products">{{ low_stock_count if low_stock_count < 100 else '99+' }}</span>{% endif %}</a></li>
         {{ item('owner.stock_history', 'Stock history', 'clock', 'owner.stock_history') }}
         {{ item('owner.questions', 'Questions', 'log', 'owner.question') }}

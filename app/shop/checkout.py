@@ -8,6 +8,7 @@ from ..models import Address, Order
 from ..services import cart as cart_svc
 from ..services import checkout as svc
 from ..services.cart import totals_for
+from ..services import delivery_slots
 from . import bp
 
 user_only = roles_required("user")
@@ -40,7 +41,10 @@ def checkout_page():
     import secrets
     checkout_token = session.get("checkout_token") or secrets.token_urlsafe(24)
     session["checkout_token"] = checkout_token
-    return render_template("shop/checkout.html", view=view, addrs=addrs, chosen=chosen, quotes=quotes, totals=totals, methods=svc.payment_methods(), checkout_token=checkout_token)
+    last_address = max(addrs, key=lambda a: (a.updated_at or a.created_at, a.id), default=None)
+    slot_dates = delivery_slots.available_dates()
+    delivery_settings = delivery_slots.get_settings()
+    return render_template("shop/checkout.html", view=view, addrs=addrs, chosen=chosen, last_address=last_address, quotes=quotes, totals=totals, methods=svc.payment_methods(), checkout_token=checkout_token, slot_dates=slot_dates, delivery_settings=delivery_settings)
 
 
 @bp.post("/checkout")
@@ -53,7 +57,7 @@ def checkout_place():
         return redirect(url_for("shop.orders"))
     try:
         order = svc.place_order(g.user, int(request.form.get("address_id") or 0) if (request.form.get("address_id") or "").isdigit() else 0,
-                                request.form.get("method", ""), session.get("coupon"), request.form.get("notes"))
+                                request.form.get("method", ""), session.get("coupon"), request.form.get("notes"), request.form.get("delivery_date"), request.form.get("delivery_slot"))
         db.session.commit()
         session.pop("checkout_token", None)
     except svc.CheckoutError as e:
@@ -75,3 +79,20 @@ def order_placed(order_number):
     from ..services.whatsapp import owner_link, order_message
     wa = owner_link(order)
     return render_template("shop/order_placed.html", order=order, wa=wa, wa_text=order_message(order))
+
+
+@bp.get("/checkout/delivery-slots")
+@user_only
+@limiter.limit("60 per minute")
+def checkout_delivery_slots():
+    from datetime import date
+    from flask import jsonify
+    raw = (request.args.get("date") or "").strip()
+    try:
+        day = date.fromisoformat(raw)
+    except ValueError:
+        return jsonify(ok=False, message="Choose a valid date.", slots=[]), 422
+    settings = delivery_slots.get_settings()
+    choices = {item["value"]: item for item in delivery_slots.available_dates(settings)}
+    item = choices.get(day.isoformat())
+    return jsonify(ok=True, slots=item["slots"] if item else [], message="" if item else "No delivery slots are available for this date.")

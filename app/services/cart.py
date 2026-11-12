@@ -88,8 +88,6 @@ class Totals:
     delivery: Decimal | None      # None = not known until an address is chosen
     tax_included: Decimal
     total: Decimal
-    free_min: Decimal
-    free_gap: Decimal             # how much more to spend for free delivery (0 when already free or no threshold)
 
     @property
     def savings(self) -> Decimal:
@@ -100,14 +98,11 @@ def totals_for(lines: list[Line], discount: Decimal, zone: DeliveryZone | None) 
     subtotal = q2(sum((l.total for l in lines), Decimal(0)))
     mrp_total = q2(sum((l.mrp * l.qty for l in lines), Decimal(0)))
     net = subtotal - discount
-    free_min = money_setting("free_delivery_min_cart", "0")
-    free = free_min > 0 and net >= free_min
-    delivery = None if zone is None else (Decimal(0) if free else q2(Decimal(str(zone.delivery_fee or 0))))
+    delivery = None if zone is None else q2(Decimal(str(zone.delivery_fee or 0)))
     rate = money_setting("tax_percent", "0")  # prices already include tax; this only shows how much of the bill it is
     tax = q2(net * rate / (Decimal(100) + rate)) if rate > 0 else Decimal(0)
     total = q2(net + (delivery if delivery is not None else Decimal(0)))
-    gap = q2(free_min - net) if free_min > 0 and not free else Decimal(0)
-    return Totals(q2(subtotal), mrp_total, discount, delivery if delivery is not None or zone is None else delivery, tax, total, free_min, gap)
+    return Totals(q2(subtotal), mrp_total, discount, delivery, tax, total)
 
 
 @dataclass

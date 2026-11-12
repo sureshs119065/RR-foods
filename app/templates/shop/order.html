@@ -7,12 +7,13 @@
   <p><a href="{{ url_for('shop.orders') }}">&larr; My orders</a></p>
   <h1 class="pg-h">Order {{ order.order_number }}</h1>
   <p class="muted">Placed {{ order.created_at|local_display }}</p>
+  {% if order.delivery_date %}<p class="notice"><b>Scheduled delivery:</b> {{ order.delivery_date.strftime('%A, %d %B %Y') }} · {{ order.delivery_slot or 'Time to be confirmed' }}</p>{% endif %}
 
   {% if order.status in ('rejected', 'cancelled') %}
     <div class="alert alert--error" role="status"><b>Order {{ labels[order.status]|lower }}.</b>
       {% if order.status == 'rejected' and order.rejection_reason %} Reason: {{ order.rejection_reason }}{% endif %}
       {% if order.payment_status == 'paid' %}<br>Your payment will be refunded.{% endif %}</div>
-  {% else %}
+  {% endif %}
   <section class="trk" aria-label="Order progress" data-track data-url="{{ url_for('shop.order_status_json', order_number=order.order_number) }}" data-status="{{ order.status }}">
     <div class="trk__head"><span class="ostatus ostatus--{{ order.status }}" data-track-label>{{ labels.get(order.status, order.status) }}</span><span class="muted small trk__live" aria-live="polite" data-track-live>Updates automatically</span></div>
     <ol class="track track--h">
@@ -20,12 +21,19 @@
         <li class="{{ 'is-done' if loop.index0 <= current else '' }} {{ 'is-now' if loop.index0 == current else '' }}" {% if loop.index0 == current %}aria-current="step"{% endif %}>
           <span class="track__dot" aria-hidden="true"></span><b>{{ label }}</b>
           <span class="muted small">{% if key in when %}{{ when[key]|local_display }}{% elif loop.index0 > current %}Pending{% else %}&nbsp;{% endif %}</span>
-          {% if key == 'confirmed' and order.status == 'packed' %}<span class="small track__sub">Packed, waiting for the courier</span>{% endif %}
         </li>
       {% endfor %}
     </ol>
   </section>
+  {% if order.status in ('cancelled', 'rejected', 'returned', 'return_requested', 'refunded') %}
+    <ol class="track track--h track--terminal" aria-label="Order final status"><li class="is-done"><span class="track__dot" aria-hidden="true"></span><b>Placed</b><span class="muted small">{{ order.created_at|local_display }}</span></li><li class="is-now"><span class="track__dot" aria-hidden="true"></span><b>{{ labels.get(order.status, order.status|title) }}</b><span class="muted small">Current status</span></li></ol>
   {% endif %}
+  <section class="panel2" data-order-shipment>
+    <h2 class="h3">Shipment details</h2>
+    <p data-track-courier>{% if order.courier_name %}Courier: {{ order.courier_name }}{% else %}Courier details will appear when the order is dispatched.{% endif %}</p>
+    <p data-track-id>{% if order.tracking_id %}Tracking ID: {{ order.tracking_id }}{% endif %}</p>
+    {% if order.tracking_url %}<a class="btn btn--ghost" data-track-link href="{{ order.tracking_url }}" target="_blank" rel="noopener noreferrer">Track package</a>{% else %}<a class="btn btn--ghost" data-track-link target="_blank" rel="noopener noreferrer" hidden>Track package</a>{% endif %}
+  </section>
 
   {% if order.status == 'placed' or (order.status == 'confirmed' and order.payment_status == 'pending') %}
     {% set wa = wa_owner_link(order) %}
@@ -38,7 +46,7 @@
     <dl class="totals">
       <div><dt>Items</dt><dd>{{ s.inr(order.subtotal) }}</dd></div>
       {% if order.discount_total %}<div class="good"><dt>Coupon {{ order.coupon_code or '' }}</dt><dd>− {{ s.inr(order.discount_total) }}</dd></div>{% endif %}
-      <div><dt>Delivery</dt><dd>{{ s.inr(order.delivery_fee) if order.delivery_fee else 'Free' }}</dd></div>
+      <div><dt>Delivery</dt><dd>{{ s.inr(order.delivery_fee) }}</dd></div>
       {% if order.tax_total %}<div class="muted"><dt>Includes tax</dt><dd>{{ s.inr(order.tax_total) }}</dd></div>{% endif %}
       <div class="totals__grand"><dt>Total</dt><dd>{{ s.inr(order.total) }}</dd></div>
     </dl>

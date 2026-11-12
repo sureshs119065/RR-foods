@@ -18,6 +18,8 @@ ap.add_argument("pincodes", nargs="*", help="6 digit pincodes")
 ap.add_argument("--eta", type=int, default=None, help="delivery days (new pincodes default to 2)")
 ap.add_argument("--fee", type=float, default=None, help="delivery fee in rupees (new pincodes default to 0)")
 ap.add_argument("--disable", action="store_true", help="mark these pincodes as not deliverable")
+ap.add_argument("--city", default=None, help="optional city returned by the pincode helper")
+ap.add_argument("--state", default=None, help="optional state returned by the pincode helper")
 ap.add_argument("--list", action="store_true", help="show current pincodes and exit")
 args = ap.parse_args()
 
@@ -37,7 +39,7 @@ with app.app_context():
     for pin in dict.fromkeys(args.pincodes):
         zone = db.session.get(DeliveryZone, pin)
         if zone is None:
-            db.session.add(DeliveryZone(pincode=pin, is_serviceable=not args.disable, eta_days=2 if args.eta is None else args.eta, delivery_fee=0 if args.fee is None else args.fee))
+            db.session.add(DeliveryZone(pincode=pin, is_serviceable=not args.disable, eta_days=2 if args.eta is None else args.eta, delivery_fee=0 if args.fee is None else args.fee, city=args.city, state=args.state))
             added += 1
         else:
             zone.is_serviceable = not args.disable
@@ -45,6 +47,10 @@ with app.app_context():
                 zone.eta_days = args.eta
             if args.fee is not None:
                 zone.delivery_fee = args.fee
+            if args.city is not None:
+                zone.city = args.city.strip()[:80]
+            if args.state is not None:
+                zone.state = args.state.strip()[:80]
             updated += 1
     db.session.commit()
     print(f"Done: {added} added, {updated} updated.")

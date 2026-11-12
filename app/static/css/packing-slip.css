@@ -1,0 +1,7 @@
+body{font:16px/1.45 system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#17231c}
+h1{font-size:24px}
+.muted{color:#53645a}
+.box{border:1px solid #ccd5ce;border-radius:12px;padding:16px;margin:14px 0}
+li{padding:8px 0;border-bottom:1px solid #e3e8e4}
+.print{padding:12px 18px;min-height:44px}
+@media print{.print{display:none}body{margin:0;max-width:none}}

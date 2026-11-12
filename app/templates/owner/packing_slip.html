@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Packing slip {{ order.order_number }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/packing-slip.css') }}">
+  <script src="{{ url_for('static', filename='js/packing-slip.js') }}" defer></script>
+</head>
+<body>
+  <button class="print" type="button" data-print>Print packing slip</button>
+  <h1>RR FOODS · Packing slip</h1>
+  <p><b>Order {{ order.order_number }}</b> · {{ order.created_at|local_display }}</p>
+  {% if order.delivery_date %}<p><b>Delivery:</b> {{ order.delivery_date.strftime('%A, %d %B %Y') }} · {{ order.delivery_slot or '' }}</p>{% endif %}
+  <section class="box">
+    <b>{{ (order.shipping_address or {}).get('full_name','') }}</b><br>
+    {{ (order.shipping_address or {}).get('phone','') }}<br>
+    {{ (order.shipping_address or {}).get('line1','') }}{% if (order.shipping_address or {}).get('line2') %}, {{ (order.shipping_address or {}).get('line2') }}{% endif %}<br>
+    {{ (order.shipping_address or {}).get('city','') }}, {{ (order.shipping_address or {}).get('state','') }} {{ (order.shipping_address or {}).get('pincode','') }}
+  </section>
+  <section class="box">
+    <h2>Items to pack</h2>
+    <ol>{% for item in order.items %}<li><b>{{ item.name }}</b> · Qty: {{ item.quantity }}{% if item.pack_size %} · {{ item.pack_size }}{% endif %}</li>{% endfor %}</ol>
+  </section>
+  {% if order.customer_notes %}<p><b>Customer note:</b> {{ order.customer_notes }}</p>{% endif %}
+</body>
+</html>

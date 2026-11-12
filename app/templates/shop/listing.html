@@ -81,7 +81,7 @@
       </div>
       <div class="sheet__foot">
         <a class="btn btn--ghost" href="{{ clear_url }}">Clear all</a>
-        <button class="btn" type="submit">Apply ({{ page.total }} results)</button>
+        <button class="btn" type="submit">Apply</button>
       </div>
     </form>
 
@@ -100,16 +100,6 @@
           </select>
         </label>
       </div>
-      {% if f.active_count() or f.q %}<nav class="active-filter-chips" aria-label="Active filters">
-        {% if f.q %}<a class="chip" href="{{ clear_url }}">Search: {{ f.q }} ×</a>{% endif %}
-        {% for brand in f.brands %}<span class="chip">{{ brand }}</span>{% endfor %}
-        {% if request.args.get('min_price') %}<span class="chip">Min ₹{{ request.args.get('min_price') }}</span>{% endif %}
-        {% if request.args.get('max_price') %}<span class="chip">Max ₹{{ request.args.get('max_price') }}</span>{% endif %}
-        {% if f.rating %}<span class="chip">{{ f.rating }}★ &amp; up</span>{% endif %}
-        {% if f.discount %}<span class="chip">{{ f.discount }}% off</span>{% endif %}
-        {% if f.avail %}<span class="chip">In stock</span>{% endif %}
-        <a class="chip" href="{{ clear_url }}">Clear all ×</a>
-      </nav>{% endif %}
       {% if page.items %}
         {{ s.grid(page.items) }}
         {{ s.pager(page, listing_endpoint, listing_args) }}

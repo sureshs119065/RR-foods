@@ -22,6 +22,8 @@
     {% if order.payment_status == 'paid' %}<br><b>This order was marked paid. Send the refund to the customer yourself (UPI or bank transfer).</b>{% endif %}</p>
   {% endif %}
   {% if order.customer_notes %}<p class="notice"><b>Customer note:</b> {{ order.customer_notes }}</p>{% endif %}
+  {% if order.delivery_date %}<p class="notice"><b>Delivery slot:</b> {{ order.delivery_date.strftime('%d %b %Y') }} · {{ order.delivery_slot or 'Not set' }}</p>{% endif %}
+  <p><a class="btn btn--ghost" href="{{ url_for('owner.packing_slip', order_id=order.id) }}" target="_blank">Print packing slip</a></p>
 </section>
 
 {% set stages = [
@@ -65,6 +67,18 @@
   {% else %}
     <p class="notice">This order is in the <b>{{ svc.LABELS.get(order.status, order.status) }}</b> workflow. Review the order history below for return, rejection or cancellation updates.</p>
   {% endif %}
+</section>
+
+
+<section class="panel" aria-labelledby="tracking-edit-title">
+  <h2 id="tracking-edit-title">Courier tracking details</h2>
+  <form method="post" action="{{ url_for('owner.order_tracking', order_id=order.id) }}" class="form" data-once>
+    {{ m.csrf() }}
+    <label class="field"><span>Courier name</span><input name="courier_name" maxlength="120" value="{{ order.courier_name or '' }}" autocomplete="off"></label>
+    <label class="field"><span>Tracking ID</span><input name="tracking_id" maxlength="120" value="{{ order.tracking_id or '' }}" autocomplete="off"></label>
+    <label class="field"><span>Tracking URL (HTTPS)</span><input type="url" name="tracking_url" maxlength="500" value="{{ order.tracking_url or '' }}" placeholder="https://courier.example/track/..."></label>
+    <button class="btn" type="submit">Save tracking details</button>
+  </form>
 </section>
 
 <section class="panel" aria-labelledby="wa-h">

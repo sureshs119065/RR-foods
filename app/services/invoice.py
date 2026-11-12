@@ -117,6 +117,8 @@ def build_invoice(order) -> bytes:
     when = local_display(order.created_at)
     pay = "Cash on delivery" if order.payment_method == "cod" else "Online"
     ids_r = [p(f"Invoice Number: {order.order_number}", rt), p(f"Invoice Date: {when}", rt), p(f"Payment: {pay} ({order.payment_status})", rt)]
+    if getattr(order, "delivery_date", None):
+        ids_r.append(p(f"Delivery slot: {order.delivery_date:%d %b %Y} · {order.delivery_slot or ''}", rt))
     ids = Table([[[p(f"Order Number: {order.order_number}", base), p(f"Order Date: {when}", base)] + ids_l, ids_r]], colWidths=[W * 0.5, W * 0.5])
     ids.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
     out += [ids, Spacer(1, 4 * mm)]

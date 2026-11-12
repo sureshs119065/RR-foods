@@ -8,7 +8,7 @@
 <div class="ops-product-grid">
 {% for p in page.items %}
 <article class="ops-product-card" data-stock-card>
-  <div class="ops-product-card__top">{% set im = p.primary_image %}{% if im %}<img src="{{ im.thumb_url or im.url }}" alt="{{ p.name }}" loading="lazy" width="400" height="400" decoding="async">{% else %}<span class="ops-product-placeholder">RR</span>{% endif %}
+  <div class="ops-product-card__top">{% set im = p.primary_image %}{% if im %}<img src="{{ im.thumb_url or im.url }}" alt="{{ p.name }}" loading="lazy">{% else %}<span class="ops-product-placeholder">RR</span>{% endif %}
     <div class="ops-product-card__name"><h3>{{ p.name }}</h3><p>{{ p.sku }} · {{ p.category.name if p.category else 'Uncategorised' }}</p></div>
     {% if p.stock_qty == 0 %}<span class="ops-state ops-state--out">Out of stock</span>{% else %}<span class="ops-state ops-state--low">Low stock</span>{% endif %}
   </div>

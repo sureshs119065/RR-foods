@@ -435,19 +435,20 @@ def test_coupon_rules(cust, session, catalog):
     assert "Coupon TEN" not in cust.get("/cart").get_data(as_text=True)
 
 
-def test_totals_math_and_free_delivery(cust, session, catalog):
+def test_totals_math_and_delivery_zone_fee(cust, session, catalog):
+    from app.services.cart import build, totals_for
+    from app.services.checkout import zone_for
     _, p = catalog
     add(cust, p, 2)
     html = cust.get("/cart").get_data(as_text=True)
-    assert "₹200.00" in html and "₹160.00" in html and "You save ₹40.00" in html   # mrp 200, pay 160
-    session.add(SiteSetting(key="free_delivery_min_cart", value=500))
+    assert "₹200.00" in html and "₹160.00" in html and "You save ₹40.00" in html
+    session.add(SiteSetting(key="free_delivery_min_cart", value=1))  # legacy threshold cannot override the zone fee
     session.commit()
-    assert "Add ₹340.00 more for free delivery" in cust.get("/cart").get_data(as_text=True)
-    add(cust, p, 6)
-    p.stock_qty = 50
-    session.commit()
-    add(cust, p, 2)  # 10 x 80 = 800
-    assert "Free" in cust.get("/cart").get_data(as_text=True)
+    view = build(cust.user.id, None)
+    totals = totals_for(view.lines, view.totals.discount, zone_for("641001"))
+    assert totals.delivery == Decimal("40.00")
+    assert totals.total == Decimal("200.00")
+    assert "free delivery" not in cust.get("/cart").get_data(as_text=True).lower()
 
 
 # ================================================================ checkout

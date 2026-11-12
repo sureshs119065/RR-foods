@@ -29,6 +29,7 @@
       <div class="owner-order-card__badges">{{ o.status_badge(ord.status) }}{{ o.pay_badge(ord) }}</div>
     </div>
     <div class="owner-order-meta">
+      {% if ord.delivery_date %}<span><small>Delivery slot</small><b>{{ ord.delivery_date.strftime('%d %b') }} · {{ ord.delivery_slot or 'TBC' }}</b></span>{% endif %}
       <span><b>{{ addr.get('full_name') or ord.user.name }}</b>{% if addr.get('phone') %}<small>{{ addr.get('phone') }}</small>{% endif %}</span>
       <span><small>Items</small><b>{{ ord.items|sum(attribute='quantity') }}</b></span>
       <span><small>Order total</small><b>{{ o.inr(ord.total) }}</b></span>

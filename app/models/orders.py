@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func, text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import JsonType, Money, TimestampMixin, db
@@ -62,6 +62,7 @@ class Order(TimestampMixin, db.Model):
         CheckConstraint("total >= 0 and subtotal >= 0", name="ck_orders_amounts"),
         Index("ix_orders_user_created", "user_id", "created_at"),
         Index("ix_orders_status_created", "status", "created_at"),
+        Index("ix_orders_delivery_slot", "delivery_date", "delivery_slot", "status"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -80,6 +81,11 @@ class Order(TimestampMixin, db.Model):
     payment_method: Mapped[str] = mapped_column(String(12), default="cod", server_default="cod")
     payment_status: Mapped[str] = mapped_column(String(10), default="pending", server_default="pending")
     customer_notes: Mapped[str | None] = mapped_column(Text)
+    courier_name: Mapped[str | None] = mapped_column(String(120))
+    tracking_id: Mapped[str | None] = mapped_column(String(120))
+    tracking_url: Mapped[str | None] = mapped_column(String(500))
+    delivery_date: Mapped[date | None] = mapped_column(Date)
+    delivery_slot: Mapped[str | None] = mapped_column(String(20))
 
     user = relationship("User")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")

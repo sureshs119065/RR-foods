@@ -138,7 +138,7 @@
   <ul class="imgs">
     {% for im in product.images %}
     <li>
-      <img class="thumb--lg" src="{{ im.thumb_url or im.url }}" alt="Image {{ loop.index }} of {{ product.name }}" loading="lazy" width="200" height="200" decoding="async">
+      <img class="thumb--lg" src="{{ im.thumb_url or im.url }}" alt="Image {{ loop.index }} of {{ product.name }}" loading="lazy" width="200" height="200">
       {% if im.is_primary %}<span class="badge badge--ok">Main image</span>
       {% else %}<form method="post" action="{{ url_for('admin.image_primary', product_id=product.id, image_id=im.id) }}">{{ m.csrf() }}<button class="btn btn--ghost btn--sm" type="submit">Make main</button></form>{% endif %}
       <div class="row">

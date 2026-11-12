@@ -46,7 +46,7 @@
       <td class="cell-main">
         <div class="pcell">
           {% set im = p.primary_image %}
-          {% if im %}<img class="thumb" src="{{ im.thumb_url or im.url }}" alt="" loading="lazy" width="48" height="48" decoding="async">{% else %}<span class="thumb" aria-hidden="true"></span>{% endif %}
+          {% if im %}<img class="thumb" src="{{ im.thumb_url or im.url }}" alt="" loading="lazy" width="48" height="48">{% else %}<span class="thumb" aria-hidden="true"></span>{% endif %}
           <span><b>{{ p.name }}</b><span class="hint">{{ p.sku }}{% if p.pack_size %} · {{ p.pack_size }}{% endif %}{% if not p.is_active %} · hidden from shop{% endif %}</span></span>
         </div>
       </td>

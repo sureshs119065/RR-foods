@@ -9,7 +9,7 @@
     {% for name, label, ac, mode, ml in [("label","Save as (Home, Work…)","off","text",40),("full_name","Full name","name","text",120),("phone","Mobile number","tel","tel",15),("line1","House no., street","address-line1","text",200),("line2","Area, landmark (optional)","address-line2","text",200),("city","City","address-level2","text",80),("state","State","address-level1","text",80),("pincode","Pincode","postal-code","numeric",6)] %}
     <label class="field {% if errors.get(name) %}field--error{% endif %}">
       <span>{{ label }}</span>
-      <input name="{{ name }}" value="{{ form.get(name) or (request.args.get('pincode', '') if name == 'pincode' else '') }}" autocomplete="{{ ac }}" maxlength="{{ ml }}" {% if mode in ('tel','numeric') %}inputmode="{{ mode }}"{% endif %} {% if name == 'phone' %}type="tel"{% endif %} {% if errors.get(name) %}aria-invalid="true"{% endif %}>
+      <input name="{{ name }}" value="{{ form.get(name) or '' }}" autocomplete="{{ ac }}" maxlength="{{ ml }}" {% if mode in ('tel','numeric') %}inputmode="{{ mode }}"{% endif %} {% if name == 'phone' %}type="tel"{% endif %} {% if errors.get(name) %}aria-invalid="true"{% endif %}>
       {% if errors.get(name) %}<small class="error">{{ errors[name] }}</small>{% endif %}
     </label>
     {% endfor %}

@@ -7,11 +7,11 @@
   {% if products|length < 1 %}
     <div class="empty"><h2>Nothing to compare yet</h2><p class="muted">Open a product and tap “Compare” to add it here (up to 4).</p><a class="btn" href="{{ url_for('shop.listing') }}">Browse products</a></div>
   {% else %}
-  <div class="table-scroll" tabindex="0" role="region" aria-label="Product comparison table, scroll horizontally">
+  <div class="table-scroll">
   <table class="cmp">
     <thead><tr><th scope="col"><span class="sr">Feature</span></th>
       {% for p in products %}{% set im = p.primary_image %}<th scope="col">
-        <a href="{{ url_for('shop.product', slug=p.slug) }}">{% if im %}<img src="{{ im.thumb_url or im.url }}" alt="" width="120" height="120" loading="lazy" decoding="async">{% endif %}<span>{{ p.name }}</span></a>
+        <a href="{{ url_for('shop.product', slug=p.slug) }}">{% if im %}<img src="{{ im.thumb_url or im.url }}" alt="" width="120" height="120" loading="lazy">{% endif %}<span>{{ p.name }}</span></a>
         <form method="post" action="{{ url_for('shop.compare_toggle') }}">{{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="/compare"><button class="linkish linkish--bad" type="submit">Remove</button></form>
       </th>{% endfor %}</tr></thead>
     <tbody>

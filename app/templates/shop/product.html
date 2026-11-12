@@ -27,16 +27,13 @@
   <div class="pdp__grid">
     <section class="gal" aria-label="Product images" data-gallery>
       <div class="gal__main">
-        {% if im %}<button class="gal__zoom" type="button" data-zoom aria-label="Zoom image"><img id="gal-main" src="{{ im.url }}" alt="{{ im.alt or p.name }}" width="800" height="800" fetchpriority="high" decoding="async"></button>
+        {% if im %}<button class="gal__zoom" type="button" data-zoom aria-label="Zoom image"><img id="gal-main" src="{{ im.url }}" alt="{{ im.alt or p.name }}" width="800" height="800" fetchpriority="high"></button>
         {% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}
         {% if pct %}<span class="tag tag--off">{{ pct }}% off</span>{% endif %}
       </div>
       {% if p.images|length > 1 %}
-      <div class="gal__dots" role="group" aria-label="Choose product image">
-        {% for img in p.images %}<button type="button" class="gal__dot" data-gallery-dot="{{ loop.index0 }}" aria-label="Show image {{ loop.index }}" {% if img == im %}aria-current="true"{% endif %}></button>{% endfor %}
-      </div>
       <ul class="gal__thumbs">
-        {% for img in p.images %}<li><button type="button" class="gal__t" data-src="{{ img.url }}" data-alt="{{ img.alt or p.name }}" aria-label="Image {{ loop.index }}" {% if img == im %}aria-current="true"{% endif %}><img src="{{ img.thumb_url or img.url }}" alt="" loading="lazy" width="96" height="96" decoding="async"></button></li>{% endfor %}
+        {% for img in p.images %}<li><button type="button" class="gal__t" data-src="{{ img.url }}" data-alt="{{ img.alt or p.name }}" aria-label="Image {{ loop.index }}" {% if img == im %}aria-current="true"{% endif %}><img src="{{ img.thumb_url or img.url }}" alt="" loading="lazy" width="96" height="96"></button></li>{% endfor %}
       </ul>
       {% endif %}
     </section>
@@ -68,7 +65,7 @@
             {% for v in variants %}
             <label class="vopt {% if v.stock_qty <= 0 %}vopt--out{% endif %}">
               <input type="radio" name="variant_id" value="{{ v.id }}" required data-price="{{ '%.2f'|format(v.price) }}" data-mrp="{{ '%.2f'|format(v.mrp or v.price) }}" data-stock="{{ v.stock_qty }}" data-low="{{ p.low_stock_threshold }}" {% if v.stock_qty <= 0 %}aria-disabled="true"{% endif %}>
-              <span>{{ v.option_value }}<small>₹{{ '%.2f'|format(v.price) }}</small></span>
+              <span>{{ v.option_value }}</span>
             </label>
             {% endfor %}
           </div>
@@ -80,7 +77,6 @@
           <div class="stepper"><button type="button" data-step="-1" aria-label="Decrease quantity">−</button><input id="qty" name="qty" type="number" inputmode="numeric" min="1" max="10" value="1"><button type="button" data-step="1" aria-label="Increase quantity">+</button></div>
         </div>
         <div class="buybar" id="buybar">
-          <span class="buybar__price" aria-live="polite"><small>Price</small><b data-buybar-price>{{ s.inr(p.final_price) }}</b></span>
           <button class="btn btn--ghost" type="submit" {% if not variants and stock <= 0 %}disabled{% endif %} data-add>Add to cart</button>
           <button class="btn" type="submit" name="buy_now" value="1" {% if not variants and stock <= 0 %}disabled{% endif %} data-buy>Buy now</button>
         </div>
@@ -93,6 +89,7 @@
       </form>
       {% endif %}
 
+      <p class="muted small">Order before {{ delivery_settings.cutoff_time }} for next-day delivery, subject to available slots.</p>
       <form class="pin" id="pinform" data-pin autocomplete="off">
         <label for="pin">Delivery</label>
         <div class="pin__row"><input id="pin" name="pin" type="text" inputmode="numeric" maxlength="6" pattern="\d{6}" placeholder="Enter 6 digit pincode" autocomplete="postal-code"><button class="btn btn--ghost" type="submit">Check</button></div>
@@ -156,8 +153,9 @@
     {{ s.grid([p] + together) }}
     {% if together_ids %}
     <form method="post" action="{{ url_for('shop.cart_add_many') }}" class="fbt">
-      {{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}">{% for i in together_ids %}<input type="hidden" name="product_id" value="{{ i }}">{% endfor %}
-      <button class="btn" type="submit">Add these together to cart</button>
+      {{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="variant_id" value="" data-fbt-variant>
+      {% for i in together_ids %}<input type="hidden" name="product_id" value="{{ i }}"><input type="hidden" name="variant_id" value="">{% endfor %}
+      <button class="btn" type="submit" {% if variants or stock <= 0 %}disabled{% endif %}>Add all to cart</button>
     </form>
     {% endif %}
   </section>
@@ -174,7 +172,7 @@
         <li>
           <p><span class="stars">{{ r.rating }} ★</span> <b>{{ r.title or '' }}</b></p>
           {% if r.body %}<p>{{ r.body }}</p>{% endif %}
-          {% if r.photos %}<ul class="revphotos">{% for ph in r.photos %}<li><a href="{{ ph }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="Photo from the customer's review" loading="lazy" width="96" height="96" decoding="async"></a></li>{% endfor %}</ul>{% endif %}
+          {% if r.photos %}<ul class="revphotos">{% for ph in r.photos %}<li><a href="{{ ph }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="Photo from the customer's review" loading="lazy" width="96" height="96"></a></li>{% endfor %}</ul>{% endif %}
           <p class="muted small">{{ (r.user.name.split()[0] if r.user and r.user.name else 'Customer') }}{% if r.is_verified_purchase %} · <span class="verified">Verified purchase</span>{% endif %} · {{ r.created_at|local_display }}</p>
           <div class="revact">
             <form method="post" action="{{ url_for('shop.review_helpful', review_id=r.id) }}" data-helpful>{{ s.csrf() }}<input type="hidden" name="next" value="{{ request.path }}#reviews">
@@ -221,7 +219,7 @@
 
 <div class="zoom" id="zoom" role="dialog" aria-modal="true" aria-label="Zoomed image" hidden>
   <button class="icon-btn zoom__x" type="button" data-zoom-close aria-label="Close">{{ s.icon('close') }}</button>
-  <div class="zoom__scroll"><img id="zoom-img" src="" alt="" width="800" height="800" decoding="async"></div>
+  <div class="zoom__scroll"><img id="zoom-img" src="" alt=""></div>
   <p class="zoom__hint">Tap the image to zoom in or out</p>
 </div>
 {% if product_bundles %}<section class="container sec"><h2>Available bundles with this product</h2><div class="content-grid">{% for bundle in product_bundles %}<article class="content-card"><div class="content-card__body"><h3>{{ bundle.name }}</h3><p>{{ bundle.description or '' }}</p><b>₹{{ '%.2f'|format(bundle.bundle_price) }}</b><form method="post" action="{{ url_for('shop.add_bundle', bundle_id=bundle.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn--small" type="submit">Add bundle to cart</button></form></div></article>{% endfor %}</div></section>{% endif %}

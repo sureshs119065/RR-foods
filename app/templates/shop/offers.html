@@ -2,7 +2,7 @@
 {% block title %}Offers &amp; combo deals | RR FOODS{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/diwali.css') }}">
-
+<script src="{{ url_for('static', filename='js/diwali-fireworks.js') }}" defer></script>
 {% endblock %}
 {% block content %}
 <div class="container offers-page">
@@ -14,7 +14,7 @@
   </header>
 
   {% if diwali_combos %}
-  <section class="diwali" data-lazy-script="diwali" data-diwali-section aria-labelledby="diwali-title">
+  <section class="diwali" data-diwali-section aria-labelledby="diwali-title">
     <canvas class="diwali__canvas" data-fireworks aria-hidden="true"></canvas>
     <div class="diwali__sparkles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
     <div class="diwali__lamp" aria-hidden="true">🪔</div>
@@ -32,7 +32,7 @@
       {% set pct = (((combo.original_price - combo.price) * 100 / combo.original_price)|round(0,'floor')|int) if combo.original_price else 0 %}
       <article class="diwali-card">
         <div class="diwali-card__media">
-          {% if combo.image %}<img src="{{ combo.image }}" alt="{{ combo.name }}" loading="lazy" width="400" height="400" decoding="async">{% else %}<div class="diwali-card__art" aria-hidden="true">🪔<span>RR FOODS</span>✦</div>{% endif %}
+          {% if combo.image %}<img src="{{ combo.image }}" alt="{{ combo.name }}" loading="lazy">{% else %}<div class="diwali-card__art" aria-hidden="true">🪔<span>RR FOODS</span>✦</div>{% endif %}
           <span class="diwali-card__ribbon">{{ pct }}% OFF</span>
         </div>
         <div class="diwali-card__body">
@@ -58,7 +58,7 @@
     <div class="promotion-grid">
       {% for bundle in bundles %}
       <article class="promotion-card combo-offer-card">
-        {% if bundle.image_url %}<img src="{{ bundle.image_url }}" alt="{{ bundle.name }}" loading="lazy" width="320" height="220" decoding="async">{% endif %}
+        {% if bundle.image_url %}<img src="{{ bundle.image_url }}" alt="{{ bundle.name }}" loading="lazy" width="320" height="220">{% endif %}
         <div>
           <h3>{{ bundle.name }}</h3>
           <p>{{ bundle.description or 'A curated combination of RR FOODS favourites.' }}</p>

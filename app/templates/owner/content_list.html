@@ -19,7 +19,7 @@
 <div class="table-wrap"><table class="table" id="content-table"><thead><tr><th>Title</th><th>Preview</th><th>Status</th><th>Order</th><th>Actions</th></tr></thead><tbody>
 {% for item in items %}<tr>
 <td data-label="Title" class="cell-main">{{ item.title if kind != 'bundles' else item.name }}</td>
-<td data-label="Preview">{% if item.thumbnail_url is defined and item.thumbnail_url %}<img class="thumb" src="{{ item.thumbnail_url }}" alt="" width="160" height="120" decoding="async" loading="lazy">{% elif item.image_url is defined and item.image_url %}<img class="thumb" src="{{ item.image_url }}" alt="" width="160" height="120" decoding="async" loading="lazy">{% else %}—{% endif %}</td>
+<td data-label="Preview">{% if item.thumbnail_url is defined and item.thumbnail_url %}<img class="thumb" src="{{ item.thumbnail_url }}" alt="">{% elif item.image_url is defined and item.image_url %}<img class="thumb" src="{{ item.image_url }}" alt="">{% else %}—{% endif %}</td>
 <td data-label="Status"><span class="badge {{ 'badge--ok' if (item.is_active if kind == 'reels' else item.is_published if kind == 'recipes' else item.is_active) else 'badge--warn' }}">{{ 'Published' if (item.is_active if kind == 'reels' else item.is_published if kind == 'recipes' else item.is_active) else 'Hidden' }}</span></td>
 <td data-label="Order">{{ item.sort_order if kind == 'reels' else '—' }}</td>
 <td data-label="Actions" class="cell-actions">

@@ -6,7 +6,6 @@
   <section class="panel2 wa-done" aria-labelledby="done-h">
     <p class="eyebrow">Order saved successfully</p>
     <h1 id="done-h" class="pg-h">Your order {{ order.order_number }} is saved</h1>
-    <p class="order-confirm-id">Order ID: <strong id="order-id">{{ order.order_number }}</strong> <button class="btn btn--ghost btn--sm" type="button" data-copy="#order-id">Copy order ID</button></p>
     <p>We're opening WhatsApp with your order details. Just press <b>Send</b> in WhatsApp to share your order with RR FOODS.</p>
     {% if wa %}
       <p><a class="btn btn--block wa-btn" id="wa-open" href="{{ wa }}">Open WhatsApp and send order</a></p>

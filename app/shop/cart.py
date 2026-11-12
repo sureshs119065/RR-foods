@@ -30,7 +30,11 @@ def cart():
     view = svc.build(g.user.id, session.get("coupon"))
     if session.get("coupon") and view.coupon is None and view.coupon_error:
         pass  # keep the code visible with its error so the customer can see why and remove it
-    return render_template("shop/cart.html", view=view, max_qty=svc.MAX_LINE_QTY)
+    from ..services.recommendations import cart_suggestions
+    cart_product_ids = [line.product.id for line in view.lines]
+    suggestions = cart_suggestions(cart_product_ids)
+    from ..services.delivery_slots import get_settings
+    return render_template("shop/cart.html", view=view, max_qty=svc.MAX_LINE_QTY, suggestions=suggestions, delivery_settings=get_settings())
 
 
 def _add_one(user, product_id, variant_id, qty):
@@ -94,12 +98,18 @@ def cart_add():
 
 @bp.post("/cart/add-many")
 @user_only
+@limiter.limit("30 per minute")
 def cart_add_many():
-    """'Frequently bought together': adds one of each (only products without options)."""
-    ids = [int(i) for i in request.form.getlist("product_id")[:6] if i.isdigit()]
+    """Add one of each selected product/variant in the frequently-bought-together set."""
+    raw_ids = request.form.getlist("product_id")[:6]
+    raw_variants = request.form.getlist("variant_id")[:6]
     added, problems = 0, []
-    for pid in ids:
-        msg, ok = _add_one(g.user, pid, None, 1)
+    for index, raw_pid in enumerate(raw_ids):
+        if not raw_pid.isdigit():
+            continue
+        raw_vid = raw_variants[index] if index < len(raw_variants) else ""
+        variant_id = int(raw_vid) if raw_vid.isdigit() else None
+        msg, ok = _add_one(g.user, int(raw_pid), variant_id, 1)
         added += ok
         if not ok:
             problems.append(msg)

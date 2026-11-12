@@ -67,7 +67,7 @@ def register_settings_cli(app):
     @click.argument("key")
     @click.argument("value")
     def set_setting_command(key, value):
-        """Change a site setting. VALUE is JSON: flask set-setting tax_percent 5 | free_delivery_min_cart 499 | header_carousel_autoplay true"""
+        """Change a site setting. VALUE is JSON: flask set-setting tax_percent 5 | header_carousel_autoplay true"""
         import json
 
         from .models import SiteSetting
