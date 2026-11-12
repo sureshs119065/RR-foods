@@ -1,0 +1,111 @@
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+
+{% macro icon(name) %}
+<svg class="ic" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+{%- if name == 'home' %}<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>
+{%- elif name == 'grid' %}<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+{%- elif name == 'search' %}<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+{%- elif name == 'cart' %}<circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/><path d="M2 3h3l2.6 12.4a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L21 8H6"/>
+{%- elif name == 'user' %}<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>
+{%- elif name == 'menu' %}<path d="M3 6h18M3 12h18M3 18h18"/>
+{%- elif name == 'close' %}<path d="M6 6l12 12M18 6L6 18"/>
+{%- elif name == 'left' %}<path d="M15 5l-7 7 7 7"/>
+{%- elif name == 'right' %}<path d="M9 5l7 7-7 7"/>
+{%- elif name == 'filter' %}<path d="M3 5h18l-7 8v6l-4-2v-4z"/>
+{%- elif name == 'pause' %}<path d="M8 5v14M16 5v14"/>
+{%- elif name == 'play' %}<path d="M7 4l13 8-13 8z"/>
+{%- elif name == 'chevdown' %}<path d="m6 9 6 6 6-6"/>
+{%- elif name == 'leaf' %}<path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14z"/><path d="M5 19c2-4 5-7 9-9"/>
+{%- elif name == 'shield' %}<path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/>
+{%- elif name == 'list' %}<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>
+{%- elif name == 'scale' %}<path d="M12 4v16M6 20h12M5 8h14M5 8l-2.5 6a3 3 0 0 0 5 0zM19 8l-2.5 6a3 3 0 0 0 5 0z"/>
+{%- elif name == 'heart' %}<path d="M12 20s-7-4.4-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.6-9 9-9 9z"/>
+{%- elif name == 'tag' %}<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1"/>
+{%- elif name == 'check' %}<path d="m5 12 5 5 9-10"/>
+{%- elif name == 'package' %}<path d="m12 3 8 4v10l-8 4-8-4V7z"/><path d="m4 7 8 4 8-4M12 11v10"/>
+{%- elif name == 'clock' %}<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+{%- elif name == 'star' %}<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>
+{%- elif name == 'moon' %}<path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/>
+{%- endif -%}
+</svg>
+{% endmacro %}
+
+{% macro inr(v) %}₹{{ '{:,.2f}'.format(v or 0) }}{% endmacro %}
+{% macro inr0(v) %}₹{{ '{:,.0f}'.format(v or 0) if (v or 0) == (v or 0)|int else '{:,.2f}'.format(v) }}{% endmacro %}
+
+{% macro off_pct(mrp, price) -%}{% if mrp and mrp > price %}{{ (((mrp - price) * 100) / mrp)|round(0, 'floor')|int }}{% else %}0{% endif %}{%- endmacro %}
+
+{% macro card(p) %}
+{% set im = p.primary_image %}{% set pct = off_pct(p.mrp, p.final_price)|int %}{% set left = available_qty(p) %}
+<article class="pc">
+  <form class="pc__wish" method="post" action="{{ url_for('shop.wishlist_toggle') }}" data-wish>{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+    <button class="wish {{ 'is-on' if in_wishlist(p.id) else '' }}" type="submit" aria-pressed="{{ 'true' if in_wishlist(p.id) else 'false' }}" aria-label="{{ 'Remove ' ~ p.name ~ ' from wishlist' if in_wishlist(p.id) else 'Save ' ~ p.name ~ ' to wishlist' }}">♥</button></form>
+  <a class="pc__link" href="{{ url_for('shop.product', slug=p.slug) }}">
+    <span class="pc__img">
+      {% if im %}<img src="{{ im.thumb_url or im.url }}" alt="{{ im.alt or p.name }}" loading="lazy" decoding="async" width="400" height="400">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}
+      {% if pct %}<span class="tag tag--off">{{ pct }}% off</span>{% endif %}
+      {% if left <= 0 %}<span class="tag tag--out">Out of stock</span>{% endif %}
+    </span>
+    <h3 class="pc__name">{{ p.name }}</h3>
+    {% if p.review_count %}<span class="pc__rate"><span class="stars">{{ '%.1f'|format(p.avg_rating) }} ★</span> <span class="muted">({{ p.review_count }})</span></span>{% endif %}
+    <span class="pc__price"><b>{{ inr(p.final_price) }}</b>{% if pct %} <s class="muted">{{ inr(p.mrp) }}</s>{% endif %}</span>
+    {% if p.pack_size %}<span class="pc__pack muted">{{ p.pack_size }}</span>{% endif %}
+  </a>
+  {% if left > 0 and not active_variants(p) %}
+  <form class="pc__add" method="post" action="{{ url_for('shop.cart_add') }}" data-quickadd>{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="qty" value="1"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+    <button class="btn btn--ghost btn--sm" type="submit" aria-label="Add {{ p.name }} to cart">Add to cart</button></form>
+  {% elif left <= 0 %}
+  <a class="pc__add pc__opts btn btn--ghost btn--sm" href="{{ url_for('shop.product', slug=p.slug) }}#notify">Notify me</a>
+  {% elif left > 0 %}
+  <a class="pc__add pc__opts btn btn--ghost btn--sm" href="{{ url_for('shop.product', slug=p.slug) }}">Choose option</a>
+  {% endif %}
+</article>
+{% endmacro %}
+
+{% macro grid(products) %}<div class="pgrid">{% for p in products %}{{ card(p) }}{% endfor %}</div>{% endmacro %}
+
+{% macro crumbs(items) %}
+<nav class="crumbs" aria-label="Breadcrumb"><ol>
+  {% for name, url in items %}<li>{% if url %}<a href="{{ url }}">{{ name }}</a>{% else %}<span aria-current="page">{{ name }}</span>{% endif %}</li>{% endfor %}
+</ol></nav>
+{% endmacro %}
+
+{% macro pager(page, endpoint, args) %}
+{% if page.pages > 1 %}
+<nav class="pager" aria-label="Pages">
+  {% if page.has_prev %}<a class="btn btn--ghost" rel="prev" href="{{ url_for(endpoint, page=page.prev_num, **args) }}">&larr; Previous</a>{% else %}<span></span>{% endif %}
+  <span class="muted">Page {{ page.page }} of {{ page.pages }}</span>
+  {% if page.has_next %}<a class="btn btn--ghost" rel="next" href="{{ url_for(endpoint, page=page.next_num, **args) }}">Next &rarr;</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}
+{% endmacro %}
+
+{% macro stock_note(qty, threshold) %}
+{%- if qty <= 0 %}<span class="stock stock--out">Out of stock</span>
+{%- elif qty <= threshold or qty <= 5 %}<span class="stock stock--low">Only {{ qty }} left</span>
+{%- else %}<span class="stock stock--ok">In stock</span>{% endif -%}
+{% endmacro %}
+
+{# Carousel card used in the home page scroll rows (bestsellers, new arrivals). #}
+{% macro rcard(p) %}
+{% set im = p.primary_image %}{% set pct = off_pct(p.mrp, p.final_price)|int %}{% set left = available_qty(p) %}{% set opts = active_variants(p) %}
+<li class="rc">
+  <a class="rc__img" href="{{ url_for('shop.product', slug=p.slug) }}" tabindex="-1" aria-hidden="true">
+    {% if im %}<img src="{{ im.thumb_url or im.url }}" alt="" loading="lazy" decoding="async" width="400" height="400">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}
+    {% if left <= 0 %}<span class="tag tag--out">Sold out</span>{% elif pct %}<span class="tag tag--off">{{ pct }}% off</span>{% endif %}
+  </a>
+  <div class="rc__body">
+    <p class="rc__cat">{{ p.category.name if p.category else '' }}</p>
+    <h3 class="rc__name"><a href="{{ url_for('shop.product', slug=p.slug) }}">{{ p.name }}</a></h3>
+    <p class="rc__meta"><span>{{ p.pack_size or '' }}</span><span class="rc__stock{{ ' is-out' if left <= 0 else '' }}">{{ 'Sold out' if left <= 0 else 'In stock' }}</span></p>
+    <p class="rc__price"><b>{{ inr0(p.final_price) }}</b>{% if pct %} <s class="muted">{{ inr0(p.mrp) }}</s> <span class="rc__save">Save {{ inr0(p.mrp - p.final_price) }}</span>{% endif %}</p>
+    <div class="rc__act">
+      {% if left <= 0 %}<button class="btn btn--block" type="button" disabled>Sold out</button>
+      {% elif opts %}<a class="btn btn--block" href="{{ url_for('shop.product', slug=p.slug) }}">Choose options</a>
+      {% else %}<form method="post" action="{{ url_for('shop.cart_add') }}" data-addcart data-name="{{ p.name }}">{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="qty" value="1"><button class="btn btn--block" type="submit" aria-label="Add {{ p.name }} to cart">Add to cart</button></form>{% endif %}
+    </div>
+  </div>
+</li>
+{% endmacro %}
+
+{% macro row_arrows(target) %}<span class="rowarrows"><button class="rowarrow" type="button" data-row-prev="{{ target }}" aria-label="Scroll back">{{ icon('left') }}</button><button class="rowarrow" type="button" data-row-next="{{ target }}" aria-label="Scroll forward">{{ icon('right') }}</button></span>{% endmacro %}

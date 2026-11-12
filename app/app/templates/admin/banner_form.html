@@ -1,0 +1,81 @@
+{% extends "admin/layout.html" %}
+{% block title %}{{ 'Edit' if banner else 'New' }} banner{% endblock %}
+{% block heading %}{{ 'Edit banner' if banner else 'New banner' }}{% endblock %}
+{% block content %}
+{% if errors %}<div class="alert alert--error" role="alert">Please fix the highlighted fields ({{ errors|length }}). Nothing was saved.</div>{% endif %}
+<div class="panel">
+  <h3>Preview</h3>
+  <div id="banner-preview" class="banner-card">
+    <span class="tag" data-pv="badge" hidden></span>
+    <h3 data-pv="title"></h3>
+    <p data-pv="subtitle"></p>
+    <span class="cta" data-pv="button" hidden></span>
+  </div>
+  <p class="hint">Text and colours update as you type. Your images are shown on the real home page.</p>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="panel form" id="banner-form" novalidate>
+  {{ m.csrf() }}
+  <div class="grid-2">
+    <div class="span-2">{{ m.field("title", "Headline", f.title, errors=errors, required=true, maxlength="150") }}</div>
+    <div class="span-2">{{ m.field("subtitle", "Sub-headline", f.subtitle, errors=errors, maxlength="250") }}</div>
+    {{ m.field("badge_text", "Badge", f.badge_text, errors=errors, maxlength="40", hint="Small label, for example FLASH SALE") }}
+    {{ m.field("button_text", "Button text", f.button_text, errors=errors, maxlength="40") }}
+    {{ m.field("bg_color", "Background colour", f.bg_color, "color", errors) }}
+    {{ m.field("text_color", "Text colour", f.text_color, "color", errors) }}
+
+    <label class="field {% if errors.get('link_type') %}field--error{% endif %}">
+      <span>The banner links to</span>
+      <select name="link_type" id="link-type">
+        {% for v, t in [("category", "A category"), ("product", "A product"), ("coupon", "A coupon page"), ("url", "A page or web address")] %}
+          <option value="{{ v }}" {% if f.link_type == v %}selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select>
+    </label>
+    <div>
+      <label class="field {% if errors.get('link_target') %}field--error{% endif %}" data-show-for="category">
+        <span>Category</span>
+        <select name="target_category"><option value="">Choose…</option>{% for c in categories %}<option value="{{ c.slug }}" {% if f.target_category == c.slug %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select>
+      </label>
+      <label class="field {% if errors.get('link_target') %}field--error{% endif %}" data-show-for="product">
+        <span>Product</span>
+        <select name="target_product"><option value="">Choose…</option>{% for p in products %}<option value="{{ p.slug }}" {% if f.target_product == p.slug %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select>
+      </label>
+      <label class="field {% if errors.get('link_target') %}field--error{% endif %}" data-show-for="coupon">
+        <span>Coupon</span>
+        <select name="target_coupon"><option value="">Choose…</option>{% for c in coupons %}<option value="{{ c.code }}" {% if f.target_coupon == c.code %}selected{% endif %}>{{ c.code }}</option>{% endfor %}</select>
+      </label>
+      <label class="field {% if errors.get('link_target') %}field--error{% endif %}" data-show-for="url">
+        <span>Page or address</span>
+        <input type="text" name="target_url" value="{{ f.target_url }}" placeholder="/shop or https://…" inputmode="url" autocapitalize="none">
+      </label>
+      {% if errors.get('link_target') %}<small class="error" role="alert">{{ errors.link_target }}</small>{% endif %}
+    </div>
+
+    {{ m.field("start_at", "Starts (shop time)", f.start_at, "datetime-local", errors, hint="Empty = show right away") }}
+    {{ m.field("end_at", "Ends (shop time)", f.end_at, "datetime-local", errors, hint="Empty = never expires. The banner disappears by itself after this time.") }}
+    <div>{{ m.checkbox("countdown_enabled", "Show a countdown to the end time", f.countdown_enabled) }}{{ m.checkbox("is_active", "Banner is on", f.is_active) }}</div>
+  </div>
+
+  <div class="grid-2">
+    <div>
+      <label class="field {% if errors.get('desktop_image') %}field--error{% endif %}">
+        <span>Desktop image (wide, about 21:9, for example 1920 × 820)</span>
+        <input type="file" name="desktop_image" accept="image/jpeg,image/png,image/webp">
+        {% if errors.get('desktop_image') %}<small class="error">{{ errors.desktop_image }}</small>{% endif %}
+      </label>
+      {% if banner and banner.desktop_image %}<img class="thumb" src="{{ banner.desktop_image }}" alt="Current desktop image">{{ m.checkbox("remove_desktop_image", "Remove desktop image") }}{% endif %}
+    </div>
+    <div>
+      <label class="field {% if errors.get('mobile_image') %}field--error{% endif %}">
+        <span>Mobile image (about 4:3, for example 900 × 675)</span>
+        <input type="file" name="mobile_image" accept="image/jpeg,image/png,image/webp">
+        {% if errors.get('mobile_image') %}<small class="error">{{ errors.mobile_image }}</small>{% endif %}
+      </label>
+      {% if banner and banner.mobile_image %}<img class="thumb" src="{{ banner.mobile_image }}" alt="Current mobile image">{{ m.checkbox("remove_mobile_image", "Remove mobile image") }}{% endif %}
+    </div>
+  </div>
+  <p class="hint">Images are optional: without them the banner uses the colours above. If you add only a desktop image, phones use it too.</p>
+
+  <div class="formbar"><button class="btn" type="submit">Save banner</button><a class="btn btn--ghost" href="{{ url_for('admin.banners') }}">Cancel</a></div>
+</form>
+{% endblock %}

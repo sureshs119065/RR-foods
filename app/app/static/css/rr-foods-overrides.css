@@ -1,0 +1,7 @@
+
+/* Phase 1: recommendations, delivery slots and tracking */
+.cart-suggestions{margin-top:28px}.cart-suggestions__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cart-suggestion{display:flex;flex-direction:column;gap:8px;padding:14px;border:1px solid var(--line,#dce5dd);border-radius:14px;min-width:0}.cart-suggestion__name{font-weight:700;overflow-wrap:anywhere}.cart-suggestion__price{font-weight:700}.cart-suggestion .btn{min-height:44px;align-self:flex-start}.field input,.field select,.field textarea{font-size:16px;min-height:44px}.form .field{margin-block:12px}.panel2 .notice{margin-block:12px}@media(min-width:768px){.cart-suggestions__grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(min-width:1024px){.cart-suggestions__grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+.cart-suggestions{grid-column:1/-1}
+
+.delivery-settings-panel{max-width:760px}

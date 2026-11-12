@@ -1,25 +1,7 @@
 {% extends "owner/layout.html" %}
 {% import "owner/_macros.html" as o %}
-{% block title %}Dashboard
-<section class="owner-ops">
-  <div class="owner-section-heading"><div><span class="owner-kicker">INVENTORY INTELLIGENCE</span><h2>Stock health and expiry</h2></div><a class="owner-text-link" href="{{ url_for('owner.inventory') }}">Manage inventory →</a></div>
-  <div class="owner-ops-grid">
-    <section class="panel owner-ops-card"><h3>Out of stock</h3>{% for p in out_items %}<p><b>{{ p.name }}</b> · 0 left</p>{% else %}<p class="owner-empty">No out-of-stock products.</p>{% endfor %}</section>
-    <section class="panel owner-ops-card"><h3>Expiring within 30 days</h3>{% for batch in expiring_batches %}<p><b>{{ batch.product.name }}</b> · {{ batch.batch_number }} · {{ batch.expiry_date }} · {{ batch.quantity }} units <span class="hint">Suggestion: bundle or modest markdown (owner review required)</span></p>{% else %}<p class="owner-empty">No batches expiring in 30 days.</p>{% endfor %}</section>
-    <section class="panel owner-ops-card"><h3>Estimated days of stock left</h3>{% for item in stock_estimates %}<p><b>{{ item.product.name }}</b> · {{ item.days }} days (30-day sales pace)</p>{% else %}<p class="owner-empty">Not enough sales history to estimate stock cover.</p>{% endfor %}</section>
-  </div>
-</section>
-{% endblock %}
-{% block heading %}Overview
-<section class="owner-ops">
-  <div class="owner-section-heading"><div><span class="owner-kicker">INVENTORY INTELLIGENCE</span><h2>Stock health and expiry</h2></div><a class="owner-text-link" href="{{ url_for('owner.inventory') }}">Manage inventory →</a></div>
-  <div class="owner-ops-grid">
-    <section class="panel owner-ops-card"><h3>Out of stock</h3>{% for p in out_items %}<p><b>{{ p.name }}</b> · 0 left</p>{% else %}<p class="owner-empty">No out-of-stock products.</p>{% endfor %}</section>
-    <section class="panel owner-ops-card"><h3>Expiring within 30 days</h3>{% for batch in expiring_batches %}<p><b>{{ batch.product.name }}</b> · {{ batch.batch_number }} · {{ batch.expiry_date }} · {{ batch.quantity }} units <span class="hint">Suggestion: bundle or modest markdown (owner review required)</span></p>{% else %}<p class="owner-empty">No batches expiring in 30 days.</p>{% endfor %}</section>
-    <section class="panel owner-ops-card"><h3>Estimated days of stock left</h3>{% for item in stock_estimates %}<p><b>{{ item.product.name }}</b> · {{ item.days }} days (30-day sales pace)</p>{% else %}<p class="owner-empty">Not enough sales history to estimate stock cover.</p>{% endfor %}</section>
-  </div>
-</section>
-{% endblock %}
+{% block title %}Dashboard{% endblock %}
+{% block heading %}Overview{% endblock %}
 {% block content %}
 <section class="owner-hero" aria-label="Store overview">
   <div class="owner-hero__copy">

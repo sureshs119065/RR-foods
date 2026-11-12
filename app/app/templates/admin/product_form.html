@@ -1,0 +1,162 @@
+{% extends "admin/layout.html" %}
+{% block title %}{{ 'Edit' if product else 'New' }} product{% endblock %}
+{% block heading %}{{ product.name if product else 'New product' }}{% endblock %}
+
+{% macro vrow(v, n) %}
+<div class="vrow" role="group" aria-label="Variant {{ n }}">
+  <input type="hidden" name="variant_id" value="{{ v.id or '' }}">
+  <label class="field"><span>Option</span><input name="variant_option_name" value="{{ v.option_name or 'Size' }}" maxlength="40"></label>
+  <label class="field"><span>Value</span><input name="variant_option_value" value="{{ v.option_value or '' }}" placeholder="e.g. 500 g" maxlength="80"></label>
+  <label class="field"><span>SKU</span><input name="variant_sku" value="{{ v.sku or '' }}" placeholder="auto" maxlength="60"></label>
+  <label class="field"><span>MRP ₹</span><input name="variant_mrp" value="{{ v.mrp or '' }}" inputmode="decimal"></label>
+  <label class="field"><span>Price ₹</span><input name="variant_price" value="{{ v.price if v.price is not none else '' }}" inputmode="decimal"></label>
+  <label class="field"><span>Stock</span><input name="variant_stock" value="{{ v.stock if v.stock is not none else '' }}" inputmode="numeric"></label>
+</div>
+{% endmacro %}
+
+{% macro section(id, title, open=false) %}
+<section class="acc" {% if open %}data-open{% endif %}>
+  <button type="button" class="acc__head" aria-expanded="{{ 'true' if open else 'false' }}" aria-controls="sec-{{ id }}">{{ title }}</button>
+  <div class="acc__panel" id="sec-{{ id }}"><div class="acc__inner"><div class="acc__body">{{ caller() }}</div></div></div>
+</section>
+{% endmacro %}
+
+{% block content %}
+{% if product and product.is_deleted %}<div class="notice">This product is archived and hidden from customers. <form class="inline" method="post" action="{{ url_for('admin.product_restore', product_id=product.id) }}">{{ m.csrf() }}<button class="btn btn--sm" type="submit">Restore</button></form></div>{% endif %}
+{% if errors %}<div class="alert alert--error" role="alert">Please fix the highlighted fields ({{ errors|length }}). Nothing was saved.</div>{% endif %}
+
+<form method="post" enctype="multipart/form-data" novalidate id="product-form">
+  {{ m.csrf() }}
+
+  {% call section('basic', 'Basic information', true) %}
+    <div class="grid-2">
+      {{ m.field("name", "Product name", f.name, errors=errors, required=true, maxlength="200") }}
+      {{ m.field("sku", "SKU", f.sku, errors=errors, required=true, maxlength="60", hint="Short unique code, for example P013") }}
+      {{ m.field("brand", "Brand", f.brand, errors=errors, maxlength="120") }}
+      {{ m.field("pack_size", "Pack size", f.pack_size, errors=errors, maxlength="40", hint="For example 200 g") }}
+      <label class="field {% if errors.get('category_id') %}field--error{% endif %}">
+        <span>Category <span aria-hidden="true">*</span></span>
+        <select name="category_id" required>
+          <option value="">Choose…</option>
+          {% for root, subs in cats %}<option value="{{ root.id }}" {% if f.category_id|string == root.id|string %}selected{% endif %}>{{ root.name }}</option>{% endfor %}
+        </select>
+        {% if errors.get('category_id') %}<small class="error">{{ errors.category_id }}</small>{% endif %}
+      </label>
+      <label class="field {% if errors.get('subcategory_id') %}field--error{% endif %}">
+        <span>Subcategory</span>
+        <select name="subcategory_id">
+          <option value="">None</option>
+          {% for root, subs in cats %}{% if subs %}<optgroup label="{{ root.name }}">{% for s in subs %}<option value="{{ s.id }}" {% if f.subcategory_id|string == s.id|string %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</optgroup>{% endif %}{% endfor %}
+        </select>
+        {% if errors.get('subcategory_id') %}<small class="error">{{ errors.subcategory_id }}</small>{% endif %}
+      </label>
+      <div class="span-2">{{ m.field("short_description", "Short description", f.short_description, errors=errors, maxlength="300", hint="One or two lines shown on product cards") }}</div>
+      <div class="span-2">{{ m.textarea("description", "Full description", f.description, errors=errors, rows=6, maxlength="5000") }}</div>
+    </div>
+  {% endcall %}
+
+  {% call section('price', 'Price and stock', true) %}
+    <div class="grid-2">
+      {{ m.field("mrp", "MRP (₹)", f.mrp, "number", errors, required=true, inputmode="decimal", step="0.01") }}
+      {{ m.select("discount_type", "Discount", discount_choices, f.discount_type, errors) }}
+      {{ m.field("discount_value", "Discount value", f.discount_value, "number", errors, inputmode="decimal", step="0.01", hint="A percentage (0 to 100) or a rupee amount") }}
+      <div><span class="field"><span>Final price</span></span><div class="price-preview" id="price-preview" aria-live="polite">Enter the MRP to see the final price.</div></div>
+      {{ m.field("stock_qty", "Stock quantity", f.stock_qty, "number", errors, inputmode="numeric") }}
+      {{ m.field("low_stock_threshold", "Low-stock alert at", f.low_stock_threshold, "number", errors, inputmode="numeric", hint="The owner is warned when stock falls to this number") }}
+    </div>
+  {% endcall %}
+
+  {% call section('images', 'Images') %}
+    <div class="dropzone">
+      <p><strong>Drag photos here</strong> or choose files</p>
+      <label class="field {% if errors.get('images') %}field--error{% endif %}">
+        <span class="hint">JPG, PNG or WebP, up to {{ max_mb }} MB each, {{ max_images }} per product. On a phone you can use the camera.</span>
+        <input type="file" name="images" accept="image/jpeg,image/png,image/webp" multiple>
+        {% if errors.get('images') %}<small class="error">{{ errors.images }}</small>{% endif %}
+      </label>
+      <ul class="dropzone__list" aria-live="polite"></ul>
+    </div>
+    <p class="hint">After saving you can set the main image, reorder and remove images below the form.</p>
+  {% endcall %}
+
+  {% call section('details', 'Ingredients, nutrition and details') %}
+    <div class="grid-2">
+      <div class="span-2">{{ m.textarea("ingredients", "Ingredients", f.ingredients, errors=errors, rows=3, maxlength="2000") }}</div>
+      {% for key in nutrition_fields %}{{ m.field("nutrition_" ~ key, key|capitalize ~ " (per 100 g)", f["nutrition_" ~ key], "number", errors, inputmode="decimal", step="any") }}{% endfor %}
+      <div class="span-2">{{ m.textarea("how_to_use", "How to use", f.how_to_use, errors=errors, rows=3, maxlength="2000") }}</div>
+      <div class="span-2">{{ m.textarea("specifications", "Specifications", f.specifications, errors=errors, rows=5, hint="One per line, like  Shelf life: 6 months") }}</div>
+      {{ m.field("fssai", "FSSAI licence number", f.fssai, errors=errors, maxlength="30") }}
+      {{ m.field("video_id", "Recipe video (YouTube ID)", f.video_id, errors=errors, maxlength="20", hint="Optional. Enter the 11-character YouTube video ID from the video URL (the value after v=). It appears inside this product description.") }}
+      <div class="span-2">{{ m.field("tags", "Tags", f.tags, errors=errors, hint="Separate with commas, for example low sugar, millet") }}</div>
+    </div>
+  {% endcall %}
+
+  {% call section('variants', 'Variants (size, colour, weight)') %}
+    <p class="hint">Each variant has its own price and stock. Leave blank rows empty. To remove a variant, clear its row and save.</p>
+    {% if errors.get('variants') %}<p class="error" role="alert">{{ errors.variants }}</p>{% endif %}
+    <div id="variant-rows">
+      {% for v in f.variants %}{{ vrow(v, loop.index) }}{% endfor %}
+      {% for i in range(blank_variants) %}{{ vrow({}, f.variants|length + i + 1) }}{% endfor %}
+      <template>{{ vrow({}, 'new') }}</template>
+    </div>
+    <button class="btn btn--ghost btn--sm" type="button" data-add-row="#variant-rows">Add another variant</button>
+  {% endcall %}
+
+  {% call section('links', 'Offers and related products') %}
+    <fieldset class="field"><legend>Offer labels</legend>
+      <div class="checks">
+        {% for o in offers %}<label class="check"><input type="checkbox" name="offer_ids" value="{{ o.id }}" {% if o.id in f.offer_ids %}checked{% endif %}> <span>{{ o.tag }}</span></label>
+        {% else %}<span class="hint">No offers yet. Offer labels are managed in the Shop Owner panel.</span>{% endfor %}
+      </div>
+    </fieldset>
+    <label class="field"><span>Related / similar products</span>
+      <select name="related_ids" multiple size="8">
+        {% for o in others %}<option value="{{ o.id }}" {% if o.id in f.related_ids %}selected{% endif %}>{{ o.name }} ({{ o.sku }})</option>{% endfor %}
+      </select>
+      <small class="hint">Hold Ctrl (or Cmd) to select several. On a phone, tap each one.</small>
+    </label>
+  {% endcall %}
+
+  {% call section('visibility', 'Visibility', true) %}
+    <div class="checks">
+      {{ m.checkbox("is_active", "Visible in the shop", f.is_active) }}
+      {{ m.checkbox("is_bestseller", "Mark as Bestseller", f.is_bestseller) }}
+      <p class="hint span-2">Only products with this checkbox enabled appear on the Bestsellers page. Admin controls this selection.</p>
+    </div>
+  {% endcall %}
+
+  <div class="formbar">
+    <button class="btn" type="submit">Save product</button>
+    <a class="btn btn--ghost" href="{{ url_for('admin.products') }}">Back to list</a>
+  </div>
+</form>
+
+{% if product %}
+<section class="panel" aria-labelledby="img-title">
+  <h2 id="img-title">Product images ({{ product.images|length }}/{{ max_images }})</h2>
+  {% if product.images %}
+  <ul class="imgs">
+    {% for im in product.images %}
+    <li>
+      <img class="thumb--lg" src="{{ im.thumb_url or im.url }}" alt="Image {{ loop.index }} of {{ product.name }}" loading="lazy" width="200" height="200">
+      {% if im.is_primary %}<span class="badge badge--ok">Main image</span>
+      {% else %}<form method="post" action="{{ url_for('admin.image_primary', product_id=product.id, image_id=im.id) }}">{{ m.csrf() }}<button class="btn btn--ghost btn--sm" type="submit">Make main</button></form>{% endif %}
+      <div class="row">
+        <form class="inline" method="post" action="{{ url_for('admin.image_move', product_id=product.id, image_id=im.id) }}">{{ m.csrf() }}<input type="hidden" name="direction" value="up"><button class="btn btn--ghost btn--sm" type="submit" aria-label="Move image {{ loop.index }} earlier">←</button></form>
+        <form class="inline" method="post" action="{{ url_for('admin.image_move', product_id=product.id, image_id=im.id) }}">{{ m.csrf() }}<input type="hidden" name="direction" value="down"><button class="btn btn--ghost btn--sm" type="submit" aria-label="Move image {{ loop.index }} later">→</button></form>
+        <form class="inline" method="post" action="{{ url_for('admin.image_delete', product_id=product.id, image_id=im.id) }}">{{ m.csrf() }}<button class="btn btn--danger btn--sm" type="submit" data-confirm="Remove this image?" aria-label="Remove image {{ loop.index }}">Remove</button></form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="hint">No images yet. Add some in the Images section above and save.</p>{% endif %}
+</section>
+<section class="panel">
+  <h2>More actions</h2>
+  <div class="row">
+    <form class="inline" method="post" action="{{ url_for('admin.product_duplicate', product_id=product.id) }}">{{ m.csrf() }}<button class="btn btn--ghost" type="submit">Duplicate</button></form>
+    {% if not product.is_deleted %}<form class="inline" method="post" action="{{ url_for('admin.product_archive', product_id=product.id) }}">{{ m.csrf() }}<button class="btn btn--warn" type="submit">Archive (can be undone)</button></form>{% endif %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

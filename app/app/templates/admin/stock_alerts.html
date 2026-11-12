@@ -1,0 +1,27 @@
+{% extends "admin/layout.html" %}
+{% import "admin/_macros.html" as m %}
+{% block title %}Stock alerts{% endblock %}{% block heading %}Stock alerts{% endblock %}
+{% block content %}
+<section class="ops-hero"><div><span class="ops-eyebrow">INVENTORY CONTROL</span><h2>Restock before you run out.</h2><p>Review products that have reached their stock threshold and update quantities in one step.</p></div><a class="btn btn--ghost" href="{{ url_for('admin.products') }}">All products</a></section>
+<nav class="ops-tabs" aria-label="Stock alert filter"><a class="{{ 'is-active' if level == 'attention' else '' }}" href="{{ url_for('admin.stock_alerts', level='attention') }}">All alerts</a><a class="{{ 'is-active' if level == 'low' else '' }}" href="{{ url_for('admin.stock_alerts', level='low') }}">Low stock</a><a class="{{ 'is-active' if level == 'out' else '' }}" href="{{ url_for('admin.stock_alerts', level='out') }}">Out of stock</a></nav>
+<form class="ops-search" method="get" role="search"><input type="hidden" name="level" value="{{ level }}"><input type="search" name="q" value="{{ request.args.get('q','') }}" placeholder="Search product or SKU" aria-label="Search stock alerts"><button class="btn" type="submit">Search</button></form>
+<div class="ops-product-grid">
+{% for p in page.items %}
+<article class="ops-product-card" data-stock-card>
+  <div class="ops-product-card__top">{% set im = p.primary_image %}{% if im %}<img src="{{ im.thumb_url or im.url }}" alt="{{ p.name }}" loading="lazy">{% else %}<span class="ops-product-placeholder">RR</span>{% endif %}
+    <div class="ops-product-card__name"><h3>{{ p.name }}</h3><p>{{ p.sku }} · {{ p.category.name if p.category else 'Uncategorised' }}</p></div>
+    {% if p.stock_qty == 0 %}<span class="ops-state ops-state--out">Out of stock</span>{% else %}<span class="ops-state ops-state--low">Low stock</span>{% endif %}
+  </div>
+  <div class="ops-stock-summary"><div><small>Current stock</small><strong>{{ p.stock_qty }}</strong></div><div><small>Alert threshold</small><strong>{{ p.low_stock_threshold }}</strong></div><div><small>Price</small><strong>₹{{ p.final_price }}</strong></div></div>
+  <form class="ops-stock-form" method="post" action="{{ url_for('admin.stock_alert_update', product_id=p.id) }}" data-stock-stepper>
+    {{ m.csrf() }}<input type="hidden" name="expected" value="{{ p.stock_qty }}"><input type="hidden" name="level" value="{{ level }}">
+    <label for="stock-{{ p.id }}">New quantity</label><div class="ops-stepper"><button type="button" data-step="-1" aria-label="Decrease stock">−</button><input id="stock-{{ p.id }}" name="qty" type="number" min="0" max="1000000" step="1" value="{{ p.stock_qty }}" inputmode="numeric" required><button type="button" data-step="1" aria-label="Increase stock">+</button></div>
+    <button class="btn" type="submit">Save stock</button>
+  </form>
+  <a class="ops-product-edit" href="{{ url_for('admin.product_edit', product_id=p.id) }}">Edit product details →</a>
+</article>
+{% else %}<div class="ops-empty"><strong>You're all caught up.</strong><p>No products match this stock alert filter.</p></div>{% endfor %}
+</div>
+{{ m.pager(page, 'admin.stock_alerts', {'level': level, 'q': request.args.get('q','')}) }}
+<script src="{{ url_for('static', filename='js/admin-operations.js') }}" defer></script>
+{% endblock %}

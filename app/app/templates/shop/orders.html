@@ -1,0 +1,21 @@
+{% extends "shop/layout.html" %}
+{% block title %}My orders | RR FOODS{% endblock %}
+{% block robots %}noindex,nofollow{% endblock %}
+{% block content %}
+<div class="container">
+  <h1 class="pg-h">My orders</h1>
+  {% for o in page.items %}
+  <article class="ocard">
+    <div class="ocard__top">
+      <div><a href="{{ url_for('shop.order_detail', order_number=o.order_number) }}"><b>{{ o.order_number }}</b></a><br><span class="muted small">{{ o.created_at|local_display }}</span></div>
+      <span class="ostatus ostatus--{{ o.status }}">{{ labels.get(o.status, o.status) }}{% if o.delivery_date %} · {{ o.delivery_date.strftime('%d %b') }} {{ o.delivery_slot or '' }}{% endif %}</span>
+    </div>
+    <p class="ocard__items">{% for it in o.items[:3] %}{{ it.name }} × {{ it.quantity }}{% if not loop.last %}, {% endif %}{% endfor %}{% if o.items|length > 3 %} and {{ o.items|length - 3 }} more{% endif %}</p>
+    <div class="ocard__bot"><b>{{ s.inr(o.total) }}</b>{% if o.payment_status == 'pending' and o.status in ('placed', 'confirmed') %}<span class="ostatus ostatus--placed">Not paid</span>{% elif o.payment_status == 'paid' %}<span class="ostatus ostatus--delivered">Paid</span>{% endif %}<a class="btn btn--ghost" href="{{ url_for('shop.order_detail', order_number=o.order_number) }}">Track order</a></div>
+  </article>
+  {% else %}
+  <div class="empty"><h2>No orders yet</h2><p class="muted">When you place an order it will show up here.</p><a class="btn" href="{{ url_for('shop.listing') }}">Start shopping</a></div>
+  {% endfor %}
+  {{ s.pager(page, 'shop.orders', {}) }}
+</div>
+{% endblock %}

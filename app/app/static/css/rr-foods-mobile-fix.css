@@ -1,0 +1,154 @@
+/* RR FOODS - mobile storefront alignment fix.
+   1) Header: keep menu, logo, search and cart on ONE row (no empty white band under the logo).
+   2) Breadcrumbs: vertically align every crumb. */
+@media (max-width: 900px) {
+  html[data-shop] .sh__row {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    min-height: 56px !important;
+    padding-block: 0 !important;
+    row-gap: 0 !important;
+  }
+  html[data-shop] .sh__br,
+  html[data-shop] .sh__search { display: none !important; }
+  html[data-shop] .sh .brand { margin-right: auto !important; min-width: 0; overflow: hidden; }
+  html[data-shop] .sh__actions {
+    order: 0 !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    margin: 0 0 0 auto !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: .25rem !important;
+  }
+  html[data-shop] .sh__searchbtn { display: inline-flex !important; }
+  html[data-shop] .sh__cart {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    padding: 0 !important;
+    border-radius: 12px !important;
+    justify-content: center !important;
+  }
+  html[data-shop] .sh__cart .sh__cart-t { display: none !important; }
+}
+
+/* Breadcrumbs: link and plain-text crumbs share one centre line */
+html[data-shop] .crumbs ol { align-items: center !important; row-gap: 0; }
+html[data-shop] .crumbs li { display: inline-flex; align-items: center; min-height: 2.75rem; }
+html[data-shop] .crumbs li + li::before { line-height: 1; }
+
+/* Layering fix: the sticky header (z-index 1000) was drawn ABOVE the search overlay,
+   the menu drawer and the backdrop, so the overlay's search input sat hidden under the header.
+   Every full-screen layer must sit above the header. */
+html[data-shop] .backdrop { z-index: 1200 !important; }
+html[data-shop] .drawer   { z-index: 1210 !important; }
+html[data-shop] .sheet    { z-index: 1210 !important; }
+html[data-shop] .so       { z-index: 1220 !important; }
+html[data-shop] .toast    { z-index: 1230 !important; }
+html[data-shop] .zoom     { z-index: 1240 !important; }
+@media (min-width: 1024px) { html[data-shop] .sheet { z-index: 1 !important; } }
+
+/* ===== Compact blocks on phones: smaller category tiles, promo banners and "Shop by need" cards,
+   with tighter line spacing so more fits on screen. Desktop/tablet is untouched. ===== */
+@media (max-width: 640px) {
+  /* section headings */
+  html[data-shop] .sec { margin-block: 1.1rem !important; }
+  html[data-shop] .sec__h { font-size: 1.25rem !important; line-height: 1.2 !important; margin-bottom: .15rem !important; }
+  html[data-shop] .sec__sub { font-size: .85rem !important; line-height: 1.35 !important; margin-top: .1rem !important; }
+  html[data-shop] .sec__row { align-items: center !important; gap: .5rem !important; }
+  html[data-shop] .sec__row a { min-height: 2.25rem !important; white-space: nowrap; font-size: .9rem; }
+
+  /* Shop by category: short, 2-up tiles */
+  html[data-shop] .ctiles { gap: .5rem !important; margin-top: .6rem !important; }
+  html[data-shop] .ct { border-radius: 14px !important; }
+  html[data-shop] .ct__img { aspect-ratio: 16 / 9 !important; }
+  html[data-shop] .ct__ph { font-size: 1.5rem !important; }
+  html[data-shop] .ct__name { padding: .4rem .55rem 0 !important; font-size: .85rem !important; line-height: 1.25 !important; }
+  html[data-shop] .ct__n { padding: 0 .55rem .5rem !important; font-size: .72rem !important; line-height: 1.3 !important; }
+
+  /* Promo banners (Deals of the day, New arrivals, Bestsellers) */
+  html[data-shop] .promos { gap: .6rem !important; margin-block: .9rem !important; }
+  html[data-shop] .promo,
+  html[data-shop] .promo--lg,
+  html[data-shop] .promo--bestsellers,
+  html[data-shop] .promo--new-arrivals { min-height: 0 !important; padding: .85rem 1rem !important; border-radius: 16px !important; }
+  html[data-shop] .promo__copy { gap: .3rem !important; max-width: 85% !important; }
+  html[data-shop] .promo__copy h3,
+  html[data-shop] .promo--lg .promo__copy h3 { font-size: 1.15rem !important; line-height: 1.2 !important; }
+  html[data-shop] .promo__copy p,
+  html[data-shop] .promo--lg .promo__copy p { font-size: .85rem !important; line-height: 1.35 !important; }
+  html[data-shop] .promo__badge { font-size: .65rem !important; padding: .05rem .5rem !important; }
+  html[data-shop] .promo .btn { min-height: 2.25rem !important; padding: .35rem .9rem !important; font-size: .85rem !important; border-radius: 10px !important; }
+
+  /* Shop by need: compact 2-up cards, no big gaps */
+  html[data-shop] .band .band__in { padding-block: 1rem !important; }
+  html[data-shop] .needs { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: .5rem !important; margin-top: .6rem !important; }
+  html[data-shop] .need { padding: .65rem .7rem !important; gap: .15rem !important; border-radius: 14px !important; }
+  html[data-shop] .need__i { width: 1.9rem !important; height: 1.9rem !important; }
+  html[data-shop] .need__i svg { width: 1rem; height: 1rem; }
+  html[data-shop] .need b { font-size: .9rem !important; line-height: 1.25 !important; }
+  html[data-shop] .need small { font-size: .74rem !important; line-height: 1.3 !important; }
+  html[data-shop] .need__go { font-size: .8rem !important; padding-top: .1rem !important; }
+}
+
+/* ===== Categories anchor: land below the sticky header ===== */
+html[data-shop] #categories { scroll-margin-top: 5rem; }
+html { scroll-behavior: smooth; }
+
+/* ===== "How ordering works": horizontal swipe row on phones ===== */
+@media (max-width: 767px) {
+  html[data-shop] .steps {
+    display: flex !important;
+    grid-template-columns: none !important;
+    gap: .6rem !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-top: .6rem !important;
+    padding: 0 .1rem .4rem !important;
+  }
+  html[data-shop] .steps::-webkit-scrollbar { display: none; }
+  html[data-shop] .steps > li {
+    flex: 0 0 72%;
+    max-width: 18rem;
+    scroll-snap-align: start;
+    padding: .75rem .85rem !important;
+  }
+  html[data-shop] .steps > li b { font-size: .95rem; line-height: 1.25; }
+  html[data-shop] .steps > li p { font-size: .82rem; line-height: 1.35; margin: .2rem 0 0; }
+}
+
+/* ===== Search suggestions (popular searches, highlighted matches, combo tag) ===== */
+html[data-shop] .sg-h { padding: .55rem .75rem .2rem; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #6b6a63; list-style: none; }
+html[data-shop] .sugg a span b, html[data-shop] .so__list a span b { font-weight: 800; color: #1f5f3a; }
+html[data-shop] .sg-i { flex: none; color: #8a8a80; }
+html[data-shop] .sg-tag { flex: none; font-size: .65rem; font-weight: 700; text-transform: uppercase; background: #f2b84b; color: #3a2a05; border-radius: 999px; padding: .1rem .5rem; }
+html[data-shop] .so__list a[data-term], html[data-shop] .sugg a[data-term] { min-height: 2.6rem; }
+
+/* ===== Header offer banner on phones =====
+   Cause: .hc__viewport is locked to 16:9 (~200px tall on a phone) with overflow:hidden, while .hc__copy
+   (badge + title + subtitle + countdown + button) is taller than that, so the badge was cut off at the top
+   and the button at the bottom. Fix: let the banner grow to fit its copy, keep a minimum 16:9 height so the
+   artwork still shows, tighten the type and use a bottom-up scrim so text stays readable. */
+@media (max-width: 767px) {
+  html[data-shop] .hc__viewport { aspect-ratio: auto !important; height: auto !important; }
+  html[data-shop] .hc__track { height: auto !important; align-items: stretch; }
+  html[data-shop] .hc__slide { min-height: max(56.25vw, 17rem); }
+  html[data-shop] .hc__pic img { object-position: 70% center; }
+  html[data-shop] .hc__slide::after {
+    background: linear-gradient(0deg, rgb(7 29 18 / .88) 0%, rgb(7 29 18 / .6) 55%, rgb(7 29 18 / .15) 100%) !important;
+  }
+  html[data-shop] .hc__copy {
+    height: auto !important; min-height: 100%; max-width: 100%;
+    justify-content: flex-end; gap: .4rem;
+    padding: 1.25rem 1rem 1.1rem !important;
+  }
+  html[data-shop] .hc__badge { font-size: .65rem; line-height: 1.4; padding: .1rem .55rem; }
+  html[data-shop] .hc__title { font-size: 1.45rem; line-height: 1.15; }
+  html[data-shop] .hc__sub { font-size: .85rem; line-height: 1.4; max-width: 34ch; }
+  html[data-shop] .hc__cd { font-size: .85rem; line-height: 1.3; }
+  html[data-shop] .hc__btn { min-height: 2.25rem; font-size: .85rem; margin-top: .15rem; }
+}

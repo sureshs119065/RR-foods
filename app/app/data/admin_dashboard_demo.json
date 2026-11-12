@@ -1,0 +1,18 @@
+{
+  "label": "Illustrative sample data — replace with live store activity",
+  "total_sales": 128450,
+  "total_orders": 86,
+  "pending_orders": 7,
+  "low_stock_items": 5,
+  "daily_sales": [
+    {"label": "Mon", "value": 12400}, {"label": "Tue", "value": 15800},
+    {"label": "Wed", "value": 11900}, {"label": "Thu", "value": 18400},
+    {"label": "Fri", "value": 21300}, {"label": "Sat", "value": 27650},
+    {"label": "Sun", "value": 21000}
+  ],
+  "top_products": [
+    {"name": "Cold-Pressed Groundnut Oil", "units": 42},
+    {"name": "Traditional Sesame Oil", "units": 35},
+    {"name": "Country Sugar", "units": 28}
+  ]
+}

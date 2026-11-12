@@ -1,0 +1,3 @@
+# Daily PostgreSQL backup at 02:15 UTC. Set DATABASE_URL and BACKUP_DIR in cron environment.
+# Keep seven daily copies. BACKUP_DIR must be on persistent storage.
+15 2 * * * cd /opt/rr-foods && /bin/bash scripts/backup_postgres.sh >> /var/log/rr-foods-backup.log 2>&1

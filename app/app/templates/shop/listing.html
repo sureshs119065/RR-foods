@@ -1,0 +1,119 @@
+{% extends "shop/layout.html" %}
+{% block title %}{{ title }} | RR FOODS{% endblock %}
+{% block robots %}{{ 'index,follow' if index_ok else 'noindex,follow' }}{% endblock %}
+{% block head_extra %}
+  <meta name="description" content="{% if cat %}Buy {{ cat.name }} online from RR FOODS.{% elif bestseller_only %}Discover customer favourites at RR FOODS.{% else %}Browse all products from RR FOODS.{% endif %}">
+  <link rel="canonical" href="{{ canonical }}">
+{% endblock %}
+{% block content %}
+<div class="container">
+  {{ s.crumbs(crumbs) }}
+  <div class="lh">
+    <h1 class="lh__t">{{ title }} <span class="muted lh__n">({{ page.total }})</span></h1>
+  </div>
+  {% if not cat %}
+    <nav class="product-quick-filters" aria-label="Product collections">
+      <a class="chip" href="{{ url_for('shop.bestsellers') }}">Bestsellers</a>
+      <a class="chip" href="#category-filters">Categories</a>
+    </nav>
+    <div id="category-filters" class="product-category-filters" aria-label="Browse product categories">
+      {% for c in nav_categories() %}<a class="chip" href="{{ url_for('shop.category_listing', slug=c.slug) }}">{{ c.name }}</a>{% endfor %}
+    </div>
+  {% endif %}
+  {% if subcats %}
+    <ul class="chips2">{% for c in subcats %}<li><a class="chip" href="{{ url_for('shop.category_listing', slug=c.slug) }}">{{ c.name }}</a></li>{% endfor %}</ul>
+  {% endif %}
+
+  <div class="lay">
+    <div class="backdrop" id="sheet-backdrop" hidden></div>
+    <form class="filters sheet" id="filter-form" method="get"
+          action="{{ listing_url }}" aria-label="Product filters">
+      <div class="sheet__head">
+        <b>Filters</b>
+        <button class="icon-btn" type="button" data-sheet-close aria-label="Close filters">{{ s.icon('close') }}</button>
+      </div>
+      <div class="sheet__body">
+        {% if f.q %}<input type="hidden" name="q" value="{{ f.q }}">{% endif %}
+        {% if cat and listing_endpoint == 'shop.listing' %}<input type="hidden" name="category" value="{{ cat.slug }}">{% endif %}
+
+        <div class="acc" data-open>
+          <button class="acc__h" type="button" aria-expanded="true">Price</button>
+          <div class="acc__p"><div class="acc__i"><div class="acc__b">
+            <div class="pricebox">
+              <label>Min ₹<input type="number" name="min_price" inputmode="decimal" min="0" step="0.01" value="{{ request.args.get('min_price', '') }}"></label>
+              <label>Max ₹<input type="number" name="max_price" inputmode="decimal" min="0" step="0.01" value="{{ request.args.get('max_price', '') }}"></label>
+            </div>
+          </div></div></div>
+        </div>
+
+        {% if brands %}
+        <div class="acc" data-open>
+          <button class="acc__h" type="button" aria-expanded="true">Brand</button>
+          <div class="acc__p"><div class="acc__i"><div class="acc__b">
+            {% for b, n in brands %}
+              <label class="opt"><input type="checkbox" name="brand" value="{{ b }}" {% if b in f.brands %}checked{% endif %}> {{ b }} <span class="muted">({{ n }})</span></label>
+            {% endfor %}
+          </div></div></div>
+        </div>
+        {% endif %}
+
+        <div class="acc" data-open>
+          <button class="acc__h" type="button" aria-expanded="true">Customer rating</button>
+          <div class="acc__p"><div class="acc__i"><div class="acc__b">
+            {% for r in (4, 3, 2) %}
+              <label class="opt"><input type="radio" name="rating" value="{{ r }}" {% if f.rating == r %}checked{% endif %}> {{ r }}★ &amp; up</label>
+            {% endfor %}
+            <label class="opt"><input type="radio" name="rating" value="" {% if not f.rating %}checked{% endif %}> Any</label>
+          </div></div></div>
+        </div>
+
+        <div class="acc" data-open>
+          <button class="acc__h" type="button" aria-expanded="true">Discount</button>
+          <div class="acc__p"><div class="acc__i"><div class="acc__b">
+            {% for d in (10, 20, 30, 50) %}
+              <label class="opt"><input type="radio" name="discount" value="{{ d }}" {% if f.discount == d %}checked{% endif %}> {{ d }}% or more</label>
+            {% endfor %}
+            <label class="opt"><input type="radio" name="discount" value="" {% if not f.discount %}checked{% endif %}> Any</label>
+          </div></div></div>
+        </div>
+
+        <label class="opt opt--solo"><input type="checkbox" name="avail" value="1" {% if f.avail %}checked{% endif %}> Show only in-stock items</label>
+      </div>
+      <div class="sheet__foot">
+        <a class="btn btn--ghost" href="{{ clear_url }}">Clear all</a>
+        <button class="btn" type="submit">Apply</button>
+      </div>
+    </form>
+
+    <section class="results" aria-label="Products">
+      <div class="toolbar">
+        <button class="btn btn--ghost" type="button" data-sheet-open aria-controls="filter-form">
+          {{ s.icon('filter') }} Filters{% if f.active_count() %} ({{ f.active_count() }}){% endif %}
+        </button>
+        <label class="sortbox">Sort
+          <select name="sort" form="filter-form" data-autosubmit aria-label="Sort by">
+            {% for k, label in sorts.items() %}
+              {% if k != 'relevance' or f.q %}
+                <option value="{{ k }}" {% if f.sort == k %}selected{% endif %}>{{ label }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      {% if page.items %}
+        {{ s.grid(page.items) }}
+        {{ s.pager(page, listing_endpoint, listing_args) }}
+      {% else %}
+        <div class="empty">
+          <h2>No products match your filters</h2>
+          <p class="muted">Try changing your price range, rating or sorting options.</p>
+          <a class="btn" href="{{ clear_url }}">Clear all filters</a>
+          <p class="muted small empty__more">Or browse a category</p>
+          <ul class="chips2">{% for c in nav_categories() %}<li><a class="chip" href="{{ url_for('shop.category_listing', slug=c.slug) }}">{{ c.name }}</a></li>{% endfor %}</ul>
+          {% if config.get('WHATSAPP_NUMBER') %}<p><a class="btn btn--ghost" href="https://wa.me/{{ config.get('WHATSAPP_NUMBER') }}?text={{ ('Hi, I could not find ' ~ (request.args.get('q') or 'a product') ~ ' on your website. Do you have it?')|urlencode }}" target="_blank" rel="noopener">Can't find it? Ask us on WhatsApp</a></p>{% endif %}
+        </div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

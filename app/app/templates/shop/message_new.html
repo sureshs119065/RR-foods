@@ -1,0 +1,13 @@
+{% extends "shop/layout.html" %}
+{% block title %}Message RR FOODS | RR FOODS{% endblock %}
+{% block content %}
+<section class="container narrow2 inbox-page">
+  <div class="pagehead"><p class="eyebrow">Customer support</p><h1 class="pg-h">Message RR FOODS</h1><p class="muted">Your message is shared with both our Admin team and Shop Owner so the right person can help.</p></div>
+  <form method="post" class="inbox-form card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Subject<input name="subject" maxlength="160" minlength="3" required placeholder="e.g. Question about my order"></label>
+    <label>Your message<textarea name="body" rows="7" maxlength="4000" minlength="5" required placeholder="Tell us how we can help..."></textarea></label>
+    <div class="inbox-actions"><a class="btn btn--ghost" href="{{ url_for('shop.messages') }}">Cancel</a><button class="btn btn--accent" type="submit">Send message</button></div>
+  </form>
+</section>
+{% endblock %}

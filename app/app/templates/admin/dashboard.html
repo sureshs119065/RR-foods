@@ -1,0 +1,91 @@
+{% extends "admin/layout.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block heading %}Admin overview{% endblock %}
+{% block content %}
+<section class="admin-hero" aria-label="Administration overview">
+  <div>
+    <p class="admin-hero__eyebrow">RR FOODS · CONTROL CENTRE</p>
+    <h2>Store performance, under control.</h2>
+    <p>Monitor the catalogue, customer base and sales from one place.</p>
+  </div>
+  <span class="admin-hero__pill"><i></i> Admin workspace</span>
+</section>
+
+<section class="admin-priority" aria-label="Store health">
+  <div class="admin-section-head">
+    <div><span class="admin-kicker">STORE HEALTH</span><h2>Key indicators</h2></div>
+    <span class="admin-section-note">Live database totals</span>
+  </div>
+  <div class="admin-kpi-grid">
+    <a class="admin-kpi" href="{{ url_for('admin.orders') }}"><span class="admin-kpi__top"><span class="admin-kpi__icon">↗</span><span class="admin-kpi__tag">Fulfilment</span></span><strong>{{ stats.total_orders }}</strong><span class="admin-kpi__label">Total orders</span><span class="admin-kpi__foot">Review all orders <b>→</b></span></a>
+    <a class="admin-kpi {% if stats.pending_orders %}admin-kpi--warning{% endif %}" href="{{ url_for('admin.orders', status='placed') }}"><span class="admin-kpi__top"><span class="admin-kpi__icon">◷</span><span class="admin-kpi__tag">Needs action</span></span><strong>{{ stats.pending_orders }}</strong><span class="admin-kpi__label">Pending orders</span><span class="admin-kpi__foot">Orders awaiting confirmation <b>→</b></span></a>
+    <a class="admin-kpi admin-kpi--primary" href="{{ url_for('admin.products') }}">
+      <span class="admin-kpi__top"><span class="admin-kpi__icon">▦</span><span class="admin-kpi__tag">Catalogue</span></span>
+      <strong>{{ stats.products }}</strong><span class="admin-kpi__label">Total products</span>
+      <span class="admin-kpi__foot">{{ stats.active }} visible in shop <b>→</b></span>
+    </a>
+    <a class="admin-kpi {% if stats.low_stock %}admin-kpi--warning{% endif %}" href="{{ url_for('admin.stock_alerts', level='low') }}">
+      <span class="admin-kpi__top"><span class="admin-kpi__icon">!</span><span class="admin-kpi__tag">Restock soon</span></span>
+      <strong>{{ stats.low_stock }}</strong><span class="admin-kpi__label">Low-stock products</span>
+      <span class="admin-kpi__foot">Review stock levels <b>→</b></span>
+    </a>
+    <a class="admin-kpi {% if stats.out_of_stock %}admin-kpi--critical{% endif %}" href="{{ url_for('admin.stock_alerts', level='out') }}">
+      <span class="admin-kpi__top"><span class="admin-kpi__icon">×</span><span class="admin-kpi__tag">Urgent</span></span>
+      <strong>{{ stats.out_of_stock }}</strong><span class="admin-kpi__label">Out-of-stock products</span>
+      <span class="admin-kpi__foot">Restore availability <b>→</b></span>
+    </a>
+    <a class="admin-kpi" href="{{ url_for('admin.users') }}">
+      <span class="admin-kpi__top"><span class="admin-kpi__icon">◎</span><span class="admin-kpi__tag">Community</span></span>
+      <strong>{{ stats.users }}</strong><span class="admin-kpi__label">Customers</span>
+      <span class="admin-kpi__foot">Manage customer accounts <b>→</b></span>
+    </a>
+    <a class="admin-kpi" href="{{ url_for('admin.categories') }}">
+      <span class="admin-kpi__top"><span class="admin-kpi__icon">▤</span><span class="admin-kpi__tag">Organisation</span></span>
+      <strong>{{ stats.categories }}</strong><span class="admin-kpi__label">Categories</span>
+      <span class="admin-kpi__foot">Manage catalogue structure <b>→</b></span>
+    </a>
+    <a class="admin-kpi" href="{{ url_for('admin.offers') }}">
+      <span class="admin-kpi__top"><span class="admin-kpi__icon">%</span><span class="admin-kpi__tag">Promotions</span></span>
+      <strong>{{ stats.coupons }}</strong><span class="admin-kpi__label">Active coupons</span>
+      <span class="admin-kpi__foot">Manage offers and coupons <b>→</b></span>
+    </a>
+    <a class="admin-kpi" href="{{ url_for('admin.products', status='archived') }}">
+      <span class="admin-kpi__top"><span class="admin-kpi__icon">◫</span><span class="admin-kpi__tag">Catalogue</span></span>
+      <strong>{{ stats.archived }}</strong><span class="admin-kpi__label">Archived products</span>
+      <span class="admin-kpi__foot">Review archived items <b>→</b></span>
+    </a>
+    <a class="admin-kpi" href="{{ url_for('admin.banners') }}">
+      <span class="admin-kpi__top"><span class="admin-kpi__icon">▣</span><span class="admin-kpi__tag">Storefront</span></span>
+      <strong>{{ stats.banners }}</strong><span class="admin-kpi__label">Active banners</span>
+      <span class="admin-kpi__foot">Manage homepage banners <b>→</b></span>
+    </a>
+  </div>
+</section>
+
+{% include "shared/sales_analytics.html" %}
+
+{% if sales_analytics.accepted_orders == 0 %}
+<section class="ops-demo-panel" aria-label="Illustrative dashboard preview"><div class="ops-section-heading"><div><span class="ops-eyebrow">PREVIEW MODE</span><h2>Example store performance</h2></div><span class="ops-demo-pill">Sample data</span></div><p>{{ demo_data.label }}</p><div class="ops-demo-kpis"><div><small>Total sales</small><strong>₹{{ '{:,.0f}'.format(demo_data.total_sales) }}</strong></div><div><small>Orders</small><strong>{{ demo_data.total_orders }}</strong></div><div><small>Pending</small><strong>{{ demo_data.pending_orders }}</strong></div><div><small>Low stock</small><strong>{{ demo_data.low_stock_items }}</strong></div></div><div class="ops-demo-chart"><h3>Sales trend · sample week</h3><div class="ops-demo-bars">{% for day in demo_data.daily_sales %}<div><span data-bar-value="{{ (day.value / 27650 * 100)|round|int }}"></span><small>{{ day.label }}</small></div>{% endfor %}</div></div><div class="ops-demo-products"><h3>Top-selling products · sample</h3>{% for item in demo_data.top_products %}<div><span>{{ item.name }}</span><b>{{ item.units }} units</b></div>{% endfor %}</div></section>
+{% endif %}
+
+<section class="ops-dashboard-lower">
+  <div class="ops-section-heading"><div><span class="ops-eyebrow">LATEST ACTIVITY</span><h2>Recent orders</h2></div><a href="{{ url_for('admin.orders') }}">View all →</a></div>
+  <div class="ops-dashboard-columns">
+    <div class="ops-recent-orders">{% for o in recent_orders %}<a href="{{ url_for('admin.order_detail', order_id=o.id) }}"><span><b>{{ o.order_number }}</b><small>{{ o.user.name if o.user else 'Customer' }} · {{ o.created_at|local_display }}</small></span><span><b>₹{{ '%.2f'|format(o.total) }}</b><small>{{ o.status|replace('_',' ')|title }}</small></span></a>{% else %}<p class="ops-empty-inline">No orders have been placed yet.</p>{% endfor %}</div>
+    <div class="ops-recent-orders ops-low-list">{% for p in low_items %}<a href="{{ url_for('admin.stock_alerts') }}"><span><b>{{ p.name }}</b><small>{{ p.sku }}</small></span><span><b>{{ p.stock_qty }} left</b><small>{{ 'Out of stock' if p.stock_qty == 0 else 'Low stock' }}</small></span></a>{% else %}<p class="ops-empty-inline">No stock alerts right now.</p>{% endfor %}</div>
+  </div>
+</section>
+
+<section class="admin-quick-actions">
+  <div class="admin-section-head">
+    <div><span class="admin-kicker">WORKFLOW SHORTCUTS</span><h2>Quick actions</h2></div>
+    <span class="admin-section-note">Common admin tasks</span>
+  </div>
+  <div class="admin-action-grid">
+    <a href="{{ url_for('admin.product_new') }}"><span class="admin-action-icon">＋</span><span><b>Add product</b><small>Create a catalogue item</small></span><strong>→</strong></a>
+    <a href="{{ url_for('admin.banner_new') }}"><span class="admin-action-icon">▧</span><span><b>Add banner</b><small>Update storefront highlights</small></span><strong>→</strong></a>
+    <a href="{{ url_for('admin.products_import') }}"><span class="admin-action-icon">⇧</span><span><b>Import products</b><small>Upload catalogue CSV</small></span><strong>→</strong></a>
+    <a href="{{ url_for('admin.products_export') }}"><span class="admin-action-icon">⇩</span><span><b>Export products</b><small>Download catalogue CSV</small></span><strong>→</strong></a>
+  </div>
+</section>
+{% endblock %}

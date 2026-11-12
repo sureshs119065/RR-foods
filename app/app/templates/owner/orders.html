@@ -1,0 +1,107 @@
+{% extends "owner/layout.html" %}
+{% import "owner/_macros.html" as o %}
+{% import "admin/_macros.html" as m %}
+{% block title %}Orders{% endblock %}
+{% block heading %}Order management{% endblock %}
+{% block content %}
+<div class="owner-orders-intro">
+  <div><h2>Customer orders</h2><p class="hint">All orders in one live workflow, newest first. Update a stage to notify the customer automatically.</p></div>
+  <span class="owner-orders-total">{{ page.total }} orders</span>
+</div>
+<div class="owner-order-tools">
+  <form class="filters filters--one" method="get" role="search">
+    {% if unpaid %}<input type="hidden" name="pay" value="pending">{% endif %}
+    <input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Search order number, customer or phone" aria-label="Search orders" inputmode="search">
+    <button class="btn" type="submit">Search orders</button>
+  </form>
+  <a class="chip {% if unpaid %}chip--on{% endif %}" href="{{ url_for('owner.orders', pay=None if unpaid else 'pending', q=request.args.get('q') or None) }}" {% if unpaid %}aria-current="true"{% endif %}>{{ '✓ ' if unpaid else '' }}Not paid only</a>
+</div>
+{% set stages = [('placed','Order placed'),('confirmed','Confirmed'),('packed','Packed'),('shipped','Shipped'),('out_for_delivery','Out for delivery'),('delivered','Delivered')] %}
+{% set progress_statuses = ['placed','confirmed','packed','shipped','out_for_delivery','delivered'] %}
+<div class="owner-order-list">
+{% for ord in page.items %}
+  {% set addr = ord.shipping_address or {} %}
+  {% set ix = progress_statuses.index(ord.status) if ord.status in progress_statuses else -1 %}
+  {% set nxt = svc.next_step(ord.status) %}
+  <article class="owner-order-card">
+    <div class="owner-order-card__head">
+      <div><a class="owner-order-number" href="{{ url_for('owner.order_detail', order_id=ord.id) }}">{{ ord.order_number }}</a><p class="hint">{{ ord.created_at|local_display }}{% if ord.status == 'placed' %} · waiting {{ ord.created_at|ago }}{% endif %}</p></div>
+      <div class="owner-order-card__badges">{{ o.status_badge(ord.status) }}{{ o.pay_badge(ord) }}</div>
+    </div>
+    <div class="owner-order-meta">
+      {% if ord.delivery_date %}<span><small>Delivery slot</small><b>{{ ord.delivery_date.strftime('%d %b') }} · {{ ord.delivery_slot or 'TBC' }}</b></span>{% endif %}
+      <span><b>{{ addr.get('full_name') or ord.user.name }}</b>{% if addr.get('phone') %}<small>{{ addr.get('phone') }}</small>{% endif %}</span>
+      <span><small>Items</small><b>{{ ord.items|sum(attribute='quantity') }}</b></span>
+      <span><small>Order total</small><b>{{ o.inr(ord.total) }}</b></span>
+    </div>
+    {% if ix >= 0 %}
+      <ol class="order-mini-route" aria-label="{{ ord.order_number }} delivery progress">
+        {% for stage,label in stages %}
+          <li class="{{ 'is-done' if loop.index0 < ix else 'is-current' if loop.index0 == ix else 'is-next' }}" {% if loop.index0 == ix %}aria-current="step"{% endif %}>
+            <span class="order-mini-route__dot">{% if loop.index0 < ix %}✓{% else %}{{ loop.index }}{% endif %}</span><span>{{ label }}</span>
+          </li>
+        {% endfor %}
+      </ol>
+    {% elif ord.status == 'rejected' %}
+      <p class="owner-order-special owner-order-special--rejected"><strong>Order rejected.</strong>{% if ord.rejection_reason %} {{ ord.rejection_reason }}{% else %} The customer has been notified.{% endif %}</p>
+    {% else %}
+      <p class="owner-order-special">{{ svc.LABELS.get(ord.status, ord.status|replace('_',' ')|title) }} · View order details for return or cancellation actions.</p>
+    {% endif %}
+    <div class="owner-order-card__foot">
+      <div class="owner-order-card__actions">
+        {% if nxt and ord.status not in ('rejected','cancelled') %}
+          <form class="inline" method="post" action="{{ url_for('owner.order_status', order_id=ord.id) }}" data-once>
+            {{ m.csrf() }}<input type="hidden" name="to" value="{{ nxt }}"><input type="hidden" name="from_status" value="{{ ord.status }}"><input type="hidden" name="next" value="{{ next_url }}">
+            <button class="btn btn--sm owner-order-primary" type="submit">{{ svc.ACTION_LABELS[nxt] }}</button>
+          </form>
+        {% endif %}
+        {% set wa = wa_customer_link(ord) %}
+        {% if wa and ord.status in ('placed','confirmed','packed','shipped','out_for_delivery') %}<a class="btn btn--ghost btn--sm" href="{{ wa }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('owner.order_detail', order_id=ord.id) }}">View details</a>
+        {% if svc.can_reject(ord.status) %}
+          <button class="btn btn--danger btn--sm" type="button" data-reject-order data-action="{{ url_for('owner.order_status', order_id=ord.id) }}" data-from-status="{{ ord.status }}" data-order-number="{{ ord.order_number|e }}">Reject order</button>
+        {% endif %}
+      </div>
+    </div>
+  </article>
+{% else %}
+  <div class="panel owner-orders-empty"><h3>No orders found</h3><p class="hint">There are no orders{% if request.args.get('q') %} matching your search{% endif %}{% if unpaid %} that are awaiting payment{% endif %}.</p></div>
+{% endfor %}
+</div>
+{{ m.pager(page, 'owner.orders', args) }}
+
+<dialog class="owner-reject-dialog" id="reject-order-dialog" aria-labelledby="reject-dialog-title">
+  <form method="post" id="reject-order-form">
+    {{ m.csrf() }}
+    <input type="hidden" name="to" value="rejected">
+    <input type="hidden" name="from_status" id="reject-from-status">
+    <input type="hidden" name="next" value="{{ next_url }}">
+    <h2 id="reject-dialog-title">Reject this order?</h2>
+    <p class="hint" id="reject-order-number">The customer will be notified and reserved stock will be restored.</p>
+    <label class="owner-reject-label" for="reject-reason">Reason (optional)</label>
+    <textarea id="reject-reason" name="reason" rows="3" maxlength="300" placeholder="For example: item unavailable or delivery area not covered"></textarea>
+    <div class="owner-reject-actions">
+      <button class="btn btn--ghost" type="button" data-close-reject>Keep order</button>
+      <button class="btn btn--danger" type="submit">Confirm rejection</button>
+    </div>
+  </form>
+</dialog>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const dialog = document.getElementById('reject-order-dialog');
+  const form = document.getElementById('reject-order-form');
+  if (!dialog || !form) return;
+  document.querySelectorAll('[data-reject-order]').forEach((button) => {
+    button.addEventListener('click', () => {
+      form.action = button.dataset.action;
+      document.getElementById('reject-from-status').value = button.dataset.fromStatus;
+      document.getElementById('reject-order-number').textContent = `Reject ${button.dataset.orderNumber}? The customer will be notified and reserved stock will be restored.`;
+      document.getElementById('reject-reason').value = '';
+      dialog.showModal();
+    });
+  });
+  dialog.querySelector('[data-close-reject]').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+});
+</script>
+{% endblock %}

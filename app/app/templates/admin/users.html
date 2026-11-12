@@ -1,0 +1,37 @@
+{% extends "admin/layout.html" %}
+{% block title %}Users{% endblock %}
+{% block heading %}Users{% endblock %}
+{% block content %}
+<div class="pagehead"><h2>Users <span class="hint">({{ page.total }})</span></h2><a class="btn" href="{{ url_for('admin.owner_new') }}">Add owner account</a></div>
+<form class="filters" method="get" role="search">
+  <input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Search name, email or phone" aria-label="Search users">
+  <select name="role" aria-label="Role">{% for v, t in [("", "All roles"), ("user", "Customers"), ("owner", "Owners"), ("admin", "Admins")] %}<option value="{{ v }}" {% if request.args.get('role', '') == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+  <select name="state" aria-label="Status">{% for v, t in [("", "Any status"), ("blocked", "Blocked only")] %}<option value="{{ v }}" {% if request.args.get('state', '') == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+  <button class="btn" type="submit">Apply</button>
+</form>
+<div class="table-wrap"><table class="table">
+  <thead><tr><th>Name</th><th>Role</th><th>Phone</th><th>Last sign-in</th><th>Status</th><th>Actions</th></tr></thead>
+  <tbody>
+  {% for u in page.items %}
+    <tr>
+      <td class="cell-main">{{ u.name }}<br><span class="hint">{{ u.email }}</span></td>
+      <td data-label="Role"><span class="badge">{{ u.role }}</span></td>
+      <td data-label="Phone">{{ u.phone or '—' }}</td>
+      <td data-label="Last sign-in">{{ u.last_login_at|local_display or 'Never' }}</td>
+      <td data-label="Status">{% if u.is_blocked %}<span class="badge badge--bad">Blocked</span>{% elif u.locked_until and u.locked_until > now_utc %}<span class="badge badge--warn">Locked</span>{% else %}<span class="badge badge--ok">Active</span>{% endif %}</td>
+      <td class="cell-actions">
+        {% if u.id != current_user.id %}
+          {% if u.is_blocked %}
+            <form class="inline" method="post" action="{{ url_for('admin.user_unblock', user_id=u.id) }}">{{ m.csrf() }}<button class="btn btn--sm" type="submit">Unblock</button></form>
+          {% else %}
+            <form class="inline" method="post" action="{{ url_for('admin.user_block', user_id=u.id) }}">{{ m.csrf() }}<button class="btn btn--warn btn--sm" type="submit" data-confirm="Block {{ u.email }}? They will be signed out.">Block</button></form>
+          {% endif %}
+          <form class="inline" method="post" action="{{ url_for('admin.user_reset_password', user_id=u.id) }}">{{ m.csrf() }}<button class="btn btn--ghost btn--sm" type="submit" data-confirm="Create a new temporary password for {{ u.email }}? Their old password stops working.">Reset password</button></form>
+        {% else %}<span class="hint">This is you</span>{% endif %}
+      </td>
+    </tr>
+  {% else %}<tr><td class="cell-main" colspan="6">No users match.</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+{{ m.pager(page, 'admin.users', args) }}
+{% endblock %}

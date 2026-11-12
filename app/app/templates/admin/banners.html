@@ -1,0 +1,52 @@
+{% extends "admin/layout.html" %}
+{% block title %}Header banners{% endblock %}
+{% block heading %}Header banners{% endblock %}
+{% block content %}
+<div class="pagehead">
+  <h2>Header offer banners</h2>
+  <a class="btn" href="{{ url_for('admin.banner_new') }}">Add banner</a>
+</div>
+<div class="panel">
+  <h3>Quick start</h3>
+  <div class="row">
+    {% for key, label in [("festival", "Festival offer"), ("today", "Today's special"), ("flash", "Flash sale"), ("coupon", "Coupon offer")] %}
+      <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.banner_new', template=key) }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+<p class="hint">Drag the rows to change the order (or use the Up and Down buttons). Only banners that are on and inside their dates are shown to customers.</p>
+<p id="sort-status" class="hint" role="status" aria-live="polite"></p>
+<ul class="sortable" data-sortable="{{ url_for('admin.banner_reorder') }}">
+  {% for b, status in rows %}
+  <li data-id="{{ b.id }}">
+    <div class="pcell">
+      {% if b.desktop_image %}<img class="thumb" src="{{ b.desktop_image }}" alt="" loading="lazy" width="48" height="48">{% else %}<span class="thumb" aria-hidden="true"></span>{% endif %}
+      <span><b>{{ b.title }}</b>
+        <span class="hint">{% if b.start_at or b.end_at %}{{ b.start_at|local_display or 'now' }} → {{ b.end_at|local_display or 'no end' }}{% else %}No schedule{% endif %}{% if b.countdown_enabled %} · countdown{% endif %}</span></span>
+    </div>
+    <span class="badge {{ {'live': 'badge--ok', 'scheduled': 'badge--warn', 'expired': 'badge--bad', 'off': ''}[status] }}">{{ {'live': 'Live', 'scheduled': 'Scheduled', 'expired': 'Expired', 'off': 'Off'}[status] }}</span>
+    <div class="row">
+      <form class="inline" method="post" action="{{ url_for('admin.banner_move', banner_id=b.id) }}">{{ m.csrf() }}<input type="hidden" name="direction" value="up"><button class="btn btn--ghost btn--sm" type="submit" aria-label="Move {{ b.title }} up">Up</button></form>
+      <form class="inline" method="post" action="{{ url_for('admin.banner_move', banner_id=b.id) }}">{{ m.csrf() }}<input type="hidden" name="direction" value="down"><button class="btn btn--ghost btn--sm" type="submit" aria-label="Move {{ b.title }} down">Down</button></form>
+      <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.banner_edit', banner_id=b.id) }}">Edit</a>
+      <form class="inline" method="post" action="{{ url_for('admin.banner_toggle', banner_id=b.id) }}">{{ m.csrf() }}<button class="btn btn--warn btn--sm" type="submit">{{ 'Turn off' if b.is_active else 'Turn on' }}</button></form>
+      <form class="inline" method="post" action="{{ url_for('admin.banner_duplicate', banner_id=b.id) }}">{{ m.csrf() }}<button class="btn btn--ghost btn--sm" type="submit">Duplicate</button></form>
+      <form class="inline" method="post" action="{{ url_for('admin.banner_delete', banner_id=b.id) }}">{{ m.csrf() }}<button class="btn btn--danger btn--sm" type="submit" data-confirm="Delete “{{ b.title }}”?">Delete</button></form>
+    </div>
+  </li>
+  {% else %}
+  <li><span>No banners yet. The banner area stays hidden on the home page until you add one.</span></li>
+  {% endfor %}
+</ul>
+
+<form method="post" action="{{ url_for('admin.banner_settings') }}" class="panel form narrow-form" aria-labelledby="set-title">
+  {{ m.csrf() }}
+  <h3 id="set-title">Carousel settings</h3>
+  {{ m.field("interval_seconds", "Seconds on each banner", (settings.header_carousel_interval_ms // 1000), "number", {}, inputmode="numeric", hint="2 to 30. Default 5.") }}
+  {{ m.field("max_banners", "Most banners shown at once", settings.header_carousel_max_banners, "number", {}, inputmode="numeric", hint="1 to 10") }}
+  {{ m.select("transition", "Transition", [("slide", "Slide"), ("fade", "Fade")], settings.header_carousel_transition) }}
+  {{ m.checkbox("autoplay", "Rotate automatically", settings.header_carousel_autoplay) }}
+  <button class="btn" type="submit">Save settings</button>
+</form>
+{% endblock %}

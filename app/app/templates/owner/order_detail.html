@@ -1,0 +1,192 @@
+{% extends "owner/layout.html" %}
+{% import "owner/_macros.html" as o %}
+{% import "admin/_macros.html" as m %}
+{% block title %}Order {{ order.order_number }}{% endblock %}
+{% block heading %}Order {{ order.order_number }}{% endblock %}
+{% block content %}
+{% set addr = order.shipping_address or {} %}
+{% set nxt = svc.next_step(order.status) %}
+<p class="row"><a href="{{ url_for('owner.orders') }}">&larr; All orders</a></p>
+{% if order.status not in ('placed', 'rejected', 'cancelled') %}<p><a class="btn btn--block" href="{{ url_for('owner.order_invoice', order_id=order.id) }}" download>&#11015; Download invoice (PDF)</a></p>{% endif %}
+
+<section class="panel">
+  <div class="row">{{ o.status_badge(order.status) }}{{ o.pay_badge(order) }}<span class="hint">Placed {{ order.created_at|local_display }}</span></div>
+  {% if order.status == 'rejected' %}
+    <p class="notice">Rejected. Reason given to the customer: <b>{{ order.rejection_reason }}</b>
+    {% if order.payment_status == 'paid' %}<br><b>This order was marked paid. Send the refund to the customer yourself (UPI or bank transfer) and tell them on WhatsApp.</b>{% endif %}</p>
+  {% endif %}
+  {% if order.status == 'return_requested' %}<p class="notice"><b>The customer asked to return this order.</b> See the reason in History below. Accept it (tick “put items back in stock” only if they are resellable) or decline it with a reason.</p>{% endif %}
+  {% if order.status == 'returned' %}<p class="notice">Return accepted. Refund the customer (send the money by UPI or bank transfer), then press <b>Mark refunded</b>.</p>{% endif %}
+  {% if order.status == 'cancelled' %}
+    <p class="notice">Cancelled by the customer. The items went back into stock.
+    {% if order.payment_status == 'paid' %}<br><b>This order was marked paid. Send the refund to the customer yourself (UPI or bank transfer).</b>{% endif %}</p>
+  {% endif %}
+  {% if order.gift_message %}<p class="notice"><b>Gift message:</b> {{ order.gift_message }}</p>{% endif %}
+  {% if order.hide_prices %}<p class="notice">Customer requested prices hidden on invoice.</p>{% endif %}
+  {% if order.customer_notes %}<p class="notice"><b>Customer note:</b> {{ order.customer_notes }}</p>{% endif %}
+  {% if order.delivery_date %}<p class="notice"><b>Delivery slot:</b> {{ order.delivery_date.strftime('%d %b %Y') }} · {{ order.delivery_slot or 'Not set' }}</p>{% endif %}
+  <p><a class="btn btn--ghost" href="{{ url_for('owner.packing_slip', order_id=order.id) }}" target="_blank">Print packing slip</a></p>
+</section>
+
+{% set stages = [
+  ('placed', 'Order placed', 'Receipt received'),
+  ('confirmed', 'Confirmed', 'Shop accepted'),
+  ('packed', 'Packed', 'Ready to dispatch'),
+  ('shipped', 'Shipped', 'On the way'),
+  ('out_for_delivery', 'Out for delivery', 'Near customer'),
+  ('delivered', 'Delivered', 'Order completed')
+] %}
+{% set progress_statuses = ['placed','confirmed','packed','shipped','out_for_delivery','delivered'] %}
+{% set current_index = progress_statuses.index(order.status) if order.status in progress_statuses else -1 %}
+<section class="panel order-route-panel" aria-labelledby="route-progress-title">
+  <div class="order-route-heading">
+    <div><h2 id="route-progress-title">Live order tracking</h2><p class="hint">Select the next stage as the order moves through your shop. The customer is notified automatically after each update.</p></div>
+    {{ o.status_badge(order.status) }}
+  </div>
+  {% if current_index >= 0 %}
+  <ol class="order-route" aria-label="Order progress">
+    {% for stage, label, note in stages %}
+      {% set stage_index = loop.index0 %}
+      <li class="order-route__stop {{ 'is-done' if stage_index < current_index else 'is-current' if stage_index == current_index else 'is-next' }}">
+        <span class="order-route__marker" aria-hidden="true">{% if stage_index < current_index %}✓{% else %}{{ loop.index }}{% endif %}</span>
+        <span class="order-route__copy"><b>{{ label }}</b><small>{{ note }}</small>
+        {% if stage_index == current_index %}<em>Current stage</em>{% elif stage_index < current_index %}<em>Completed</em>{% endif %}</span>
+        {% if stage_index == current_index + 1 and svc.next_step(order.status) == stage %}
+          <form method="post" action="{{ url_for('owner.order_status', order_id=order.id) }}" class="order-route__action" data-once>
+            {{ m.csrf() }}<input type="hidden" name="to" value="{{ stage }}"><input type="hidden" name="from_status" value="{{ order.status }}">
+            {% if stage == 'confirmed' and order.payment_status == 'pending' %}<label class="order-route__paid"><input type="checkbox" name="paid" value="1"> Payment received</label>{% endif %}
+            <button class="btn btn--sm" type="submit">{{ 'Mark delivered' if stage == 'delivered' else 'Mark ' ~ label|lower }}</button>
+          </form>
+        {% elif order.status == 'shipped' and stage == 'delivered' %}
+          <form method="post" action="{{ url_for('owner.order_status', order_id=order.id) }}" class="order-route__action" data-once>
+            {{ m.csrf() }}<input type="hidden" name="to" value="delivered"><input type="hidden" name="from_status" value="shipped">
+            <button class="btn btn--ghost btn--sm" type="submit">Skip to delivered</button>
+          </form>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+    <p class="notice">This order is in the <b>{{ svc.LABELS.get(order.status, order.status) }}</b> workflow. Review the order history below for return, rejection or cancellation updates.</p>
+  {% endif %}
+</section>
+
+
+<section class="panel" aria-labelledby="tracking-edit-title">
+  <h2 id="tracking-edit-title">Courier tracking details</h2>
+  <form method="post" action="{{ url_for('owner.order_tracking', order_id=order.id) }}" class="form" data-once>
+    {{ m.csrf() }}
+    <label class="field"><span>Courier name</span><input name="courier_name" maxlength="120" value="{{ order.courier_name or '' }}" autocomplete="off"></label>
+    <label class="field"><span>Tracking ID</span><input name="tracking_id" maxlength="120" value="{{ order.tracking_id or '' }}" autocomplete="off"></label>
+    <label class="field"><span>Tracking URL (HTTPS)</span><input type="url" name="tracking_url" maxlength="500" value="{{ order.tracking_url or '' }}" placeholder="https://courier.example/track/..."></label>
+    <button class="btn" type="submit">Save tracking details</button>
+  </form>
+</section>
+
+<section class="panel"><h2>Send order update on WhatsApp</h2><p class="hint">Opens WhatsApp with a message in the customer's saved language. The history records that the message was opened; confirm sending in WhatsApp.</p><div class="row">{% for stage in ['confirmed','packed','shipped','delivered'] %}<form method="post" action="{{ url_for('owner.whatsapp_update', order_id=order.id) }}">{{ m.csrf() }}<input type="hidden" name="stage" value="{{ stage }}"><button class="btn btn--ghost" type="submit">{{ stage|title }}</button></form>{% endfor %}</div><p><a href="{{ url_for('owner.whatsapp_templates') }}">Edit message templates</a></p></section>
+
+<section class="panel" aria-labelledby="wa-h">
+  <h2 id="wa-h">WhatsApp and payment</h2>
+  {% set wa = wa_customer_link(order) %}
+  <div class="row">
+    {% if wa %}<a class="btn" href="{{ wa }}" target="_blank" rel="noopener">Message customer on WhatsApp</a>{% else %}<span class="hint">No valid customer phone number.</span>{% endif %}
+    {% if order.status not in ('rejected', 'cancelled', 'refunded') and order.payment_status in ('pending', 'paid') %}
+      <form class="inline" method="post" action="{{ url_for('owner.order_payment', order_id=order.id) }}" data-once>
+        {{ m.csrf() }}<input type="hidden" name="paid" value="{{ '0' if order.payment_status == 'paid' else '1' }}">
+        <button class="btn {{ 'btn--ghost' if order.payment_status == 'paid' else '' }}" type="submit" {% if order.payment_status == 'paid' %}data-confirm="Mark order {{ order.order_number }} as NOT paid?"{% endif %}>{{ 'Mark as not paid' if order.payment_status == 'paid' else 'Mark as paid (money received)' }}</button>
+      </form>
+    {% endif %}
+  </div>
+  <p class="hint">The message is written for you and matches the order status. Take the payment on WhatsApp, then mark the order paid here.</p>
+</section>
+
+<div class="grid-2">
+  <section class="panel" aria-labelledby="items-h">
+    <h2 id="items-h">Items</h2>
+    <ul class="lines">
+      {% for it in order.items %}
+        <li>
+          <span><b>{{ it.name }}</b><span class="hint">{{ it.sku or '' }}{% if it.pack_size %} · {{ it.pack_size }}{% endif %}</span></span>
+          <span class="lines__qty">{{ it.quantity }} × {{ o.inr(it.unit_price) }}</span>
+          <span class="lines__total">{{ o.inr(it.line_total) }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+    <dl class="totals">
+      <div><dt>Items</dt><dd>{{ o.inr(order.subtotal) }}</dd></div>
+      {% if order.discount_total %}<div><dt>Discount{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</dt><dd>− {{ o.inr(order.discount_total) }}</dd></div>{% endif %}
+      <div><dt>Delivery</dt><dd>{{ o.inr(order.delivery_fee) }}</dd></div>
+      {% if order.tax_total %}<div><dt>Tax</dt><dd>{{ o.inr(order.tax_total) }}</dd></div>{% endif %}
+      <div class="totals__grand"><dt>Total{% if order.payment_status == 'pending' %} to receive{% endif %}</dt><dd>{{ o.inr(order.total) }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="panel" aria-labelledby="ship-h">
+    <h2 id="ship-h">Deliver to</h2>
+    <address class="addr">
+      <b>{{ addr.get('full_name') or order.user.name }}</b><br>
+      {% if addr.get('phone') %}<a href="tel:{{ addr.get('phone') }}">{{ addr.get('phone') }}</a><br>{% endif %}
+      {{ addr.get('line1', '') }}{% if addr.get('line2') %}, {{ addr.get('line2') }}{% endif %}<br>
+      {{ addr.get('city', '') }}{% if addr.get('state') %}, {{ addr.get('state') }}{% endif %} {{ addr.get('pincode', '') }}
+    </address>
+  </section>
+</div>
+
+<section class="panel" aria-labelledby="tl-h">
+  <h2 id="tl-h">History</h2>
+  <ol class="timeline">
+    {% for h, who in history %}
+      <li>
+        <b>{{ o.status_badge(h.to_status) }}</b>
+        <span class="hint">{{ h.created_at|local_display }}{% if who %} · {{ who }}{% elif h.changed_by is none %} · system{% endif %}</span>
+        {% if h.note %}<span class="timeline__note">{{ h.note }}</span>{% endif %}
+      </li>
+    {% else %}<li class="muted">No changes yet.</li>{% endfor %}
+  </ol>
+</section>
+
+{% if svc.can_reject(order.status) %}
+<section class="acc" aria-label="Reject this order">
+  <button class="acc__head" type="button" aria-expanded="false">Reject this order</button>
+  <div class="acc__panel"><div class="acc__inner"><div class="acc__body">
+    <form method="post" action="{{ url_for('owner.order_status', order_id=order.id) }}" data-once>
+      {{ m.csrf() }}<input type="hidden" name="to" value="rejected"><input type="hidden" name="from_status" value="{{ order.status }}">
+      <label class="field">
+        <span>Reason (the customer will see this)</span>
+        <textarea name="reason" rows="3" minlength="{{ svc.REASON_MIN }}" maxlength="{{ svc.REASON_MAX }}" required id="reject-reason"></textarea>
+      </label>
+      <p class="row" aria-label="Quick reasons">
+        {% for r in ['Item is out of stock', 'We cannot deliver to this pincode', 'We could not reach the customer', 'Problem with the payment'] %}
+          <button class="chip" type="button" data-fill="#reject-reason" data-text="{{ r }}.">{{ r }}</button>
+        {% endfor %}
+      </p>
+      <p class="hint">The items go back into stock and the customer is told.</p>
+      <button class="btn btn--danger" type="submit" data-confirm="Reject order {{ order.order_number }}? This cannot be undone.">Reject order</button>
+    </form>
+  </div></div></div>
+</section>
+{% endif %}
+
+{% if order.status == 'return_requested' %}
+<section class="acc" aria-label="Decline this return">
+  <button class="acc__head" type="button" aria-expanded="false">Decline this return</button>
+  <div class="acc__panel"><div class="acc__inner"><div class="acc__body">
+    <form method="post" action="{{ url_for('owner.order_status', order_id=order.id) }}" data-once>
+      {{ m.csrf() }}<input type="hidden" name="to" value="delivered"><input type="hidden" name="from_status" value="return_requested">
+      <label class="field"><span>Reason (the customer will see this)</span><textarea name="reason" rows="3" minlength="{{ svc.REASON_MIN }}" maxlength="{{ svc.REASON_MAX }}" required></textarea></label>
+      <button class="btn btn--danger" type="submit" data-confirm="Decline this return?">Decline return</button>
+    </form>
+  </div></div></div>
+</section>
+{% endif %}
+
+{% if order.status in ('return_requested', 'returned') and nxt %}
+<form class="formbar" method="post" action="{{ url_for('owner.order_status', order_id=order.id) }}" data-once>
+  {{ m.csrf() }}<input type="hidden" name="to" value="{{ nxt }}"><input type="hidden" name="from_status" value="{{ order.status }}">
+  {% if order.status == 'return_requested' %}<label class="opt"><input type="checkbox" name="restock" value="1"> Put the items back in stock</label>{% endif %}
+  {% if nxt == 'confirmed' and order.payment_status == 'pending' %}<label class="opt"><input type="checkbox" name="paid" value="1"> Payment already received on WhatsApp (mark as paid)</label>{% endif %}
+  <button class="btn" type="submit">{{ svc.ACTION_LABELS[nxt] }}</button>
+</form>
+
+{% endif %}
+{% endblock %}

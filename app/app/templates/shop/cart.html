@@ -1,0 +1,103 @@
+{% extends "shop/layout.html" %}
+{% block title %}Your cart | RR FOODS{% endblock %}
+{% block robots %}noindex,nofollow{% endblock %}
+{% macro line(l, saved=False) %}
+<li class="cl {% if l.error %}cl--bad{% endif %}">
+  <a class="cl__img" href="{{ url_for('shop.product', slug=l.product.slug) }}">{% if l.image %}<img src="{{ l.image.thumb_url or l.image.url }}" alt="" loading="lazy" width="96" height="96">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}</a>
+  <div class="cl__main">
+    <a class="cl__name" href="{{ url_for('shop.product', slug=l.product.slug) }}">{{ l.product.name }}</a>
+    {% if l.label %}<span class="muted small">{{ l.label }}</span>{% endif %}
+    <span class="cl__price"><b>{{ s.inr(l.unit_price) }}</b>{% if l.mrp > l.unit_price %} <s class="muted">{{ s.inr(l.mrp) }}</s>{% endif %}</span>
+    {% if l.error %}<span class="cl__err" role="alert">{{ l.error }}</span>{% elif l.stock <= 5 and not saved %}<span class="stock stock--low">Only {{ l.stock }} left</span>{% endif %}
+  </div>
+  <div class="cl__act">
+    {% if not saved %}
+    <form method="post" action="{{ url_for('shop.cart_qty', item_id=l.item.id) }}" class="stepper" data-cartqty>
+      {{ s.csrf() }}
+      <button type="submit" name="action" value="dec" aria-label="Decrease quantity of {{ l.product.name }}">−</button>
+      <output aria-live="polite">{{ l.qty }}</output>
+      <button type="submit" name="action" value="inc" aria-label="Increase quantity of {{ l.product.name }}" {% if l.qty >= l.limit %}disabled{% endif %}>+</button>
+    </form>
+    <b class="cl__total">{{ s.inr(l.total) }}</b>
+    {% endif %}
+    <div class="cl__links">
+      <form method="post" action="{{ url_for('shop.cart_save', item_id=l.item.id) }}">{{ s.csrf() }}<input type="hidden" name="saved" value="{{ 0 if saved else 1 }}"><button class="linkish" type="submit">{{ 'Move to cart' if saved else 'Save for later' }}</button></form>
+      <form method="post" action="{{ url_for('shop.cart_remove', item_id=l.item.id) }}">{{ s.csrf() }}<button class="linkish linkish--bad" type="submit">Remove</button></form>
+    </div>
+  </div>
+</li>
+{% endmacro %}
+{% block content %}
+<div class="container">
+  <h1 class="pg-h">Your cart {% if view.count %}<span class="muted">({{ view.count }} item{{ '' if view.count == 1 else 's' }})</span>{% endif %}</h1>
+  {% if view.lines %}<p class="muted small">Order before {{ delivery_settings.cutoff_time }} for next-day delivery, subject to available slots.</p>{% endif %}
+  {% if not view.lines and not view.saved %}
+    <div class="empty"><h2>Your cart is empty</h2><p class="muted">Add something tasty and it will wait for you here.</p><a class="btn" href="{{ url_for('shop.listing') }}">Start shopping</a></div>
+  {% else %}
+  <div class="cartlay">
+    <div>
+      {% if view.problems %}<div class="alert alert--error" role="alert"><b>Fix these before checkout:</b><ul>{% for p in view.problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
+      {% if view.lines %}<ul class="cl-list">{% for l in view.lines %}{{ line(l) }}{% endfor %}</ul>{% else %}<p class="muted">Nothing in your cart right now.</p>{% endif %}
+      {% if view.saved %}
+        <h2 class="sec__h">Saved for later ({{ view.saved|length }})</h2>
+        <ul class="cl-list">{% for l in view.saved %}{{ line(l, True) }}{% endfor %}</ul>
+      {% endif %}
+    </div>
+
+    {% if view.lines %}
+    <aside class="sum" aria-label="Order summary">
+      <div class="acc" data-open data-sum>
+        <button class="acc__h" type="button" aria-expanded="true">Price details</button>
+        <div class="acc__p"><div class="acc__i"><div class="acc__b">
+          {% set t = view.totals %}
+          <dl class="totals">
+            <div><dt>Items ({{ view.count }})</dt><dd>{{ s.inr(t.mrp_total) }}</dd></div>
+            {% if t.mrp_total > t.subtotal %}<div class="good"><dt>Discount on MRP</dt><dd>− {{ s.inr(t.mrp_total - t.subtotal) }}</dd></div>{% endif %}
+            {% if view.coupon and not view.coupon_error %}<div class="good"><dt>Coupon {{ view.coupon.code }}</dt><dd>− {{ s.inr(t.discount) }}</dd></div>{% endif %}
+            <div><dt>Delivery</dt><dd>Calculated at checkout</dd></div>
+            {% if t.tax_included %}<div class="muted"><dt>Includes tax</dt><dd>{{ s.inr(t.tax_included) }}</dd></div>{% endif %}
+            <div class="totals__grand"><dt>Total</dt><dd>{{ s.inr(t.total) }}</dd></div>
+          </dl>
+          {% if t.savings > 0 %}<p class="good"><b>You save {{ s.inr(t.savings) }} on this order</b></p>{% endif %}
+        </div></div></div>
+      </div>
+
+      <form class="coupon" method="post" action="{{ url_for('shop.cart_coupon') }}">
+        {{ s.csrf() }}
+        <label for="code">Coupon code</label>
+        <div class="coupon__row"><input id="code" name="code" type="text" autocomplete="off" autocapitalize="characters" maxlength="40" value="{{ view.coupon.code if view.coupon else '' }}" placeholder="Enter code"><button class="btn btn--ghost" type="submit">Apply</button></div>
+      </form>
+      {% if view.coupon_error %}<p class="cl__err" role="alert">{{ view.coupon_error }}</p>{% endif %}
+      {% if view.coupon %}<form method="post" action="{{ url_for('shop.cart_coupon_remove') }}">{{ s.csrf() }}<button class="linkish" type="submit">Remove coupon</button></form>{% endif %}
+
+      <div class="stickybar" id="cartbar">
+        <div class="stickybar__t"><span class="muted small">Total</span><b>{{ s.inr(view.totals.total) }}</b></div>
+        {% if view.can_checkout %}<a class="btn" href="{{ url_for('shop.checkout_page') }}">Checkout</a>{% else %}<button class="btn" type="button" disabled>Checkout</button>{% endif %}
+      </div>
+    </aside>
+    {% endif %}
+
+    {% if suggestions %}
+      <section class="sec cart-suggestions" aria-labelledby="cart-suggest-title">
+        <h2 id="cart-suggest-title" class="sec__h">You may also like</h2>
+        <div class="cart-suggestions__grid">
+          {% for product in suggestions %}
+            <article class="cart-suggestion">
+              <a href="{{ url_for('shop.product', slug=product.slug) }}" class="cart-suggestion__name">{{ product.name }}</a>
+              <span class="cart-suggestion__price">{{ s.inr(product.final_price) }}</span>
+              {% set options = product.variants|selectattr('is_active')|rejectattr('is_deleted')|list %}
+              {% if not options %}
+                <form method="post" action="{{ url_for('shop.cart_add') }}" data-quick-add>
+                  {{ s.csrf() }}<input type="hidden" name="product_id" value="{{ product.id }}"><input type="hidden" name="qty" value="1">
+                  <button class="btn btn--sm" type="submit">Add to cart</button>
+                </form>
+              {% else %}<a class="btn btn--ghost btn--sm" href="{{ url_for('shop.product', slug=product.slug) }}">Choose option</a>{% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
