@@ -220,3 +220,38 @@
   .sa-custom-dates input { min-height: 44px; width: 100%; }
   .admin-bottom-nav a { min-height: 3.45rem; font-size: .68rem !important; }
 }
+
+/* Final mobile navigation and custom date-range visibility safeguards */
+@media (max-width: 767px) {
+  .admin-bottom-nav { min-height: 68px; }
+  .admin-bottom-nav a {
+    min-height: 56px !important; gap: 4px !important;
+    justify-content: center !important; padding: 6px 2px !important;
+    overflow: visible !important; color: #40594a !important;
+    font-size: 12px !important; font-weight: 700 !important;
+    line-height: 1.25 !important; text-align: center !important;
+  }
+  .admin-bottom-nav a span {
+    display: block !important; visibility: visible !important;
+    opacity: 1 !important; color: #40594a !important;
+    font-size: 12px !important; line-height: 1.25 !important;
+  }
+  .admin-bottom-nav a.is-current span { color: #1d6139 !important; }
+}
+@media (max-width: 380px) {
+  .admin-bottom-nav a, .admin-bottom-nav a span { font-size: 11px !important; }
+}
+.sa-custom-dates[hidden] { display: none !important; }
+.sa-custom-dates:not([hidden]) {
+  display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+}
+.sa-custom-dates label { display: grid; gap: 6px; color: #34483b; font-weight: 700; }
+.sa-custom-dates label span { display: block; color: #34483b !important; font-size: 13px; }
+.sa-custom-dates input[type="date"] {
+  display: block; width: 100%; min-width: 0; min-height: 48px; padding: 10px;
+  color: #23382b !important; background: #fff !important;
+  border: 1px solid #cbd8ce !important; border-radius: 10px; font: inherit;
+}
+@media (max-width: 420px) {
+  .sa-custom-dates:not([hidden]) { grid-template-columns: 1fr; }
+}

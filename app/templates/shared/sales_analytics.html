@@ -68,4 +68,21 @@
   <script>
     window.rrSalesAnalyticsData = {{ sales_analytics|tojson }};
   </script>
+
+<script>
+  (() => {
+    const range = document.getElementById('sa-range');
+    const dates = document.getElementById('sa-custom-dates');
+    if (!range || !dates) return;
+    const sync = () => {
+      const custom = range.value === 'custom';
+      dates.hidden = !custom;
+      dates.querySelectorAll('input[type="date"]').forEach((input) => {
+        input.required = custom;
+      });
+    };
+    range.addEventListener('change', sync);
+    sync();
+  })();
+</script>
 </section>
