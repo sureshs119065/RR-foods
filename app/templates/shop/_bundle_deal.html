@@ -1,6 +1,23 @@
 {# Combo bundle card shared by the home "Offers & Combo" shelf (mode='home') and the Offers page (mode='offers'). #}
 {% import "shop/_macros.html" as s %}
 {% macro bundle_deal(c, mode='home') %}
+{% if mode == 'home' %}
+<a class="bd bd--link{% if c.upcoming %} bd--soon{% endif %}" href="{{ url_for('shop.offers') }}#bundle-{{ c.id }}" aria-label="{{ c.title }} — {{ s.inr0(c.price) }}. View combo details">
+  <span class="bd__main">
+    <span class="bd__tags">
+      {% if c.upcoming and c.starts_label %}<span class="bd__badge">✦ Opens {{ c.starts_label }}</span>{% elif c.pct %}<span class="bd__badge">✦ {{ c.pct }}% off</span>{% endif %}
+      {% if c.window %}<span class="bd__window">{{ c.window }}</span>{% endif %}
+    </span>
+    <span class="bd__title">{{ c.title }}</span>
+  </span>
+  <span class="bd__buy">
+    <span class="bd__label">Combo price</span>
+    <strong class="bd__price">{{ s.inr0(c.price) }}</strong>
+    {% if c.saving > 0 %}<span class="bd__save">You save {{ s.inr0(c.saving) }}</span>{% endif %}
+    <span class="bd__cta">View combo <span aria-hidden="true">→</span></span>
+  </span>
+</a>
+{% else %}
 <article class="bd{% if c.upcoming %} bd--soon{% endif %}" id="bundle-{{ c.id }}" aria-labelledby="bd-t-{{ c.id }}">
   <div class="bd__main">
     <div class="bd__tags">
@@ -34,9 +51,7 @@
     <span class="bd__was"><s>{{ s.inr0(c.regular) }}</s></span>
     <span class="bd__save">You save {{ s.inr0(c.saving) }}{% if c.pct %} · {{ c.pct }}% off{% endif %}</span>
     {% endif %}
-    {% if mode == 'home' %}
-      <a class="bd__cta" href="{{ url_for('shop.offers') }}#bundle-{{ c.id }}">View combo <span aria-hidden="true">→</span></a>
-    {% elif c.upcoming %}
+    {% if c.upcoming %}
       <button class="bd__cta" type="button" disabled>{{ ('Opens ' ~ c.starts_label) if c.starts_label else 'Coming soon' }}</button>
     {% elif c.available %}
       <form method="post" action="{{ url_for('shop.add_bundle', bundle_id=c.id) }}">
@@ -48,4 +63,5 @@
     {% endif %}
   </div>
 </article>
+{% endif %}
 {% endmacro %}

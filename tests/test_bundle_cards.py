@@ -25,7 +25,8 @@ def test_home_shows_new_bundle_with_thumbnails_and_not_old_combo(app, session):
     html = app.test_client().get("/").get_data(as_text=True)
     assert "bd__title" in html and "Children&#39;s Day Special Combo" in html
     assert "| ₹999" not in html          # price lives in the price panel, not the title
-    assert "bd__thumb" in html and "Second Pack" in html and "×2" in html
+    assert "bd--link" in html and "bd__thumb" not in html and "bd__item" not in html  # home is only a link
+    assert "Seven favourites" not in html
     assert "TRADITIONAL GRAINS" not in html and "rr-combo" not in html and "Combo offer" not in html
 
 
