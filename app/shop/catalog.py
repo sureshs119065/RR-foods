@@ -260,6 +260,23 @@ def ensure_catalogue_combo_bundle():
     return bundle
 
 
+def catalogue_combo_removed():
+    """True when an admin deliberately deleted the catalogue combo bundle (so it is hidden, not re-created)."""
+    from ..models import SiteSetting
+    flag = db.session.get(SiteSetting, "catalogue_combo_deleted")
+    return bool(flag is not None and flag.value)
+
+
+def restore_catalogue_combo_bundle():
+    """Admin action: clear the 'deleted' flag and re-create the catalogue combo bundle."""
+    from ..models import SiteSetting
+    flag = db.session.get(SiteSetting, "catalogue_combo_deleted")
+    if flag is not None:
+        flag.value = False
+        db.session.commit()
+    return ensure_catalogue_combo_bundle()
+
+
 @bp.get("/offers")
 def offers():
     now = utcnow()
@@ -275,9 +292,16 @@ def offers():
     combo_price = Decimal(str(bundle.bundle_price)) if bundle else _combo_price(CATALOGUE_COMBO_OFFER)
     combo = dict(CATALOGUE_COMBO_OFFER)
     combo["price"] = "₹{:,.0f}".format(combo_price) if combo_price == combo_price.to_integral_value() else "₹{:,.2f}".format(combo_price)
+    # The catalogue combo shows only while its bundle exists AND is published in admin: deleting or hiding the
+    # bundle removes it from this page. Other admin-created bundles are listed in their own section.
+    show_catalogue_combo = bool(bundle is not None and bundle.is_active)
+    from .content import live_bundle_data
+    bundle_items, bundle_products, bundle_originals, bundle_prices = live_bundle_data(exclude_slugs=(COMBO_BUNDLE_SLUG,))
     return render_template("shop/offers.html", coupons=coupons,
         highlight=(request.args.get("coupon") or "").upper()[:40],
-        catalogue_combo=combo, combo_lines=combo_lines, combo_ready=combo_ready,
+        bundle_items=bundle_items, bundle_products=bundle_products,
+        bundle_originals=bundle_originals, bundle_prices=bundle_prices,
+        catalogue_combo=combo if show_catalogue_combo else None, combo_lines=combo_lines, combo_ready=combo_ready,
         combo_regular_total=regular_total, combo_price_value=combo_price)
 
 

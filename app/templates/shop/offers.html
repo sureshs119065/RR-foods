@@ -7,7 +7,7 @@
     <p class="eyebrow">Fresh savings from our kitchen</p>
     <h1 class="pg-h">Offers &amp; combo deals</h1>
     <p>Discover product offers, save with coupon codes and get more value with curated RR FOODS combos.</p>
-    <a class="btn" href="#catalogue-combo">Explore combo offer</a>
+    <a class="btn" href="{% if catalogue_combo %}#catalogue-combo{% else %}#combo-bundles{% endif %}">Explore combo offers</a>
   </header>
 
   {% if catalogue_combo %}
@@ -64,9 +64,15 @@
   {% endif %}
 
 
+  {% if bundle_items %}
+  <section class="sec" id="combo-bundles"><h2 class="sec__h">Combo bundles</h2>
+    <div class="content-grid">{% for bundle in bundle_items %}<article class="content-card">{% if bundle.image_url %}<img src="{{ bundle.image_url }}" alt="" loading="lazy">{% else %}<div class="content-placeholder">Bundle</div>{% endif %}<div class="content-card__body"><h3>{{ bundle.name }}</h3><p>{{ bundle.description or '' }}</p><ul>{% for line in bundle.product_quantities or [] %}<li>{{ bundle_products[line.get('product_id')].name if line.get('product_id') in bundle_products else 'Unavailable product' }} × {{ line.get('quantity', 1) }}</li>{% endfor %}</ul><p><del>₹{{ '%.2f'|format(bundle_originals[bundle.id]) }}</del> <b>Bundle price: ₹{{ '%.2f'|format(bundle_prices[bundle.id]) }}</b></p>{% if bundle_originals[bundle.id] > bundle_prices[bundle.id] %}<small class="good">You save ₹{{ '%.2f'|format(bundle_originals[bundle.id] - bundle_prices[bundle.id]) }}</small>{% endif %}<form method="post" action="{{ url_for('shop.add_bundle', bundle_id=bundle.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn" type="submit">Add bundle to cart</button></form></div></article>{% endfor %}</div>
+  </section>
+  {% endif %}
+
   <section class="sec"><h2 class="sec__h">Coupon codes</h2>
     {% if coupons %}<ul class="coupons">{% for c in coupons %}<li class="couponcard {% if c.code|upper == highlight %}couponcard--on{% endif %}"><b class="couponcard__code">{{ c.code }}</b><span>{{ c.description or ((c.discount_value|int ~ '% off') if c.discount_type == 'percent' else ('₹' ~ c.discount_value|int ~ ' off')) }}</span><span class="muted small">{% if c.min_cart_value %}On orders above ₹{{ c.min_cart_value|int }}. {% endif %}{% if c.expires_at %}Valid till {{ c.expires_at|local_display }}.{% endif %}</span></li>{% endfor %}</ul><p class="muted">Enter the code in your cart to use it.</p>{% else %}<p class="muted">No coupon codes are active right now.</p>{% endif %}
   </section>
-  {% if not catalogue_combo and not coupons %}<div class="empty"><h2>New offers are coming soon</h2><p class="muted">Check back for special RR FOODS deals.</p><a class="btn" href="{{ url_for('shop.listing') }}">Browse products</a></div>{% endif %}
+  {% if not catalogue_combo and not coupons and not bundle_items %}<div class="empty"><h2>New offers are coming soon</h2><p class="muted">Check back for special RR FOODS deals.</p><a class="btn" href="{{ url_for('shop.listing') }}">Browse products</a></div>{% endif %}
 </div>
 {% endblock %}

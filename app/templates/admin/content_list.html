@@ -3,6 +3,7 @@
 {% block title %}{{ 'Combo Offers' if kind == 'bundles' else title }}{% endblock %}{% block heading %}{{ 'Combo Offers' if kind == 'bundles' else title }}{% endblock %}
 {% block content %}
 {% if kind == 'bundles' %}{% include "admin/_offers_nav.html" %}{% endif %}
+{% if kind == 'bundles' and combo_removed %}<form method="post" action="{{ url_for('admin.bundle_restore_catalogue_combo') }}" class="panel" style="margin-bottom:12px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">{{ m.csrf() }}<span>The RR FOODS catalogue combo (shown on the Offers page) was deleted, so it is hidden from the store.</span><button class="btn btn--sm" type="submit">Restore catalogue combo</button></form>{% endif %}
 <div class="pagehead"><h2>{{ 'Combo Offers' if kind == 'bundles' else title }}</h2><a class="btn" href="{{ url_for('admin.' + kind[:-1] + '_form') if kind != 'bundles' else url_for('admin.bundle_form') }}">Add {{ title[:-1] if title.endswith('s') else title }}</a></div>
 {% if kind == 'reels' %}
 <section class="panel"><h3>Home page display settings</h3><form method="post" action="{{ url_for('admin.reels_settings') }}" class="form">

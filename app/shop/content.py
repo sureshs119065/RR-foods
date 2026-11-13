@@ -47,12 +47,13 @@ def recipe_detail(slug):
             embed_url = f"https://www.youtube-nocookie.com/embed/{video_id}"
     return render_template("shop/recipe_detail.html", item=item, products=products, embed_url=embed_url)
 
-@bp.get("/bundles")
-def bundles():
+def live_bundle_data(exclude_slugs=()):
+    """Active, in-date bundles plus the product/price lookups the bundle cards need."""
     now = datetime.now(timezone.utc)
-    items = db.session.scalars(select(Bundle).where(Bundle.is_active.is_(True),
+    query = select(Bundle).where(Bundle.is_active.is_(True),
         (Bundle.starts_at.is_(None)) | (Bundle.starts_at <= now),
-        (Bundle.ends_at.is_(None)) | (Bundle.ends_at > now)).order_by(Bundle.created_at.desc())).all()
+        (Bundle.ends_at.is_(None)) | (Bundle.ends_at > now)).order_by(Bundle.created_at.desc())
+    items = [b for b in db.session.scalars(query).all() if b.slug not in set(exclude_slugs)]
     products = {p.id: p for p in db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all()}
     originals = {}
     bundle_prices = {}
@@ -61,6 +62,11 @@ def bundles():
             for line in (bundle.product_quantities or []) if int(line.get("product_id", 0)) in products), Decimal("0"))
         # Normalize database numeric values before template comparisons/subtraction.
         bundle_prices[bundle.id] = Decimal(str(bundle.bundle_price)).quantize(Decimal("0.01"))
+    return items, products, originals, bundle_prices
+
+@bp.get("/bundles")
+def bundles():
+    items, products, originals, bundle_prices = live_bundle_data()
     return render_template("shop/bundles.html", items=items, products=products, originals=originals, bundle_prices=bundle_prices)
 
 @bp.post("/bundles/<int:bundle_id>/add")

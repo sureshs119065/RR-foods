@@ -6,7 +6,7 @@ from flask import abort, flash, redirect, render_template, request, url_for
 from sqlalchemy import select
 
 from ..extensions import db
-from ..models import Bundle, Product
+from ..models import Bundle, Combo, Product
 from ..uploads import save_image, UploadError, delete_files
 from . import bp
 
@@ -28,8 +28,39 @@ def bundles():
         db.session.rollback()
         from flask import current_app
         current_app.logger.exception("Could not create the catalogue combo bundle")
-    return render_template("admin/content_list.html", title="Bundles", kind="bundles",
+    try:
+        from ..shop.catalog import catalogue_combo_removed
+        combo_removed = catalogue_combo_removed()
+    except Exception:
+        combo_removed = False
+    return render_template("admin/content_list.html", title="Bundles", kind="bundles", combo_removed=combo_removed,
         items=db.session.scalars(select(Bundle).order_by(Bundle.created_at.desc())).all())
+
+@bp.post("/bundles/restore-catalogue-combo")
+def bundle_restore_catalogue_combo():
+    from ..shop.catalog import restore_catalogue_combo_bundle
+    try:
+        bundle = restore_catalogue_combo_bundle()
+        flash("Catalogue combo restored." if bundle else "Could not restore the combo: none of its products were found.", "success" if bundle else "error")
+    except Exception:
+        db.session.rollback()
+        flash("Could not restore the catalogue combo.", "error")
+    return redirect(url_for("admin.bundles"))
+
+def _form_item(original):
+    """What to show again after a failed save: the values just typed (a rollback would otherwise reload the old ones)."""
+    from types import SimpleNamespace
+    def dt(value):
+        try: return datetime.fromisoformat(value) if value else None
+        except ValueError: return None
+    lines = []
+    for pid, qty in list(zip(request.form.getlist("product_id"), request.form.getlist("quantity")))[:30]:
+        if pid.isdigit(): lines.append({"product_id": int(pid), "quantity": int(qty) if qty.isdigit() else 1})
+    return SimpleNamespace(id=original.id, name=request.form.get("name", ""), description=request.form.get("description", ""),
+        bundle_price=request.form.get("bundle_price", ""), image_url=original.image_url,
+        starts_at=dt(request.form.get("starts_at", "")), ends_at=dt(request.form.get("ends_at", "")),
+        is_active=request.form.get("is_active") == "1", product_quantities=lines)
+
 
 @bp.route("/bundles/new", methods=["GET", "POST"])
 @bp.route("/bundles/<int:item_id>/edit", methods=["GET", "POST"])
@@ -74,10 +105,18 @@ def bundle_form(item_id=None):
             item.ends_at = parse_dt(request.form.get("ends_at", ""))
             if item.starts_at and item.ends_at and item.ends_at <= item.starts_at:
                 raise ValueError("Bundle end date must be after its start date.")
-            db.session.add(item); db.session.commit()
+            db.session.add(item); db.session.flush()
+            combo = db.session.scalar(select(Combo).where(Combo.bundle_id == item.id)) if item.id else None
+            if combo is not None:  # a festival combo shows its own copy of these fields on the storefront: keep it in step
+                from decimal import Decimal
+                combo.name, combo.description, combo.items = item.name, item.description, items
+                combo.price, combo.is_active = Decimal(str(item.bundle_price)), item.is_active
+                if item.image_url: combo.image = item.image_url
+            db.session.commit()
             flash("Bundle saved.", "success"); return redirect(url_for("admin.bundles"))
         except (ValueError, UploadError) as exc:
             db.session.rollback(); flash(str(exc), "error")
+            item = _form_item(item)
     return render_template("admin/content_form.html", title="Bundle", kind="bundles", item=item, products=_products())
 
 @bp.post("/bundles/<int:item_id>/delete")
