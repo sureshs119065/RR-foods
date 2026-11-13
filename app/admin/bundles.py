@@ -40,9 +40,14 @@ def bundle_form(item_id=None):
         try:
             name = request.form.get("name", "").strip()
             if not name: raise ValueError("Enter a bundle name.")
-            item.name = name[:180]; item.slug = _slug(name)
-            collision = db.session.scalar(select(Bundle).where(Bundle.slug == item.slug, Bundle.id != (item.id or 0)))
-            if collision: item.slug = f"{item.slug}-{uuid.uuid4().hex[:6]}"
+            item.name = name[:180]
+            # Keep an existing bundle's slug stable on edit (the storefront looks bundles up by slug, and renaming
+            # must never collide with another bundle). Only generate a slug for a brand-new bundle.
+            if not item.slug:
+                base_slug = _slug(name)
+                with db.session.no_autoflush:  # don't flush half-edited rows while checking for a collision
+                    taken = db.session.scalar(select(Bundle.id).where(Bundle.slug == base_slug))
+                item.slug = f"{base_slug}-{uuid.uuid4().hex[:6]}" if taken else base_slug
             item.description = request.form.get("description", "").strip()
             item.bundle_price = float(request.form.get("bundle_price") or 0)
             if item.bundle_price < 0: raise ValueError("Bundle price cannot be negative.")

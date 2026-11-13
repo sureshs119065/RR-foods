@@ -20,7 +20,7 @@
 </head>
 <body class="owner-panel">
 {% set here = request.endpoint %}
-{% macro item(endpoint, label, ic, prefix, count=0) %}
+{% macro nav_item(endpoint, label, ic, prefix, count=0) %}
   <li><a href="{{ url_for(endpoint) }}" {% if here and here.startswith(prefix) %}aria-current="page"{% endif %}>{{ m.icon(ic) }}<span class="label">{{ label }}</span>{% if count %}<span class="nav__count" aria-label="{{ count }} waiting">{{ count if count < 100 else '99+' }}</span>{% endif %}</a></li>
 {% endmacro %}
 <div class="adm">
@@ -28,17 +28,17 @@
     <a class="adm__brand" href="{{ url_for('owner.dashboard') }}"><img class="adm__brand-logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="54" height="54" alt="RR FOODS logo"><span class="label">RR FOODS <small>OWNER</small></span></a>
     <nav>
       <ul class="nav">
-        {{ item('owner.dashboard', 'Dashboard', 'home', 'owner.dashboard') }}
-        {{ item('owner.orders', 'Orders', 'cart', 'owner.order', pending_count) }}
-        {{ item('owner.inventory', 'Inventory', 'box', 'owner.inventory') }}
-        {{ item('owner.delivery_settings', 'Delivery slots', 'clock', 'owner.delivery_settings') }}
+        {{ nav_item('owner.dashboard', 'Dashboard', 'home', 'owner.dashboard') }}
+        {{ nav_item('owner.orders', 'Orders', 'cart', 'owner.order', pending_count) }}
+        {{ nav_item('owner.inventory', 'Inventory', 'box', 'owner.inventory') }}
+        {{ nav_item('owner.delivery_settings', 'Delivery slots', 'clock', 'owner.delivery_settings') }}
         <li><a href="{{ url_for('owner.inventory', stock='attention') }}" {% if here == 'owner.inventory' and request.args.get('stock') == 'attention' %}aria-current="page"{% endif %}>{{ m.icon('alert-triangle') }}<span class="label">Stock alerts</span>{% if low_stock_count %}<span class="nav__count" aria-label="{{ low_stock_count }} low-stock products">{{ low_stock_count if low_stock_count < 100 else '99+' }}</span>{% endif %}</a></li>
-        {{ item('owner.stock_history', 'Stock history', 'clock', 'owner.stock_history') }}
-        {{ item('owner.questions', 'Questions', 'log', 'owner.question') }}
+        {{ nav_item('owner.stock_history', 'Stock history', 'clock', 'owner.stock_history') }}
+        {{ nav_item('owner.questions', 'Questions', 'log', 'owner.question') }}
         <li><a href="{{ url_for('owner.inbox') }}" {% if here and here.startswith('owner.inbox') %}aria-current="page"{% endif %}>{{ m.icon('message-circle') }}<span class="label">Customer Inbox</span></a></li>
 
         <li class="nav__sep" role="separator"></li>
-        {{ item('owner.password', 'Change password', 'key', 'owner.password') }}
+        {{ nav_item('owner.password', 'Change password', 'key', 'owner.password') }}
         <li><form method="post" action="{{ url_for('auth.logout') }}">{{ m.csrf() }}<button type="submit">{{ m.icon('out') }}<span class="label">Sign out</span></button></form></li>
         <li class="adm__collapse"><button type="button" id="nav-collapse" aria-pressed="false">{{ m.icon('chevrons') }}<span class="label">Collapse menu</span></button></li>
       </ul>

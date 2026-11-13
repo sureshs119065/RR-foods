@@ -19,7 +19,7 @@
 </head>
 <body>
 {% set here = request.endpoint %}
-{% macro item(endpoint, label, ic, prefix) %}
+{% macro nav_item(endpoint, label, ic, prefix) %}
   <li><a href="{{ url_for(endpoint) }}" {% if here and here.startswith(prefix) %}aria-current="page"{% endif %}>{{ m.icon(ic) }}<span class="label">{{ label }}</span></a></li>
 {% endmacro %}
 <div class="adm">
@@ -27,23 +27,23 @@
     <a class="adm__brand" href="{{ url_for('admin.dashboard') }}"><img class="adm__brand-logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="54" height="54" alt="RR FOODS logo"><span class="label">RR FOODS <small>ADMIN</small></span></a>
     <nav>
       <ul class="nav">
-        {{ item('admin.dashboard', 'Dashboard', 'home', 'admin.dashboard') }}
-        {{ item('admin.products', 'Products', 'box', 'admin.product') }}
-        {{ item('admin.orders', 'Orders', 'cart', 'admin.order') }}
-        {{ item('admin.stock_alerts', 'Stock alerts', 'alert-triangle', 'admin.stock_alert') }}
-        {{ item('admin.notifications', 'Notifications', 'bell', 'admin.notification') }}
-        {{ item('admin.help_center', 'Help & FAQs', 'help-circle', 'admin.help') }}
+        {{ nav_item('admin.dashboard', 'Dashboard', 'home', 'admin.dashboard') }}
+        {{ nav_item('admin.products', 'Products', 'box', 'admin.product') }}
+        {{ nav_item('admin.orders', 'Orders', 'cart', 'admin.order') }}
+        {{ nav_item('admin.stock_alerts', 'Stock alerts', 'alert-triangle', 'admin.stock_alert') }}
+        {{ nav_item('admin.notifications', 'Notifications', 'bell', 'admin.notification') }}
+        {{ nav_item('admin.help_center', 'Help & FAQs', 'help-circle', 'admin.help') }}
         <li><a href="{{ url_for('admin.offers') }}" {% if here and (here.startswith('admin.offer') or here.startswith('admin.combo') or here.startswith('admin.coupon') or here.startswith('admin.bundle')) %}aria-current="page"{% endif %}>{{ m.icon('tag') }}<span class="label">Offers</span></a></li>
-        {{ item('admin.categories', 'Categories', 'grid', 'admin.categor') }}
-        {{ item('admin.reels', 'Reels', 'video', 'admin.reel') }}
-        {{ item('admin.recipes', 'Recipes', 'book-open', 'admin.recipe') }}
-        {{ item('admin.banners', 'Header banners', 'image', 'admin.banner') }}
-        {{ item('admin.reviews', 'Reviews', 'log', 'admin.review') }}
+        {{ nav_item('admin.categories', 'Categories', 'grid', 'admin.categor') }}
+        {{ nav_item('admin.reels', 'Reels', 'video', 'admin.reel') }}
+        {{ nav_item('admin.recipes', 'Recipes', 'book-open', 'admin.recipe') }}
+        {{ nav_item('admin.banners', 'Header banners', 'image', 'admin.banner') }}
+        {{ nav_item('admin.reviews', 'Reviews', 'log', 'admin.review') }}
         <li><a href="{{ url_for('admin.inbox') }}" {% if here and here.startswith('admin.inbox') %}aria-current="page"{% endif %}>{{ m.icon('message-circle') }}<span class="label">Customer Inbox</span></a></li>
-        {{ item('admin.users', 'Users', 'users', 'admin.user') }}
-        {{ item('admin.audit', 'Audit log', 'log', 'admin.audit') }}
+        {{ nav_item('admin.users', 'Users', 'users', 'admin.user') }}
+        {{ nav_item('admin.audit', 'Audit log', 'log', 'admin.audit') }}
         <li class="nav__sep" role="separator"></li>
-        {{ item('admin.password', 'Change password', 'key', 'admin.password') }}
+        {{ nav_item('admin.password', 'Change password', 'key', 'admin.password') }}
         <li><a href="/" target="_blank" rel="noopener">{{ m.icon('globe') }}<span class="label">View site</span></a></li>
         <li><form method="post" action="{{ url_for('auth.logout') }}">{{ m.csrf() }}<button type="submit">{{ m.icon('out') }}<span class="label">Sign out</span></button></form></li>
         <li class="adm__collapse"><button type="button" id="nav-collapse" aria-pressed="false">{{ m.icon('chevrons') }}<span class="label">Collapse menu</span></button></li>

@@ -80,3 +80,4 @@ def bundle_delete(item_id):
         delete_files(item.image_url); db.session.delete(item); db.session.commit()
         flash("Bundle deleted.", "success")
     return redirect(url_for("owner.bundles"))
+
