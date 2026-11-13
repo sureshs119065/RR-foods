@@ -1,0 +1,109 @@
+/* Admin + owner dashboard polish: motion, hierarchy and feedback. Additive only, loaded after the base styles. */
+:root { --dp-green: #183d2b; --dp-green-2: #286440; --dp-line: #e3ebe5; --dp-ease: cubic-bezier(.2, .8, .2, 1); }
+
+/* ---- entrance: JS adds .dp-in as items scroll into view; without JS everything stays visible ---- */
+.dp-ready .dp-pre { opacity: 0; transform: translateY(14px) scale(.985); }
+.dp-ready .dp-pre.dp-in { opacity: 1; transform: none; transition: opacity .55s var(--dp-ease) var(--dp-d, 0ms), transform .55s var(--dp-ease) var(--dp-d, 0ms); }
+
+/* ---- hero ---- */
+.admin-hero, .owner-hero { position: relative; overflow: hidden; isolation: isolate; background-size: 140% 140%, 100% 100%; animation: dp-hero 14s ease-in-out infinite alternate; }
+.admin-hero::after, .owner-hero::after { content: ""; position: absolute; z-index: -1; right: -60px; top: -80px; width: 260px; height: 260px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 210, 31, .20), transparent 68%); animation: dp-float 9s ease-in-out infinite alternate; }
+@keyframes dp-hero { from { background-position: 0% 0%, 0 0; } to { background-position: 100% 60%, 0 0; } }
+@keyframes dp-float { from { transform: translate(0, 0); } to { transform: translate(-40px, 30px); } }
+.dp-greet { margin: .7rem 0 0 !important; color: #ffe27a !important; font-size: .82rem !important; font-weight: 700; }
+.dp-hero-side { display: grid; justify-items: end; gap: .55rem; }
+.owner-hero__meta { display: grid; justify-items: end; gap: .55rem; }
+.dp-refresh { display: inline-flex; align-items: center; gap: .45rem; padding: .38rem .75rem; border: 1px solid rgba(255, 255, 255, .28); border-radius: 99px; background: rgba(255, 255, 255, .1); color: #eaf5ec; font: inherit; font-size: .7rem; font-weight: 700; cursor: pointer; transition: background .2s, transform .2s; }
+.dp-refresh:hover { background: rgba(255, 255, 255, .2); transform: translateY(-1px); }
+.dp-refresh:focus-visible { outline: 3px solid #ffd21f; outline-offset: 2px; }
+.dp-refresh__ic { display: inline-block; font-size: .95rem; line-height: 1; }
+.dp-refresh.is-spinning .dp-refresh__ic { animation: dp-spin .8s linear infinite; }
+@keyframes dp-spin { to { transform: rotate(360deg); } }
+.admin-hero__pill i, .owner-live i { animation: dp-pulse 2s ease-out infinite; }
+@keyframes dp-pulse { 0% { box-shadow: 0 0 0 0 rgba(142, 226, 160, .55); } 100% { box-shadow: 0 0 0 9px rgba(142, 226, 160, 0); } }
+
+/* ---- "Right now" strip: the plain-language summary ---- */
+.dp-attn { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem .9rem; margin: 0 0 1.15rem; padding: .75rem 1rem; border: 1px solid #ecd9a6; border-radius: 14px; background: linear-gradient(120deg, #fffdf5, #fff6dc); box-shadow: 0 3px 12px rgba(120, 90, 20, .06); }
+.dp-attn--clear { border-color: #bfe0c7; background: linear-gradient(120deg, #f8fdf9, #eaf7ee); box-shadow: 0 3px 12px rgba(20, 90, 50, .06); }
+.dp-attn__title { color: #7a5a10; font-size: .66rem; font-weight: 850; letter-spacing: .14em; text-transform: uppercase; }
+.dp-attn--clear .dp-attn__title { color: #2d7a48; }
+.dp-attn__items { display: flex; flex-wrap: wrap; gap: .5rem; }
+.dp-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .42rem .8rem; border: 1px solid var(--dp-line); border-radius: 99px; background: #fff; color: #263f31; font-size: .78rem; font-weight: 650; text-decoration: none; transition: transform .18s var(--dp-ease), box-shadow .18s, border-color .18s; }
+.dp-chip b { font-size: .95rem; font-variant-numeric: tabular-nums; }
+.dp-chip i { font-style: normal; transition: transform .18s; }
+a.dp-chip:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(20, 54, 33, .12); border-color: #a9cbb0; }
+a.dp-chip:hover i { transform: translateX(4px); }
+a.dp-chip:focus-visible { outline: 3px solid #ffd21f; outline-offset: 2px; }
+.dp-chip--warn { border-color: #e5cf9c; background: #fff8e6; color: #7a5208; }
+.dp-chip--bad { border-color: #e7b9b4; background: #fff0ee; color: #8f3128; }
+.dp-chip--ok { border-color: #bfe0c7; background: #fff; color: #226b3d; }
+
+/* ---- KPI cards ---- */
+.admin-kpi, .owner-kpi { position: relative; overflow: hidden; }
+.admin-kpi::before, .owner-kpi::before { content: ""; position: absolute; inset: 0; z-index: 0; opacity: 0; pointer-events: none; background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 0%), rgba(76, 160, 105, .16), transparent 70%); transition: opacity .25s; }
+.admin-kpi:hover::before, .owner-kpi:hover::before { opacity: 1; }
+.admin-kpi > *, .owner-kpi > * { position: relative; z-index: 1; }
+.admin-kpi:hover, .owner-kpi:hover { transform: translateY(-4px); }
+.admin-kpi:active, .owner-kpi:active { transform: translateY(-1px) scale(.99); }
+.admin-kpi:focus-visible, .owner-kpi:focus-visible, .admin-action-grid a:focus-visible { outline: 3px solid #ffd21f; outline-offset: 2px; }
+.admin-kpi__icon, .owner-kpi__icon { transition: transform .3s var(--dp-ease), background .2s; }
+.admin-kpi:hover .admin-kpi__icon, .owner-kpi:hover .owner-kpi__icon { transform: rotate(-8deg) scale(1.12); }
+.admin-kpi__foot b, .owner-kpi__foot b { transition: transform .2s var(--dp-ease); }
+.admin-kpi:hover .admin-kpi__foot b, .owner-kpi:hover .owner-kpi__foot b { transform: translateX(5px); }
+.admin-kpi--warning .admin-kpi__tag::before, .admin-kpi--critical .admin-kpi__tag::before, .owner-kpi.is-active .owner-kpi__tag::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: #d9972b; animation: dp-alert 1.6s ease-out infinite; }
+.admin-kpi--critical .admin-kpi__tag::before { background: #d4483c; }
+@keyframes dp-alert { 0% { box-shadow: 0 0 0 0 rgba(217, 151, 43, .55); } 100% { box-shadow: 0 0 0 8px rgba(217, 151, 43, 0); } }
+.admin-kpi.dp-hide { display: none; }
+
+/* KPI filter (All / Needs attention) */
+.dp-seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--dp-line); border-radius: 99px; background: #f3f7f4; }
+.dp-seg button { padding: .3rem .8rem; border: 0; border-radius: 99px; background: transparent; color: #55675b; font: inherit; font-size: .72rem; font-weight: 750; cursor: pointer; transition: background .2s, color .2s, box-shadow .2s; }
+.dp-seg button[aria-pressed="true"] { background: #fff; color: var(--dp-green); box-shadow: 0 2px 8px rgba(20, 54, 33, .14); }
+.dp-seg button:focus-visible { outline: 3px solid #ffd21f; outline-offset: 1px; }
+.dp-seg-note { margin: 0 0 .8rem; color: #2d7a48; font-size: .8rem; font-weight: 700; }
+
+/* ---- lists: recent orders, stock, queues ---- */
+.ops-recent-orders a, .rowlink { transition: background .18s, transform .18s var(--dp-ease), padding .18s; border-radius: 10px; }
+.ops-recent-orders a:hover { background: #f3f9f4; transform: translateX(4px); }
+.rowlink:hover { background: #f3f9f4; transform: translateX(4px); padding-left: .55rem; padding-right: .55rem; }
+.ops-recent-orders a[data-status] > span:last-child small { display: inline-block; padding: .1rem .5rem; border-radius: 99px; background: #eef2ef; color: #4c5f53; font-weight: 700; }
+.ops-recent-orders a[data-status="placed"] > span:last-child small { background: #fff1cf; color: #8a5a06; }
+.ops-recent-orders a[data-status="confirmed"] > span:last-child small, .ops-recent-orders a[data-status="packed"] > span:last-child small { background: #e0eefc; color: #1f5a96; }
+.ops-recent-orders a[data-status="shipped"] > span:last-child small, .ops-recent-orders a[data-status="out_for_delivery"] > span:last-child small { background: #ece4fa; color: #5a3a96; }
+.ops-recent-orders a[data-status="delivered"] > span:last-child small { background: #dff3e5; color: #1e6b3c; }
+.ops-recent-orders a[data-status="cancelled"] > span:last-child small, .ops-recent-orders a[data-status="rejected"] > span:last-child small { background: #fde5e2; color: #9a3329; }
+.admin-action-grid a { transition: transform .2s var(--dp-ease), box-shadow .2s, border-color .2s, background .2s; }
+.admin-action-grid a:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(20, 54, 33, .12); }
+.admin-action-grid a:hover .admin-action-icon { transform: scale(1.12) rotate(-6deg); background: #d9eedd; }
+.admin-action-icon { transition: transform .25s var(--dp-ease), background .2s; }
+.admin-action-grid a:hover > strong { transform: translateX(4px); }
+.admin-action-grid a > strong { transition: transform .2s; }
+.owner-ops-card, .sales-analytics, .ops-dashboard-lower { transition: box-shadow .25s, transform .25s var(--dp-ease); }
+.owner-ops-card:hover { box-shadow: 0 10px 26px rgba(20, 54, 33, .10); }
+
+/* ---- shell: sidebar, header, bottom nav ---- */
+.adm__top { transition: box-shadow .25s, background .25s; }
+.adm__top.is-scrolled { box-shadow: 0 6px 18px rgba(16, 47, 34, .12); }
+.adm__side .nav a, .adm__side .nav button { position: relative; transition: background .2s, transform .2s var(--dp-ease), padding .2s; }
+.adm__side .nav a:hover, .adm__side .nav button:hover { transform: translateX(3px); }
+.adm__side .nav a[aria-current="page"]::before { content: ""; position: absolute; left: -2px; top: 22%; bottom: 22%; width: 4px; border-radius: 4px; background: #ffd21f; animation: dp-bar .4s var(--dp-ease); }
+@keyframes dp-bar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.adm__side .nav a svg, .adm__side .nav button svg { transition: transform .25s var(--dp-ease); }
+.adm__side .nav a:hover svg, .adm__side .nav button:hover svg { transform: scale(1.15); }
+.admin-bottom-nav a, .owner-bottom-nav a { transition: transform .18s var(--dp-ease), color .18s; }
+.admin-bottom-nav a:active, .owner-bottom-nav a:active { transform: scale(.92); }
+.adm__main { animation: dp-page .45s var(--dp-ease); }
+@keyframes dp-page { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 680px) {
+  .dp-hero-side, .owner-hero__meta { justify-items: start; }
+  .dp-attn { padding: .65rem .8rem; }
+  .dp-chip { font-size: .72rem; }
+  .admin-kpi:hover, .owner-kpi:hover { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-hero, .owner-hero, .admin-hero::after, .owner-hero::after, .adm__main, .dp-refresh.is-spinning .dp-refresh__ic,
+  .admin-hero__pill i, .owner-live i, .admin-kpi__tag::before, .owner-kpi__tag::before { animation: none !important; }
+  .dp-ready .dp-pre, .dp-ready .dp-pre.dp-in { opacity: 1; transform: none; transition: none; }
+  .admin-kpi, .owner-kpi, .admin-action-grid a, .dp-chip, .rowlink, .ops-recent-orders a { transition: none; }
+}

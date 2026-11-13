@@ -7,8 +7,22 @@
     <p class="admin-hero__eyebrow">RR FOODS · CONTROL CENTRE</p>
     <h2>Store performance, under control.</h2>
     <p>Monitor the catalogue, customer base and sales from one place.</p>
+    <p class="dp-greet" data-dp-greet></p>
   </div>
-  <span class="admin-hero__pill"><i></i> Admin workspace</span>
+  <div class="dp-hero-side">
+    <span class="admin-hero__pill"><i></i> Admin workspace</span>
+    <button class="dp-refresh" type="button" data-dp-refresh title="Reload the latest numbers"><span class="dp-refresh__ic" aria-hidden="true">↻</span><span data-dp-updated>Updated just now</span></button>
+  </div>
+</section>
+
+<section class="dp-attn{% if not (stats.pending_orders or stats.out_of_stock or stats.low_stock) %} dp-attn--clear{% endif %}" aria-label="What needs attention">
+  <span class="dp-attn__title">Right now</span>
+  <div class="dp-attn__items">
+    {% if stats.pending_orders %}<a class="dp-chip dp-chip--warn" href="{{ url_for('admin.orders', status='placed') }}"><b>{{ stats.pending_orders }}</b> order{{ '' if stats.pending_orders == 1 else 's' }} waiting for confirmation <i>→</i></a>{% endif %}
+    {% if stats.out_of_stock %}<a class="dp-chip dp-chip--bad" href="{{ url_for('admin.stock_alerts', level='out') }}"><b>{{ stats.out_of_stock }}</b> product{{ '' if stats.out_of_stock == 1 else 's' }} out of stock <i>→</i></a>{% endif %}
+    {% if stats.low_stock %}<a class="dp-chip dp-chip--warn" href="{{ url_for('admin.stock_alerts', level='low') }}"><b>{{ stats.low_stock }}</b> product{{ '' if stats.low_stock == 1 else 's' }} running low <i>→</i></a>{% endif %}
+    {% if not (stats.pending_orders or stats.out_of_stock or stats.low_stock) %}<span class="dp-chip dp-chip--ok">✓ All clear — nothing needs your attention right now.</span>{% endif %}
+  </div>
 </section>
 
 <section class="admin-priority" aria-label="Store health">
@@ -71,7 +85,7 @@
 <section class="ops-dashboard-lower">
   <div class="ops-section-heading"><div><span class="ops-eyebrow">LATEST ACTIVITY</span><h2>Recent orders</h2></div><a href="{{ url_for('admin.orders') }}">View all →</a></div>
   <div class="ops-dashboard-columns">
-    <div class="ops-recent-orders">{% for o in recent_orders %}<a href="{{ url_for('admin.order_detail', order_id=o.id) }}"><span><b>{{ o.order_number }}</b><small>{{ o.user.name if o.user else 'Customer' }} · {{ o.created_at|local_display }}</small></span><span><b>₹{{ '%.2f'|format(o.total) }}</b><small>{{ o.status|replace('_',' ')|title }}</small></span></a>{% else %}<p class="ops-empty-inline">No orders have been placed yet.</p>{% endfor %}</div>
+    <div class="ops-recent-orders">{% for o in recent_orders %}<a href="{{ url_for('admin.order_detail', order_id=o.id) }}" data-status="{{ o.status }}"><span><b>{{ o.order_number }}</b><small>{{ o.user.name if o.user else 'Customer' }} · {{ o.created_at|local_display }}</small></span><span><b>₹{{ '%.2f'|format(o.total) }}</b><small>{{ o.status|replace('_',' ')|title }}</small></span></a>{% else %}<p class="ops-empty-inline">No orders have been placed yet.</p>{% endfor %}</div>
     <div class="ops-recent-orders ops-low-list">{% for p in low_items %}<a href="{{ url_for('admin.stock_alerts') }}"><span><b>{{ p.name }}</b><small>{{ p.sku }}</small></span><span><b>{{ p.stock_qty }} left</b><small>{{ 'Out of stock' if p.stock_qty == 0 else 'Low stock' }}</small></span></a>{% else %}<p class="ops-empty-inline">No stock alerts right now.</p>{% endfor %}</div>
   </div>
 </section>

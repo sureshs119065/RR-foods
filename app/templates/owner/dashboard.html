@@ -8,10 +8,21 @@
     <p class="owner-hero__eyebrow">RR FOODS · OWNER CONSOLE</p>
     <h2>Your store, at a glance.</h2>
     <p>Prioritise today's work, track sales and keep operations moving.</p>
+    <p class="dp-greet" data-dp-greet></p>
   </div>
   <div class="owner-hero__meta">
     <span class="owner-live"><i></i> Store operations</span>
-    <span>Live overview</span>
+    <button class="dp-refresh" type="button" data-dp-refresh title="Reload the latest numbers"><span class="dp-refresh__ic" aria-hidden="true">↻</span><span data-dp-updated>Updated just now</span></button>
+  </div>
+</section>
+
+<section class="dp-attn{% if not (pending_total or low_total or to_ship) %} dp-attn--clear{% endif %}" aria-label="What needs attention">
+  <span class="dp-attn__title">Right now</span>
+  <div class="dp-attn__items">
+    {% if pending_total %}<a class="dp-chip dp-chip--warn" href="{{ url_for('owner.orders', tab='new') }}"><b>{{ pending_total }}</b> new order{{ '' if pending_total == 1 else 's' }} to confirm <i>→</i></a>{% endif %}
+    {% if to_ship %}<a class="dp-chip" href="{{ url_for('owner.orders', tab='pack') }}"><b>{{ to_ship }}</b> order{{ '' if to_ship == 1 else 's' }} to pack or ship <i>→</i></a>{% endif %}
+    {% if low_total %}<a class="dp-chip dp-chip--bad" href="{{ url_for('owner.inventory', stock='attention') }}"><b>{{ low_total }}</b> product{{ '' if low_total == 1 else 's' }} low or out of stock <i>→</i></a>{% endif %}
+    {% if not (pending_total or low_total or to_ship) %}<span class="dp-chip dp-chip--ok">✓ All caught up — nothing needs your attention right now.</span>{% endif %}
   </div>
 </section>
 
