@@ -235,10 +235,14 @@ def ensure_catalogue_combo_bundle():
     Hidden with the products that were found, so the admin can complete it. Returns the Bundle or None."""
     from flask import current_app
     from ..models import Bundle
+    from ..models import SiteSetting
     from ..services.product_catalogue import CATALOGUE_COMBO_OFFER
     bundle = db.session.scalar(select(Bundle).where(Bundle.slug == COMBO_BUNDLE_SLUG))
     if bundle is not None:
         return bundle
+    flag = db.session.get(SiteSetting, "catalogue_combo_deleted")
+    if flag is not None and flag.value:
+        return None  # an admin deleted this bundle on purpose: never silently re-create it
     lines = _combo_lines(CATALOGUE_COMBO_OFFER)
     matched = [l for l in lines if l["product"] is not None]
     if not matched:

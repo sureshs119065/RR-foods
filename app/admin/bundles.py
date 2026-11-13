@@ -84,6 +84,12 @@ def bundle_form(item_id=None):
 def bundle_delete(item_id):
     item = db.session.get(Bundle, item_id)
     if item:
+        from ..shop.catalog import COMBO_BUNDLE_SLUG
+        from ..models import SiteSetting
+        if item.slug == COMBO_BUNDLE_SLUG:  # remember it so the storefront does not re-create it on the next page load
+            flag = db.session.get(SiteSetting, "catalogue_combo_deleted")
+            if flag is None: db.session.add(SiteSetting(key="catalogue_combo_deleted", value=True))
+            else: flag.value = True
         delete_files(item.image_url); db.session.delete(item); db.session.commit()
         flash("Bundle deleted.", "success")
     return redirect(url_for("admin.bundles"))
