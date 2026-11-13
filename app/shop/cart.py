@@ -1,4 +1,4 @@
-from flask import g, jsonify, redirect, render_template, request, session, url_for
+from flask import flash, g, jsonify, redirect, render_template, request, session, url_for
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -37,7 +37,7 @@ def cart():
     return render_template("shop/cart.html", view=view, max_qty=svc.MAX_LINE_QTY, suggestions=suggestions, delivery_settings=get_settings())
 
 
-def _add_one(user, product_id, variant_id, qty):
+def _add_one(user, product_id, variant_id, qty, *, replace=False):
     """Add to (or raise) one cart line. Returns (message, ok). Quantity is clamped to stock and the per-line maximum."""
     p = db.session.scalar(select(Product).where(Product.id == product_id, LIVE))
     if p is None:
@@ -59,7 +59,7 @@ def _add_one(user, product_id, variant_id, qty):
                                                         CartItem.bundle_id.is_(None),
                                                         CartItem.variant_id.is_(None) if v is None else CartItem.variant_id == v.id))
         had = item.quantity if item and not item.saved_for_later else 0
-        new = min(had + qty, limit)
+        new = min(qty if replace else had + qty, limit)
         try:
             if item is None:
                 db.session.add(CartItem(user_id=user.id, product_id=p.id, variant_id=v.id if v else None, quantity=new))
@@ -72,9 +72,31 @@ def _add_one(user, product_id, variant_id, qty):
             if attempt == 2:
                 return "Could not update your cart. Please try again.", False
     name = p.name + (f" ({v.option_value})" if v else "")
-    if had + qty > limit:
+    if (qty if replace else had + qty) > limit:
         return f"Added {name}. You can have at most {limit} of this item (stock or order limit).", True
     return f"Added {name} to your cart.", True
+
+
+@bp.post("/buy-now")
+@limiter.limit("30 per minute")
+def buy_now():
+    """Add the selected quantity once, then go straight to checkout."""
+    if g.get("user") is None:
+        return _need_login()
+    if g.user.role != "user":
+        return reply(False, "Only customer accounts can shop. Sign in with a customer account.", "/", 403)
+    errs: dict = {}
+    pid = to_int(request.form.get("product_id"), "p", errs, min_=1, max_=2_000_000_000)
+    vid = to_int(request.form.get("variant_id"), "v", errs, min_=1, max_=2_000_000_000, required=False, default=None)
+    qty = to_int(request.form.get("qty") or "1", "q", errs, min_=1, max_=svc.MAX_LINE_QTY)
+    if errs:
+        flash("Choose a valid quantity before continuing.", "error")
+        return redirect(request.form.get("next") or url_for("shop.listing"))
+    msg, ok = _add_one(g.user, pid, vid, qty, replace=True)
+    if not ok:
+        flash(msg, "error")
+        return redirect(request.form.get("next") or url_for("shop.listing"))
+    return redirect(url_for("shop.checkout_page"))
 
 
 @bp.post("/cart/add")

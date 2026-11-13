@@ -46,16 +46,6 @@
           </div></div></div>
         </div>
 
-        {% if brands %}
-        <div class="acc" data-open>
-          <button class="acc__h" type="button" aria-expanded="true">Brand</button>
-          <div class="acc__p"><div class="acc__i"><div class="acc__b">
-            {% for b, n in brands %}
-              <label class="opt"><input type="checkbox" name="brand" value="{{ b }}" {% if b in f.brands %}checked{% endif %}> {{ b }} <span class="muted">({{ n }})</span></label>
-            {% endfor %}
-          </div></div></div>
-        </div>
-        {% endif %}
 
         <div class="acc" data-open>
           <button class="acc__h" type="button" aria-expanded="true">Customer rating</button>

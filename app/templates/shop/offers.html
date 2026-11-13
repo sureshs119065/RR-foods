@@ -1,90 +1,72 @@
 {% extends "shop/layout.html" %}
 {% block title %}Offers &amp; combo deals | RR FOODS{% endblock %}
-{% block head_extra %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/diwali.css') }}">
-<script src="{{ url_for('static', filename='js/diwali-fireworks.js') }}" defer></script>
-{% endblock %}
+{% block head_extra %}{% endblock %}
 {% block content %}
 <div class="container offers-page">
   <header class="offers-hero">
     <p class="eyebrow">Fresh savings from our kitchen</p>
     <h1 class="pg-h">Offers &amp; combo deals</h1>
     <p>Discover product offers, save with coupon codes and get more value with curated RR FOODS combos.</p>
-    <a class="btn" href="{{ url_for('shop.bundles') }}">Explore combo offers</a>
+    <a class="btn" href="#catalogue-combo">Explore combo offer</a>
   </header>
 
-  {% if diwali_combos %}
-  <section class="diwali" data-diwali-section aria-labelledby="diwali-title">
-    <canvas class="diwali__canvas" data-fireworks aria-hidden="true"></canvas>
-    <div class="diwali__sparkles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="diwali__lamp" aria-hidden="true">🪔</div>
-    <header class="diwali__head">
-      <span class="diwali__eyebrow">✦ RR FOODS SPECIAL EVENTS ✦</span>
-      <h2 id="diwali-title"><span aria-hidden="true">✦</span> Special Event Combos</h2>
-      <p>Share the joy of festive flavours with thoughtfully curated RR FOODS hampers.</p>
-      <div class="diwali__countdown" data-diwali-countdown data-end="{{ diwali_end_at }}">
-        <span>Limited time festival offer</span><strong data-countdown-value>Loading offer timer…</strong>
+  {% if catalogue_combo %}
+  <section class="sec rr-catalogue-combo-detail combo-box" id="catalogue-combo" aria-labelledby="catalogue-combo-title">
+    <div class="combo-box__head">
+      <div class="combo-box__copy">
+        <p class="eyebrow">RR FOODS CATALOGUE COMBO OFFER</p>
+        <h2 id="catalogue-combo-title">{{ catalogue_combo.title }}</h2>
+        <p class="rr-catalogue-combo-detail__strapline">{{ catalogue_combo.strapline }}</p>
+        <p>{{ catalogue_combo.description }}</p>
       </div>
-      <button class="btn diwali__celebrate" type="button" data-celebrate>✦ Celebrate!</button>
-    </header>
-    <div class="diwali__grid">
-      {% for combo in diwali_combos %}
-      {% set pct = (((combo.original_price - combo.price) * 100 / combo.original_price)|round(0,'floor')|int) if combo.original_price else 0 %}
-      <article class="diwali-card">
-        <div class="diwali-card__media">
-          {% if combo.image %}<img src="{{ combo.image }}" alt="{{ combo.name }}" loading="lazy">{% else %}<div class="diwali-card__art" aria-hidden="true">🪔<span>RR FOODS</span>✦</div>{% endif %}
-          <span class="diwali-card__ribbon">{{ pct }}% OFF</span>
-        </div>
-        <div class="diwali-card__body">
-          <p class="diwali-card__tag">{{ combo.festival_tag|upper|replace("_", " ") }} SPECIAL</p>
-          <h3>{{ combo.name }}</h3>
-          <p class="diwali-card__desc">{{ combo.description or 'A festive selection made for sharing.' }}</p>
-          <ul>{% for line in combo.items or [] %}{% set product = combo_products.get(line.get('product_id')|int) %}{% if product %}<li>{{ product.name }}{% if line.get('quantity',1)|int > 1 %} × {{ line.get('quantity') }}{% endif %}</li>{% endif %}{% endfor %}</ul>
-          <div class="diwali-card__price"><del>₹{{ '%.2f'|format(combo.original_price) }}</del><strong>₹{{ '%.2f'|format(combo.price) }}</strong><span>You save ₹{{ '%.2f'|format(combo.original_price - combo.price) }}</span></div>
-          <form method="post" action="{{ url_for('shop.add_bundle', bundle_id=combo.bundle_id) }}">
-            {{ s.csrf() }}<button class="btn btn--block diwali-card__add" type="submit">Add to Cart · ₹{{ '%.2f'|format(combo.price) }}</button>
-          </form>
-        </div>
-      </article>
-      {% endfor %}
+      <div class="combo-box__buy">
+        <span class="combo-box__label">Combo price</span>
+        <strong class="combo-box__price">{{ catalogue_combo.price }}</strong>
+        {% if combo_regular_total and combo_regular_total > combo_price_value %}
+        <span class="combo-box__was"><s>{{ s.inr0(combo_regular_total) }}</s> <b>You save {{ s.inr0(combo_regular_total - combo_price_value) }}</b></span>
+        {% endif %}
+        <span class="combo-box__count">{{ combo_lines|length }} products · one pack each</span>
+        {% if combo_ready %}
+        <form method="post" action="{{ url_for('shop.offers_combo_add') }}">
+          {{ s.csrf() }}
+          <button class="btn combo-box__cta" type="submit">Add combo to cart</button>
+        </form>
+        {% else %}
+        <button class="btn combo-box__cta" type="button" disabled>Currently unavailable</button>
+        {% endif %}
+      </div>
     </div>
-    <p class="diwali__footnote">Combo contents and prices are managed by RR FOODS. Availability is subject to stock.</p>
+
+    <h3 class="combo-box__sub">What the combo includes</h3>
+    <ul class="combo-items">
+      {% for line in combo_lines %}
+      {% set pr = line.product %}
+      {% set im = pr.primary_image if pr else None %}
+      {% set fb = product_image_fallback(pr) if pr else None %}
+      <li class="combo-item">
+        {% if pr %}<a class="combo-item__link" href="{{ url_for('shop.product', slug=pr.slug) }}" aria-label="View {{ pr.name }}">{% else %}<div class="combo-item__link">{% endif %}
+          <span class="combo-item__img">
+            {% if im %}<img src="{{ im.thumb_url or im.url }}" data-product-image data-product-full="{{ im.url or '' }}" data-product-fallback="{{ fb or '' }}" alt="{{ im.alt or pr.name }}" loading="lazy" width="72" height="72">
+            {% elif fb %}<img src="{{ fb }}" data-product-image data-product-fallback="" alt="{{ pr.name }}" loading="lazy" width="72" height="72">
+            {% else %}<span class="combo-item__ph" aria-hidden="true">▧</span>{% endif %}
+          </span>
+          <span class="combo-item__body">
+            <b>{{ pr.name if pr else line.name }}</b>
+            <small>Pack: {{ line.pack }}{% if pr %} · {{ s.inr0(pr.final_price) }}{% endif %}</small>
+            {% if pr %}<span class="combo-item__go">View product →</span>{% else %}<span class="combo-item__go combo-item__go--off">Not listed in store yet</span>{% endif %}
+          </span>
+        {% if pr %}</a>{% else %}</div>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="rr-catalogue-combo-detail__closing">{{ catalogue_combo.closing }}</p>
   </section>
   {% endif %}
 
-  {% if bundles %}
-  <section class="sec" aria-labelledby="combo-offers-title">
-    <h2 id="combo-offers-title" class="sec__h">Bundles &amp; Combo Offers</h2>
-    <div class="promotion-grid">
-      {% for bundle in bundles %}
-      <article class="promotion-card combo-offer-card">
-        {% if bundle.image_url %}<img src="{{ bundle.image_url }}" alt="{{ bundle.name }}" loading="lazy" width="320" height="220">{% endif %}
-        <div>
-          <h3>{{ bundle.name }}</h3>
-          <p>{{ bundle.description or 'A curated combination of RR FOODS favourites.' }}</p>
-          <ul>
-            {% for line in bundle.product_quantities or [] %}
-              {% set product = products.get(line.get('product_id')|int) %}
-              {% if product %}<li>{{ product.name }}{% if line.get('quantity',1)|int > 1 %} × {{ line.get('quantity') }}{% endif %}</li>{% endif %}
-            {% endfor %}
-          </ul>
-          <p><strong>₹{{ '%.2f'|format(bundle.bundle_price) }}</strong>
-          {% if originals.get(bundle.id) %}<del>₹{{ '%.2f'|format(originals.get(bundle.id)) }}</del>{% endif %}</p>
-          <form method="post" action="{{ url_for('shop.add_bundle', bundle_id=bundle.id) }}">
-            {{ s.csrf() }}<button class="btn btn--block" type="submit">Add combo to cart</button>
-          </form>
-        </div>
-      </article>
-      {% endfor %}
-    </div>
-  </section>
-  {% endif %}
-
-  {% if active_offers %}<section class="sec"><h2 class="sec__h">Product promotions</h2><div class="promotion-grid">{% for offer in active_offers %}<article class="promotion-card"><span class="promotion-card__icon">✦</span><div><h3>{{ offer.name }}</h3><p>{{ offer.description or offer.tag }}</p><span class="tagchip">{{ offer.tag }}</span></div></article>{% endfor %}</div></section>{% endif %}
 
   <section class="sec"><h2 class="sec__h">Coupon codes</h2>
     {% if coupons %}<ul class="coupons">{% for c in coupons %}<li class="couponcard {% if c.code|upper == highlight %}couponcard--on{% endif %}"><b class="couponcard__code">{{ c.code }}</b><span>{{ c.description or ((c.discount_value|int ~ '% off') if c.discount_type == 'percent' else ('₹' ~ c.discount_value|int ~ ' off')) }}</span><span class="muted small">{% if c.min_cart_value %}On orders above ₹{{ c.min_cart_value|int }}. {% endif %}{% if c.expires_at %}Valid till {{ c.expires_at|local_display }}.{% endif %}</span></li>{% endfor %}</ul><p class="muted">Enter the code in your cart to use it.</p>{% else %}<p class="muted">No coupon codes are active right now.</p>{% endif %}
   </section>
-  {% if not diwali_combos and not bundles and not active_offers and not coupons %}<div class="empty"><h2>New offers are coming soon</h2><p class="muted">Check back for special RR FOODS deals.</p><a class="btn" href="{{ url_for('shop.listing') }}">Browse products</a></div>{% endif %}
+  {% if not catalogue_combo and not coupons %}<div class="empty"><h2>New offers are coming soon</h2><p class="muted">Check back for special RR FOODS deals.</p><a class="btn" href="{{ url_for('shop.listing') }}">Browse products</a></div>{% endif %}
 </div>
 {% endblock %}

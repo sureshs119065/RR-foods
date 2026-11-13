@@ -21,6 +21,13 @@ def _products():
 
 @bp.get("/bundles")
 def bundles():
+    try:
+        from ..shop.catalog import ensure_catalogue_combo_bundle
+        ensure_catalogue_combo_bundle()  # makes the catalogue combo visible/editable here
+    except Exception:  # never block the admin list, but record why
+        db.session.rollback()
+        from flask import current_app
+        current_app.logger.exception("Could not create the catalogue combo bundle")
     return render_template("admin/content_list.html", title="Bundles", kind="bundles",
         items=db.session.scalars(select(Bundle).order_by(Bundle.created_at.desc())).all())
 

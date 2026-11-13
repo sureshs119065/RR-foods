@@ -10,14 +10,15 @@
   {% if carousel.banners and (carousel.banners[0].mobile_image or carousel.banners[0].desktop_image) %}<link rel="preload" as="image" href="{{ carousel.banners[0].mobile_image or carousel.banners[0].desktop_image }}" fetchpriority="high" media="(max-width: 767px)">{% endif %}
 {% endblock %}
 {% block content %}
+<script src="{{ url_for('static', filename='js/home-loop.js') }}" defer></script>
 {% include "partials/header_carousel.html" %}
 {% if not (carousel and carousel.banners) %}
 <section class="hero" aria-labelledby="hero-t">
-  <div class="hero__in">
-    <p class="hero__badge">Healthy, home-style food</p>
-    <h1 id="hero-t" class="hero__t">Wholesome food, delivered to your door</h1>
-    <p class="hero__p">Browse mixes, snacks, sweets and breakfast essentials. Add to cart, track every order.</p>
-    <div class="hero__btns"><a class="btn btn--accent btn--lg" href="{{ url_for('shop.listing') }}">Shop all products</a><a class="btn btn--ghost-light btn--lg" href="{{ url_for('shop.offers') }}">See offers</a></div>
+  <div class="hero__in container">
+    <p class="hero__badge">Fresh • Healthy • Trusted</p>
+    <h1 id="hero-t" class="hero__t">Fresh &amp; Healthy <span>Groceries</span></h1>
+    <p class="hero__p">Delivered to Your Door</p>
+    <div class="hero__btns"><a class="btn btn--accent btn--lg" href="{{ url_for('shop.listing') }}">Shop Now →</a></div>
   </div>
 </section>
 {% endif %}
@@ -43,140 +44,151 @@
 <script src="{{ url_for('static', filename='js/reels.js') }}" defer></script>
 {% endif %}
 
-<section class="container facts-wrap" aria-label="Shopping here">
-  <ul class="facts">
-    <li>{{ s.icon('package') }}<span><b>Track every order</b><small>From placed to delivered</small></span></li>
-    <li>{{ s.icon('heart') }}<span><b>Save your favourites</b><small>Wishlist on every product</small></span></li>
-    <li>{{ s.icon('tag') }}<span><b>Offers and coupons</b><small>Applied at checkout</small></span></li>
-  </ul>
-</section>
 
-<div class="container">
+
+<div class="container home-shelves-shell">
+  {% if rows.deals or rows.catalogue_combo %}
+  <section class="sec rr-offers-section" aria-labelledby="offers-heading">
+    <div class="sec__row">
+      <h2 id="offers-heading" class="sec__h">Offers &amp; Combo</h2>
+      <div class="sec__tools"><a href="{{ url_for('shop.offers') }}">Explore all offers →</a></div>
+    </div>
+    {% if rows.catalogue_combo %}
+    <a class="rr-combo" href="{{ url_for('shop.offers') }}#catalogue-combo" aria-label="{{ rows.catalogue_combo.title }} — {{ rows.catalogue_combo.price }}. View combo details">
+      <span class="rr-combo__rings" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="rr-combo__leaf" aria-hidden="true">{{ s.icon('leaf') }}</span>
+      <span class="rr-combo__copy">
+        <span class="rr-combo__badge">✦ Combo offer</span>
+        <span class="rr-combo__title">{{ rows.catalogue_combo.title }}</span>
+        <span class="rr-combo__sub">Curated RR FOODS pack — one order, many favourites.</span>
+      </span>
+      <span class="rr-combo__buy">
+        <span class="rr-combo__price-label">Combo price</span>
+        <strong class="rr-combo__price">{{ rows.catalogue_combo.price }}</strong>
+        <span class="rr-combo__cta">View combo <span aria-hidden="true">→</span></span>
+      </span>
+    </a>
+    {% endif %}
+    {% if rows.deals %}
+    <div class="rr-loop" data-loop aria-label="Discounted RR FOODS products">
+      <ul class="rr-loop__track">
+        {% for p in rows.deals[:8] %}{{ s.rcard(p) }}{% endfor %}
+        {% for p in rows.deals[:8] %}{{ s.rcard(p, true) }}{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
   {% if rows.categories %}
-  <section class="sec" id="categories" aria-labelledby="cats-h">
-    <div class="sec__row"><div><h2 id="cats-h" class="sec__h">Shop by category</h2><p class="sec__sub">Everything we sell, grouped the way you shop.</p></div><a href="{{ url_for('shop.listing') }}">All products</a></div>
-    <ul class="ctiles">
-      {% for c in rows.categories %}{% set n = rows.counts.get(c.id, 0) %}
+  <section class="sec rr-categories-section" id="categories" aria-labelledby="cats-h">
+    <div class="sec__row"><div><h2 id="cats-h" class="sec__h">Shop by Category</h2><p class="sec__sub">Explore our everyday grocery essentials.</p></div><a href="{{ url_for('shop.listing') }}">View all →</a></div>
+    <div class="rr-category-track-wrap">
+    <button class="rowarrow rr-category-arrow rr-category-prev" type="button" data-row-prev="rr-category-track" aria-label="Previous categories">{{ s.icon('left') }}</button>
+    <ul class="ctiles rr-category-track" id="rr-category-track" tabindex="0" aria-label="Categories, scroll sideways for more">
+      {% for c in rows.categories[:8] %}{% set n = rows.counts.get(c.id, 0) %}
       <li><a class="ct" href="{{ url_for('shop.category_listing', slug=c.slug) }}">
-        <span class="ct__img">{% if c.image %}<img src="{{ c.image }}" alt="" loading="lazy" decoding="async" width="300" height="240">{% else %}<span class="ct__ph" aria-hidden="true">{{ c.name[:1] }}</span>{% endif %}</span>
+        <span class="ct__img">
+          {% if c.image %}
+            <img src="{{ c.image }}" data-category-image alt="{{ c.name }}" loading="lazy" decoding="async" width="300" height="240">
+            <span class="ct__ph" aria-hidden="true" hidden>{{ s.icon('leaf') }}</span>
+          {% else %}
+            <span class="ct__ph" aria-hidden="true">{{ s.icon('leaf') }}</span>
+          {% endif %}
+        </span>
         <span class="ct__name">{{ c.name }}</span>{% if n %}<span class="ct__n">{{ n }} item{{ 's' if n != 1 else '' }}</span>{% endif %}
       </a></li>
       {% endfor %}
     </ul>
+    <button class="rowarrow rr-category-arrow rr-category-next" type="button" data-row-next="rr-category-track" aria-label="Next categories">{{ s.icon('right') }}</button>
+    </div>
   </section>
   {% endif %}
 
-  {% if rows.deals or rows.best or rows.new %}
-  <section class="promos" aria-label="Featured collections">
-    {% if rows.deals %}{% set di = rows.deals[0].primary_image %}
-    <article class="promo promo--berry promo--lg">
-      <div class="promo__copy"><span class="promo__badge">Offer</span><h3>Deals of the day</h3><p>{% if rows.top_deal %}Up to {{ rows.top_deal }}% off on selected products.{% else %}Selected products at special prices.{% endif %}</p><a class="btn btn--accent" href="{{ url_for('shop.listing', sort='discount', discount=10) }}">See the deals</a></div>
-      {% if di %}<img class="promo__img" src="{{ di.thumb_url or di.url }}" alt="" loading="lazy" decoding="async" width="400" height="400">{% endif %}
-    </article>
-    {% endif %}
 
-    {% if rows.best %}
-    <article class="promo promo--mist promo--bestsellers">
-      <div class="promo__copy">
-        <h3>Bestsellers</h3>
-        <p>The products customers buy most.</p>
-        <a class="btn" href="{{ url_for('shop.bestsellers') }}">
-          Shop bestsellers
-        </a>
-      </div>
-    </article>
-    {% endif %}
 
-    {% if rows.new %}
-    <article class="promo promo--leaf promo--new-arrivals">
-      <div class="promo__copy">
-        <h3>New arrivals</h3>
-        <p>Fresh additions to the shop.</p>
-        <a class="btn btn--accent"
-           href="{{ url_for('shop.listing', sort='newest') }}">
-          See what is new
-        </a>
-      </div>
-    </article>
-    {% endif %}
+  {% if rows.new %}
+  <section class="sec rr-featured-section rr-new-arrivals" aria-labelledby="new-h">
+    <div class="sec__row"><div><h2 id="new-h" class="sec__h">New Arrivals</h2></div><div class="sec__tools"><a href="{{ url_for('shop.listing', sort='newest') }}">View all →</a></div></div>
+    <div class="rr-loop" data-loop aria-label="New arrivals, scrolls automatically. Hover or touch to pause.">
+      <ul class="rr-loop__track" id="new-track">
+        {% for p in rows.new[:8] %}{{ s.rcard(p) }}{% endfor %}
+        {% for p in rows.new[:8] %}{{ s.rcard(p, true) }}{% endfor %}
+      </ul>
+    </div>
   </section>
   {% endif %}
 
-  {% if rows.best %}
-  <section class="sec" aria-labelledby="best-h">
-    <div class="sec__row"><div><h2 id="best-h" class="sec__h">Bestsellers</h2><p class="sec__sub">Our most popular products right now.</p></div><div class="sec__tools">{{ s.row_arrows('best-track') }}<a href="{{ url_for('shop.bestsellers') }}">See all</a></div></div>
-    <ul class="snaprow" id="best-track" tabindex="0" aria-label="Bestselling products, scroll sideways for more">{% for p in rows.best %}{{ s.rcard(p) }}{% endfor %}</ul>
-  </section>
-  {% endif %}
-</div>
-
-<section class="band band--soft" aria-labelledby="coll-h">
-  <div class="container band__in">
-    <h2 id="coll-h" class="sec__h">Shop by need</h2><p class="sec__sub">Start from what matters to you today.</p>
-    <ul class="needs">
-      <li><a class="need" href="{{ url_for('shop.listing', sort='price-asc') }}"><span class="need__i">{{ s.icon('tag') }}</span><b>Best prices</b><small>Sorted from the lowest price.</small><span class="need__go">Shop now</span></a></li>
-      <li><a class="need" href="{{ url_for('shop.listing', sort='rating') }}"><span class="need__i">{{ s.icon('star') }}</span><b>Top rated</b><small>Loved by customers who bought them.</small><span class="need__go">Shop now</span></a></li>
-      <li><a class="need" href="{{ url_for('shop.listing', sort='discount') }}"><span class="need__i">{{ s.icon('scale') }}</span><b>Biggest discounts</b><small>See how much you save.</small><span class="need__go">Shop now</span></a></li>
-      <li><a class="need" href="{{ url_for('shop.listing', avail=1) }}"><span class="need__i">{{ s.icon('package') }}</span><b>Ready to ship</b><small>Only what is in stock today.</small><span class="need__go">Shop now</span></a></li>
-      <li><a class="need" href="{{ url_for('shop.offers') }}"><span class="need__i">{{ s.icon('leaf') }}</span><b>Offers and coupons</b><small>Codes you can use at checkout.</small><span class="need__go">Shop now</span></a></li>
-    </ul>
-  </div>
-</section>
-
-{% if rows.new %}
-<section class="band band--dark" aria-labelledby="new-h">
-  <div class="container band__in">
-    <div class="sec__row"><div><h2 id="new-h" class="sec__h">New arrivals</h2><p class="sec__sub">Fresh additions to the shop. Scroll sideways for more.</p></div><div class="sec__tools">{{ s.row_arrows('new-track') }}<a href="{{ url_for('shop.listing', sort='newest') }}">See all</a></div></div>
-    <ul class="snaprow" id="new-track" tabindex="0" aria-label="New arrivals, scroll sideways for more">{% for p in rows.new %}{{ s.rcard(p) }}{% endfor %}</ul>
-  </div>
-</section>
-{% endif %}
-
-<div class="container">
-  {% if rows.deals %}
-  <section class="sec" aria-labelledby="deals-h">
-    <div class="sec__row"><h2 id="deals-h" class="sec__h">Deals of the day</h2><a href="{{ url_for('shop.listing', sort='discount', discount=10) }}">See all</a></div>
-    {{ s.grid(rows.deals) }}
-  </section>
-  {% endif %}
-
-  <section class="sec" aria-labelledby="trust-h">
-    <h2 id="trust-h" class="sec__h">Why customers can trust us</h2><p class="sec__sub">Plain facts you can check on every product page.</p>
-    <ul class="trust">
-      <li class="tcard"><span class="need__i">{{ s.icon('star') }}</span><b>Real reviews</b><p>Reviews from customers, with a verified purchase label.</p></li>
-      <li class="tcard"><span class="need__i">{{ s.icon('list') }}</span><b>Clear prices</b><p>Price, discount and pack size shown before you add to cart.</p></li>
-      <li class="tcard"><span class="need__i">{{ s.icon('shield') }}</span><b>Secure account</b><p>Sign in to keep your cart, addresses and orders safe.</p></li>
-      <li class="tcard"><span class="need__i">{{ s.icon('check') }}</span><b>Order tracking</b><p>Follow each order from placed to delivered.</p></li>
-    </ul>
-  </section>
-
-  {% if recent %}<section class="sec" aria-labelledby="rv-h"><h2 id="rv-h" class="sec__h">Recently viewed</h2>{{ s.grid(recent) }}</section>{% endif %}
-
-  <section class="sec" aria-labelledby="how-h">
-    <div class="sec__row"><h2 id="how-h" class="sec__h">How ordering works</h2></div>
-    <ol class="steps">
-      {% for t, d in [('Browse the shop', 'Every product shows its price, discount and pack size.'), ('Add to cart', 'Choose the quantity for each item.'), ('Sign in and add your address', 'Create an account once and reuse it.'), ('Place your order', 'Review the total and confirm.'), ('Track it', 'Follow the order until it reaches you.')] %}
-      <li class="tcard"><span class="step__n">{{ loop.index }}</span><b>{{ t }}</b><p>{{ d }}</p></li>
-      {% endfor %}
+  <section class="rr-how-order" aria-labelledby="rr-how-order-title">
+    <div class="rr-how-order__heading">
+      <h2 id="rr-how-order-title">How to Order</h2>
+      <p>Fresh RR FOODS favourites in a few simple steps.</p>
+    </div>
+    <ol class="rr-how-order__steps">
+      <li><span class="rr-how-order__number">1</span><div><b>Choose your products</b><small>Browse categories or search for your favourites.</small></div></li>
+      <li><span class="rr-how-order__number">2</span><div><b>Add to your cart</b><small>Select the quantity you need and review your cart.</small></div></li>
+      <li><span class="rr-how-order__number">3</span><div><b>Enter delivery details</b><small>Provide your address and contact information.</small></div></li>
+      <li><span class="rr-how-order__number">4</span><div><b>Place your order</b><small>Choose an available payment option and confirm.</small></div></li>
     </ol>
   </section>
-
-  {% if not (rows.deals or rows.best or rows.new) %}<p class="muted sec">Products are coming soon.</p>{% endif %}
 </div>
 
-<section class="band band--soft home-about" aria-labelledby="home-about-h">
-  <div class="container band__in">
-    <p class="eyebrow">Our story</p>
-    <h2 id="home-about-h" class="sec__h">A Mother's Dream. A Healthier Tomorrow.</h2>
-    <p>Traditional roots. Modern taste. A vision to help families rediscover traditional goodness and make thoughtful food choices.</p>
-    <a class="more" href="{{ url_for('shop.about') }}">Read the RR FOODS story →</a>
-  </div>
-</section>
 
 
 
-<section class="cta" aria-labelledby="cta-h">
-  <div class="cta__in"><h2 id="cta-h">Ready to order?</h2><p>Browse everything we sell and add your favourites to the cart.</p><a class="btn btn--accent btn--lg" href="{{ url_for('shop.listing') }}">Shop all products</a></div>
+<section class="home-bottom container" aria-label="More from RR FOODS">
+  <section class="home-bottom__recent" aria-labelledby="home-recent-heading">
+    <header class="rv__head">
+      <span class="rv__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+      <div class="rv__titles"><h2 id="home-recent-heading">Recently viewed</h2><p>Pick up where you left off.</p></div>
+      <a class="rv__all" href="{{ url_for('shop.listing') }}">Browse all →</a>
+    </header>
+    {% if recent %}
+    <ul class="rv__list">{% for item in recent[:6] %}{{ s.rcard(item) }}{% endfor %}</ul>
+    {% else %}
+    <div class="rv__empty">
+      <span class="rv__empty-art" aria-hidden="true">{{ s.icon('leaf') }}</span>
+      <div><b>Nothing viewed yet</b><p>Products you open will show up here so you can get back to them quickly.</p></div>
+      <a class="rv__empty-btn" href="{{ url_for('shop.listing') }}">Start browsing</a>
+    </div>
+    {% endif %}
+  </section>
+  <section class="home-bottom__story" aria-labelledby="home-story-heading">
+    <div class="home-bottom__story-copy"><h2 id="home-story-heading">Our Story</h2><p>From our farm to your home – fresh, natural and full of goodness.</p><a href="{{ url_for('shop.about') }}">Read the RR FOODS story <span aria-hidden="true">→</span></a></div>
+  </section>
+  <section class="home-bottom__reviews sec" aria-labelledby="home-reviews-heading">
+    <div class="sec__row"><h2 id="home-reviews-heading" class="sec__h"><span aria-hidden="true">★</span> Customer Reviews</h2><a href="{{ url_for('shop.listing') }}">View all →</a></div>
+    {% if featured_reviews %}<div class="home-bottom__review-track">
+      {% for review, product_name, customer_name in featured_reviews[:3] %}
+      <article class="home-bottom__review"><div class="home-bottom__review-avatar" aria-hidden="true">{{ (customer_name[:1] if customer_name else 'C')|upper }}</div><div class="home-bottom__review-content">
+        <div class="home-bottom__stars" aria-label="{{ review.rating }} out of 5 stars">{% for n in range(review.rating) %}★{% endfor %}</div>
+        <p>“{{ review.body or review.title or ('Loved ' ~ product_name) }}”</p><div class="home-bottom__review-meta"><b>{{ customer_name.split()[0] if customer_name else 'Customer' }}</b>{% if review.is_verified_purchase %}<span>✓ Verified purchase</span>{% endif %}</div>
+      </div></article>{% endfor %}
+    </div>{% else %}<p class="home-bottom__empty">Customer feedback will appear here as verified reviews are approved.</p>{% endif %}
+  </section>
+  <section class="home-bottom__shortcuts" aria-labelledby="home-shortcuts-heading">
+    <div class="home-bottom__shortcuts-head">
+      <div><span class="home-bottom__shortcuts-eyebrow">MAKE SHOPPING EASIER</span><h2 id="home-shortcuts-heading">Your shopping shortcuts</h2>
+        <p>Jump straight to what you need, without searching through the whole store.</p></div>
+    </div>
+    <div class="home-bottom__shortcut-grid">
+      <a class="home-bottom__shortcut" href="{{ url_for('shop.listing') }}">
+        <span class="home-bottom__shortcut-icon" aria-hidden="true">▦</span><span><b>Browse all products</b><small>Explore the complete RR FOODS range</small></span><span class="home-bottom__shortcut-arrow" aria-hidden="true">→</span>
+      </a>
+      <a class="home-bottom__shortcut" href="{{ url_for('shop.offers') }}">
+        <span class="home-bottom__shortcut-icon" aria-hidden="true">％</span><span><b>Offers &amp; combo</b><small>Find active deals and value bundles</small></span><span class="home-bottom__shortcut-arrow" aria-hidden="true">→</span>
+      </a>
+      <a class="home-bottom__shortcut" href="{{ url_for('shop.orders') if signed_customer else url_for('auth.login') }}">
+        <span class="home-bottom__shortcut-icon" aria-hidden="true">⌁</span><span><b>Track your order</b><small>Check order status and delivery updates</small></span><span class="home-bottom__shortcut-arrow" aria-hidden="true">→</span>
+      </a>
+      <a class="home-bottom__shortcut" href="#customer-message">
+        <span class="home-bottom__shortcut-icon" aria-hidden="true">♡</span><span><b>Customer support</b><small>Ask our team if you need a hand</small></span><span class="home-bottom__shortcut-arrow" aria-hidden="true">→</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="home-bottom__order" aria-labelledby="home-order-heading"><div class="home-bottom__order-copy"><span class="home-bottom__order-icon" aria-hidden="true">🛒</span><div><h2 id="home-order-heading">Ready to order?</h2><p>Get fresh, healthy food delivered to your doorstep.</p></div></div><a href="{{ url_for('shop.listing') }}">Shop Now <span aria-hidden="true">→</span></a></section>
+
 </section>
 
 <section class="home-contact-section" id="customer-message" aria-labelledby="customer-message-title">

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
+from urllib.parse import quote_plus
 from decimal import Decimal, ROUND_HALF_UP
-from flask import abort, flash, g, redirect, render_template, request, url_for
+from flask import abort, current_app, flash, g, redirect, render_template, request, url_for
 from sqlalchemy import select
 from ..extensions import db
 from ..models import Bundle, CartItem, Product, RecipeVideo
@@ -120,6 +121,34 @@ def add_recipe_ingredients(recipe_id):
     flash(f"Added {added} linked ingredient product(s) to your cart." if added else "No linked products could be added.", "success" if added else "error")
     return redirect(url_for("shop.cart"))
 
-@bp.get("/help")
+@bp.route("/help", methods=["GET", "POST"])
 def help_page():
-    return render_template("shop/help.html")
+    """Public contact page with a validated WhatsApp/email message handoff."""
+    import re
+
+    whatsapp_raw = str(current_app.config.get("WHATSAPP_NUMBER") or "")
+    whatsapp_number = re.sub(r"\D", "", whatsapp_raw)
+    support_email = (current_app.config.get("SUPPORT_EMAIL") or "").strip()
+
+    if request.method == "POST":
+        name = " ".join((request.form.get("name") or "").split())[:100]
+        email = " ".join((request.form.get("email") or "").split())[:160]
+        phone = " ".join((request.form.get("phone") or "").split())[:30]
+        subject = " ".join((request.form.get("subject") or "").split())[:140]
+        message = (request.form.get("message") or "").strip()[:4000]
+
+        if len(name) < 2 or not subject or len(message) < 10:
+            flash("Please enter your name, a subject and a message of at least 10 characters.", "error")
+        elif not whatsapp_number and not support_email:
+            flash("Contact messaging is not configured yet. Please contact the store team through your account.", "error")
+        else:
+            body = (
+                "RR FOODS website enquiry\n"
+                f"Name: {name}\nEmail: {email or 'Not provided'}\n"
+                f"Phone: {phone or 'Not provided'}\nSubject: {subject}\n\n{message}"
+            )
+            if whatsapp_number:
+                return redirect(f"https://wa.me/{whatsapp_number}?text={quote_plus(body)}")
+            return redirect(f"mailto:{support_email}?subject={quote_plus('RR FOODS enquiry: ' + subject)}&body={quote_plus(body)}")
+
+    return render_template("shop/help.html", whatsapp_number=whatsapp_number, support_email=support_email)

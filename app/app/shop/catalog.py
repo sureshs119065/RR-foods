@@ -175,32 +175,29 @@ def product(slug):
     from ..models import Bundle
     bundles = db.session.scalars(select(Bundle).where(Bundle.is_active.is_(True))).all()
     product_bundles = [b for b in bundles if any(int(x.get("product_id", 0)) == p.id for x in (b.product_quantities or []))]
+    from ..services.product_catalogue import catalogue_for_product
+    catalogue_content = catalogue_for_product(p)
     return render_template("shop/product.html", p=p, variants=variants, stock=available_qty(p), offers=offers, coupons=coupons, reviews=reviews,
                            questions=questions, crumbs=crumbs, together=together, together_ids=[t.id for t in together if not active_variants(t)],
-                           similar=storefront.you_may_like(p), shopper=shopper, can_review=can_review, my_review=my_review, voted=voted, recent=storefront.recently_viewed(exclude=p.id), rating_dist=rating_dist, alert_on=alert_on, now=now, product_bundles=product_bundles, delivery_settings=delivery_settings)
+                           similar=storefront.you_may_like(p), shopper=shopper, can_review=can_review, my_review=my_review, voted=voted, rating_dist=rating_dist, alert_on=alert_on, now=now, product_bundles=product_bundles, delivery_settings=delivery_settings,
+                           catalogue_content=catalogue_content)
 
 
 @bp.get("/offers")
 def offers():
     now = utcnow()
     coupons = db.session.scalars(select(Coupon).where(Coupon.is_active.is_(True), (Coupon.expires_at.is_(None)) | (Coupon.expires_at > now)).order_by(Coupon.id)).all()
-    from ..models import Bundle, Combo, Offer, SiteSetting
+    from ..models import Offer
+    from ..services.product_catalogue import CATALOGUE_COMBO_OFFER
     active_offers = db.session.scalars(select(Offer).where(Offer.is_active.is_(True),
         (Offer.starts_at.is_(None)) | (Offer.starts_at <= now),
         (Offer.ends_at.is_(None)) | (Offer.ends_at > now)).order_by(Offer.name)).all()
-    bundles = db.session.scalars(select(Bundle).where(Bundle.is_active.is_(True),
-        (Bundle.starts_at.is_(None)) | (Bundle.starts_at <= now),
-        (Bundle.ends_at.is_(None)) | (Bundle.ends_at > now)).order_by(Bundle.created_at.desc())).all()
-    products = {p.id: p for p in db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all()}
-    originals = {b.id: sum((Decimal(str(products[int(line.get("product_id", 0))].final_price)) * int(line.get("quantity", 1))
-        for line in (b.product_quantities or []) if int(line.get("product_id", 0)) in products), Decimal("0")) for b in bundles}
-    combos = db.session.scalars(select(Combo).where(Combo.is_active.is_(True)).order_by(Combo.created_at.desc())).all()
-    combo_products = {p.id: p for p in db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all()}
-    end_setting = db.session.get(SiteSetting, "diwali_end_at")
-    diwali_end_at = end_setting.value if end_setting and isinstance(end_setting.value, str) else "2026-11-12T23:59:00+05:30"
-    return render_template("shop/offers.html", coupons=coupons, highlight=(request.args.get("coupon") or "").upper()[:40],
-        rows=storefront.home_rows(), active_offers=active_offers, bundles=bundles, products=products, originals=originals,
-        diwali_combos=combos, combo_products=combo_products, diwali_end_at=diwali_end_at)
+    # The Offers template renders only coupons, active promotions and the
+    # catalogue-defined combo. Avoid running the homepage shelf queries here:
+    # they are unrelated to this route and can fail independently of Offers.
+    return render_template("shop/offers.html", coupons=coupons,
+        highlight=(request.args.get("coupon") or "").upper()[:40],
+        active_offers=active_offers, catalogue_combo=CATALOGUE_COMBO_OFFER)
 
 
 # ---------------------------------------------------------------- JSON helpers for the page scripts

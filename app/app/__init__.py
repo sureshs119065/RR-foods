@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from flask import Flask, g, render_template, request, jsonify
+from flask import Flask, current_app, g, render_template, request, jsonify, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 import logging
 import uuid
@@ -138,6 +138,81 @@ def create_app(config_object=None):
     app.jinja_env.globals["wa_owner_link"] = wa.owner_link          # customer -> owner: order already written
     app.jinja_env.globals["wa_order_text"] = wa.order_message
     app.jinja_env.globals["wa_customer_link"] = wa.customer_link    # owner -> customer: status message already written
+
+    def product_image_fallback(product):
+        """Return a bundled product photo when an admin-uploaded product image is absent or broken."""
+        if not product:
+            return None
+        slug = re.sub(r"[^a-z0-9-]+", "-", (getattr(product, "slug", "") or "").lower()).strip("-")
+        image_root = Path(app.static_folder) / "img" / "products"
+        candidates = []
+        if slug:
+            candidates.extend([f"{slug}.webp", f"{slug}.png", f"{slug}.jpg"])
+        name = f"{getattr(product, 'name', '')} {getattr(getattr(product, 'category', None), 'name', '')}".lower()
+        if "millet-soup-mix" in slug or ("millet soup mix" in name and "moringa" not in name):
+            candidates.append("soup-base-mix.webp")
+        keyword_map = [
+            (("soup",), ["moringa-soup-mix.webp", "soup-base-mix.webp"]),
+            (("noodle",), ["multi-millet-noodles.webp", "foxtail-millet-noodles.webp"]),
+            (("semiya", "vermicelli"), ["multi-millet-semiya.webp", "little-millet-semiya.webp"]),
+            (("pasta", "macaroni"), ["beetroot-pasta.webp", "multi-millet-pasta.webp"]),
+            (("podi", "idli"), ["tirunelveli-idli-podi.webp", "inippu-ellu-idli-podi.webp"]),
+            (("flour", "atta", "ragi", "grain", "dal", "millet"), ["multi-millet-chapati-mix.webp", "multi-millet-muesli.webp"]),
+            (("seed", "nut", "chana", "laddu", "snack", "dry fruit", "muesli"), ["multi-millet-muesli.webp", "multi-millet-chapati-mix.webp"]),
+        ]
+        for words, files in keyword_map:
+            if any(word in name for word in words):
+                candidates.extend(files)
+                break
+        candidates.extend(["multi-millet-muesli.webp", "soup-base-mix.webp"])
+        for filename in candidates:
+            if (image_root / filename).is_file():
+                return url_for("static", filename=f"img/products/{filename}")
+        return None
+
+    def product_image_src(image, product=None, thumbnail=False):
+        """Resolve a product image URL against the configured upload store without losing CDN URLs."""
+        if not image:
+            return product_image_fallback(product) if product else None
+        candidates = []
+        if thumbnail and getattr(image, "thumb_url", None):
+            candidates.append(image.thumb_url)
+        if getattr(image, "url", None):
+            candidates.append(image.url)
+        for raw in candidates:
+            raw = (raw or "").strip()
+            if not raw:
+                continue
+            if raw.startswith(("https://", "http://", "//", "data:")):
+                return raw
+            normalized = raw if raw.startswith("/") else "/" + raw.lstrip("/")
+            if normalized.startswith("/uploads/"):
+                root = Path(app.config["UPLOAD_DIR"]).resolve()
+                target = (root / normalized[len("/uploads/"):]).resolve()
+                if root in target.parents and target.is_file():
+                    return normalized
+                continue
+            if normalized.startswith("/static/"):
+                static_root = Path(app.static_folder).resolve()
+                target = (static_root / normalized[len("/static/"):]).resolve()
+                if static_root in target.parents and target.is_file():
+                    return normalized
+                continue
+            if normalized.startswith("/img/"):
+                static_root = Path(app.static_folder).resolve()
+                target = (static_root / normalized.lstrip("/")).resolve()
+                if static_root in target.parents and target.is_file():
+                    return url_for("static", filename=normalized.lstrip("/"))
+                continue
+            # Legacy relative image paths are accepted only when a real bundled static file exists.
+            static_root = Path(app.static_folder).resolve()
+            target = (static_root / normalized.lstrip("/")).resolve()
+            if static_root in target.parents and target.is_file():
+                return url_for("static", filename=normalized.lstrip("/"))
+        return product_image_fallback(product) if product else None
+
+    app.jinja_env.globals["product_image_fallback"] = product_image_fallback
+    app.jinja_env.globals["product_image_src"] = product_image_src
 
     @app.context_processor
     def _inject():

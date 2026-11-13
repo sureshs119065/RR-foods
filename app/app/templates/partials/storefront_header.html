@@ -1,0 +1,100 @@
+{# Shared RR FOODS header for storefront, account, auth and public error pages. #}
+{% import "shop/_macros.html" as s %}
+{% set ann = announcements() if announcements is defined else [] %}
+{% if ann %}
+<div class="ann" id="announce" role="region" aria-label="Announcements">
+  <div class="ann__in container">
+    <div class="marquee" id="announce-marquee"><div class="marquee__track">
+      {% for dup in [false, true] %}<ul class="marquee__group"{% if dup %} aria-hidden="true"{% endif %}>{% for a in ann %}<li class="marquee__item">{{ a }}</li>{% endfor %}</ul>{% endfor %}
+    </div></div>
+    <button class="ann__btn" type="button" id="announce-pause" aria-label="Pause scrolling announcements" aria-pressed="false">{{ s.icon('pause') }}</button>
+    <button class="ann__btn ann__x" type="button" id="announce-close" aria-label="Dismiss announcements">{{ s.icon('close') }}</button>
+  </div>
+</div>
+{% endif %}
+
+<header class="sh rr-header" id="sh" data-sh>
+  <div class="sh__row rr-header__row container">
+    <button class="icon-btn sh__menu" type="button" data-open="drawer" aria-label="Open menu" aria-controls="drawer" aria-expanded="false">{{ s.icon('menu') }}</button>
+    <a class="brand rr-brand" href="{{ url_for('shop.home') }}" aria-label="RR FOODS home">
+      <img class="brand__logo rr-brand__logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="72" height="72" alt="RR FOODS">
+    </a>
+
+    <nav class="sh__links rr-header__links" aria-label="Main navigation">
+      <ul>
+        <li><a class="nav-link" href="{{ url_for('shop.home') }}" {% if request.endpoint == 'shop.home' %}aria-current="page"{% endif %}>Home</a></li>
+        <li><a class="nav-link" href="{{ url_for('shop.listing') }}" {% if request.endpoint in ('shop.listing', 'shop.bestsellers', 'shop.category_listing') %}aria-current="page"{% endif %}>Shop</a></li>
+        <li><a class="nav-link" href="{{ url_for('shop.offers') }}" {% if request.endpoint in ('shop.offers', 'shop.bundles', 'shop.add_bundle') %}aria-current="page"{% endif %}>Offers &amp; Combo</a></li>
+        <li><a class="nav-link" href="{{ url_for('shop.about') }}" {% if request.endpoint == 'shop.about' %}aria-current="page"{% endif %}>Story</a></li>
+        <li><a class="nav-link" href="{{ url_for('shop.help_page') }}" {% if request.endpoint == 'shop.help_page' %}aria-current="page"{% endif %}>Contact</a></li>
+      </ul>
+    </nav>
+
+    <form class="sh__search rr-header__search" action="{{ url_for('shop.listing') }}" method="get" role="search">
+      <input type="search" name="q" value="{{ request.args.get('q', '') if request.endpoint in ('shop.listing', 'shop.bestsellers', 'shop.category_listing') else '' }}" placeholder="Search products..." aria-label="Search products" autocomplete="off" enterkeyhint="search" data-suggest>
+      <button class="sh__go" type="submit" aria-label="Search">{{ s.icon('search') }}</button>
+    </form>
+
+    <div class="sh__actions rr-header__actions">
+      {% set signed_customer = current_user and current_user.role == 'user' %}
+      {% set un = unread_count() if signed_customer and unread_count is defined and unread_count is callable else 0 %}
+      {% set wn = wishlist_count|default(0) if signed_customer else 0 %}
+      <button class="icon-btn sh__searchbtn" type="button" data-open="search" aria-label="Open search">{{ s.icon('search') }}</button>
+      <a class="icon-btn sh__bell rr-action-notifications" href="{{ url_for('shop.notifications') if signed_customer else url_for('auth.login') }}" aria-label="Notifications{% if un %} ({{ un }} unread){% endif %}">
+        <svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+        <span class="dot-n" data-notif-count {% if not un %}hidden{% endif %}>{{ un if un < 100 else '99+' }}</span>
+      </a>
+      <a class="icon-btn rr-action-wishlist" href="{{ url_for('shop.wishlist') if signed_customer else url_for('auth.login') }}" aria-label="Wishlist{% if wn %} ({{ wn }} items){% endif %}">
+        {{ s.icon('heart') }}<span class="dot-n" data-wishlist-count {% if not wn %}hidden{% endif %}>{{ wn if wn < 100 else '99+' }}</span>
+      </a>
+      <a class="icon-btn rr-action-track" href="{{ url_for('shop.orders') if signed_customer else url_for('auth.login') }}" aria-label="Track Orders">
+        {{ s.icon('package') }}<span class="sh__action-label">Track Orders</span>
+      </a>
+      <a class="icon-btn sh__acct rr-action-account" href="{{ '/account' if signed_customer else ('/owner/' if current_user and current_user.role == 'owner' else ('/admin/' if current_user else '/login')) }}" aria-label="{{ 'My account' if current_user else 'Sign in' }}">{{ s.icon('user') }}</a>
+      <a class="icon-btn sh__cart rr-action-cart" href="{{ url_for('shop.cart') }}" aria-label="Cart">
+        <svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 1.9-1.4L21 9H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
+        {% set n = cart_count() if cart_count is defined else 0 %}
+        <span class="dot-n" data-cart-count {% if not n %}hidden{% endif %}>{{ n if n < 100 else '99+' }}</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<div class="backdrop" id="backdrop" hidden></div>
+<aside class="drawer" id="drawer" aria-label="Menu" aria-hidden="true">
+  <div class="drawer__head"><b>Menu</b><button class="icon-btn" type="button" data-close aria-label="Close menu">{{ s.icon('close') }}</button></div>
+  <nav class="drawer__nav">
+    <a href="{{ url_for('shop.home') }}">Home</a>
+    <a href="{{ url_for('shop.listing') }}">Shop</a>
+    <a href="{{ url_for('shop.offers') }}">Offers &amp; Combo</a>
+    <a href="{{ url_for('shop.about') }}">Story</a>
+    <a href="{{ url_for('shop.help_page') }}">Contact</a>
+    <hr>
+    {% if current_user and current_user.role == 'user' %}
+      <a href="{{ url_for('shop.orders') }}">My orders</a>
+      <a href="{{ url_for('shop.wishlist') }}">My wishlist</a>
+      <a href="{{ url_for('shop.notifications') }}">Notifications</a>
+      <a href="{{ url_for('shop.addresses') }}">My addresses</a>
+      <a href="/account">My account</a>
+      <a href="{{ url_for('shop.messages') }}">Inbox</a>
+    {% elif current_user %}
+      <a href="{{ '/owner/' if current_user.role == 'owner' else '/admin/' }}">Open my panel</a>
+    {% else %}
+      <a href="/login">Sign in</a><a href="/register">Create account</a>
+    {% endif %}
+    <button type="button" class="drawer__btn" data-theme-toggle>{{ s.icon('moon') }} <span>Dark mode</span></button>
+    {% if current_user %}<form method="post" action="{{ url_for('auth.logout') }}">{{ s.csrf() }}<button type="submit" class="drawer__btn">Sign out</button></form>{% endif %}
+  </nav>
+</aside>
+
+<div class="so" id="search-overlay" role="dialog" aria-modal="true" aria-label="Search" hidden>
+  <form class="so__bar" action="{{ url_for('shop.listing') }}" method="get" role="search">
+    <button class="icon-btn" type="button" data-close aria-label="Close search">{{ s.icon('left') }}</button>
+    <input type="search" name="q" placeholder="Search for products" aria-label="Search products" autocomplete="off" enterkeyhint="search" id="so-input">
+    <button class="icon-btn" type="submit" aria-label="Search">{{ s.icon('search') }}</button>
+  </form>
+  <div class="so__body">
+    <div id="so-recent" hidden><h2 class="so__h">Recent searches <button type="button" class="linkish" id="so-clear">Clear</button></h2><ul class="so__list" id="so-recent-list"></ul></div>
+    <ul class="so__list" id="so-results" aria-live="polite"></ul>
+  </div>
+</div>

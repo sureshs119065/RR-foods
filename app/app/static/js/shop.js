@@ -18,6 +18,28 @@
   }
   function setCount(n) { $$("[data-cart-count]").forEach(function (b) { b.textContent = n; b.hidden = !n; }); }
 
+  /* Product photos: try the original image, then its full-size upload, then a bundled product fallback. */
+  $$("img[data-product-image]").forEach(function (img) {
+    img.addEventListener("error", function () {
+      var full = img.getAttribute("data-product-full") || "";
+      var fallback = img.getAttribute("data-product-fallback") || "";
+      if (full && !img.dataset.fullTried) {
+        img.dataset.fullTried = "1";
+        if (new URL(full, document.baseURI).href !== img.src) {
+          img.src = full;
+          return;
+        }
+      }
+      if (fallback && !img.dataset.fallbackTried) {
+        img.dataset.fallbackTried = "1";
+        img.src = fallback;
+        return;
+      }
+      img.classList.add("is-image-unavailable");
+      img.hidden = true;
+    });
+  });
+
   /* ---------- overlays: one open at a time, Esc and outside tap close, focus returns ---------- */
   var backdrop = $("#backdrop"), openEl = null, opener = null;
   function lock(on) { root.classList.toggle("nolock", on); }
@@ -163,7 +185,18 @@
   if (gal) {
     var main = $("#gal-main");
     $$(".gal__t", gal).forEach(function (t) {
-      t.addEventListener("click", function () { if (!main) return; main.src = t.getAttribute("data-src"); main.alt = t.getAttribute("data-alt"); $$(".gal__t", gal).forEach(function (x) { x.removeAttribute("aria-current"); }); t.setAttribute("aria-current", "true"); });
+      t.addEventListener("click", function () {
+        if (!main) return;
+        main.hidden = false;
+        main.classList.remove("is-image-unavailable");
+        main.dataset.fullTried = "";
+        main.dataset.fallbackTried = "";
+        main.src = t.getAttribute("data-src");
+        main.setAttribute("data-product-full", t.getAttribute("data-full-src") || t.getAttribute("data-src"));
+        main.alt = t.getAttribute("data-alt");
+        $$(".gal__t", gal).forEach(function (x) { x.removeAttribute("aria-current"); });
+        t.setAttribute("aria-current", "true");
+      });
     });
     // swipe between images on touch screens
     var sx = null; gal.addEventListener("touchstart", function (e) { sx = e.touches[0].clientX; }, { passive: true });
@@ -198,7 +231,13 @@
     });
     $$("[data-step]", form).forEach(function (b) { b.addEventListener("click", function () { var v = (parseInt(qty.value, 10) || 1) + parseInt(b.dataset.step, 10); qty.value = Math.min(+qty.max || 10, Math.max(1, v)); }); });
     form.addEventListener("submit", function (e) {
-      if (e.submitter && e.submitter.name === "buy_now") return; // go straight to checkout with a normal post
+      if (e.submitter && e.submitter.matches("[data-buy]")) {
+        // Buy Now is a normal POST to /buy-now; lock immediately to stop rapid double taps.
+        if (form.getAttribute("data-busy")) { e.preventDefault(); return; }
+        form.setAttribute("data-busy", "1");
+        e.submitter.setAttribute("aria-disabled", "true");
+        return;
+      }
       if (!window.fetch) return;
       e.preventDefault(); if (form.getAttribute("data-busy")) return;
       if (!form.reportValidity()) return;

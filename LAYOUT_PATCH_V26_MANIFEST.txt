@@ -1,0 +1,15 @@
+RR FOODS layout patch v26 — changed files
+-----------------------------------------
+app/templates/base.html
+app/templates/shop/layout.html
+app/templates/shop/home.html
+app/templates/shop/offers.html
+app/templates/partials/storefront_header.html
+app/templates/partials/storefront_footer.html
+app/templates/partials/header_carousel.html
+app/shop/catalog.py
+app/static/css/rr-storefront-layout.css
+app/static/css/rr-foods-mobile-fix.css
+FRONTEND_LAYOUT_AUDIT_v26.md
+
+No JavaScript file was changed. Existing app/static/js/shop.js handles the revised header's drawer/search hooks.

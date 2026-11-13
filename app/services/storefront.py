@@ -8,7 +8,7 @@ from sqlalchemy import and_, case, exists, func, or_, select
 from sqlalchemy.orm import aliased, selectinload
 
 from ..extensions import db
-from ..models import Category, Order, OrderItem, Product, ProductVariant, SiteSetting
+from ..models import Bundle, Category, Order, OrderItem, Product, ProductVariant, SiteSetting
 
 PER_PAGE = 12
 SORTS = {
@@ -245,7 +245,15 @@ def home_rows() -> dict:
     new = db.session.scalars(select(Product).where(LIVE, in_stock_sql()).options(*opts).order_by(Product.created_at.desc(), Product.id.desc()).limit(8)).all()
     counts = dict(db.session.execute(select(Product.category_id, func.count()).where(LIVE).group_by(Product.category_id)).all())
     top_deal = max((round((p.mrp - p.final_price) * 100 / p.mrp) for p in deals if p.mrp and p.mrp > p.final_price), default=0)
-    return {"categories": top, "deals": deals, "best": best, "new": new, "counts": counts, "top_deal": int(top_deal)}
+    # The homepage has one catalogue-defined combo teaser only. Do not pull
+    # arbitrary sample/admin combo records into this shelf: the homepage card
+    # is a link to the full Offers & Combo page, not a second detail listing.
+    from .product_catalogue import CATALOGUE_COMBO_OFFER
+    catalogue_combo = CATALOGUE_COMBO_OFFER
+    offers = deals
+    return {"categories": top, "deals": deals, "offers": offers,
+            "catalogue_combo": catalogue_combo,
+            "best": best, "new": new, "counts": counts, "top_deal": int(top_deal)}
 
 
 def breadcrumb_for(cat: Category | None) -> list[tuple[str, str | None]]:

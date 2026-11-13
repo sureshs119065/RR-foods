@@ -88,6 +88,9 @@
   }
   document.addEventListener("submit", function (e) {
     var f = e.target; if (!f.matches || !f.matches("form[data-addcart]") || !window.fetch) return;
+    /* The product page form (#buyform) is already handled by shop.js; handling it here too added the item twice. */
+    if (e.defaultPrevented || f.id === "buyform") return;
+    if (e.submitter && e.submitter.matches && e.submitter.matches("[data-buy]")) return;
     e.preventDefault();
     var btn = f.querySelector("button"); if (btn) btn.disabled = true;
     fetch(f.action, { method: "POST", body: new FormData(f), credentials: "same-origin", headers: { Accept: "application/json", "X-CSRFToken": csrf } })

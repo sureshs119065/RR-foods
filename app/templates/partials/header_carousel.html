@@ -11,15 +11,17 @@
         {% if b.desktop_image or b.mobile_image %}
         <picture class="hc__pic">
           {% if b.desktop_image %}<source media="(min-width: 768px)" srcset="{{ b.desktop_image }}">{% endif %}
-          <img src="{{ b.mobile_image or b.desktop_image }}" alt="" {% if loop.first %}loading="eager" fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async" width="1600" height="686">
+          <img src="{{ b.mobile_image or b.desktop_image }}" alt="{{ b.title }}" {% if loop.first %}loading="eager" fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async" width="1600" height="686">
         </picture>
         {% endif %}
         <div class="hc__copy">
+          <div class="hc__copy-inner container">
           {% if b.badge %}<span class="hc__badge">{{ b.badge }}</span>{% endif %}
           <h2 class="hc__title"><a class="hc__link" href="{{ b.href }}">{{ b.title }}</a></h2>
           {% if b.subtitle %}<p class="hc__sub">{{ b.subtitle }}</p>{% endif %}
           {% if b.ends_at %}<p class="hc__cd" data-countdown="{{ b.ends_at }}" aria-label="Time left"></p>{% endif %}
           {% if b.button_text %}<span class="hc__btn" aria-hidden="true">{{ b.button_text }}</span>{% endif %}
+          </div>
         </div>
       </li>
       {% endfor %}

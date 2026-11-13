@@ -36,13 +36,13 @@
 {% macro off_pct(mrp, price) -%}{% if mrp and mrp > price %}{{ (((mrp - price) * 100) / mrp)|round(0, 'floor')|int }}{% else %}0{% endif %}{%- endmacro %}
 
 {% macro card(p) %}
-{% set im = p.primary_image %}{% set pct = off_pct(p.mrp, p.final_price)|int %}{% set left = available_qty(p) %}
+{% set im = p.primary_image %}{% set fallback_img = product_image_fallback(p) %}{% set pct = off_pct(p.mrp, p.final_price)|int %}{% set left = available_qty(p) %}
 <article class="pc">
   <form class="pc__wish" method="post" action="{{ url_for('shop.wishlist_toggle') }}" data-wish>{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
     <button class="wish {{ 'is-on' if in_wishlist(p.id) else '' }}" type="submit" aria-pressed="{{ 'true' if in_wishlist(p.id) else 'false' }}" aria-label="{{ 'Remove ' ~ p.name ~ ' from wishlist' if in_wishlist(p.id) else 'Save ' ~ p.name ~ ' to wishlist' }}">♥</button></form>
   <a class="pc__link" href="{{ url_for('shop.product', slug=p.slug) }}">
     <span class="pc__img">
-      {% if im %}<img src="{{ im.thumb_url or im.url }}" alt="{{ im.alt or p.name }}" loading="lazy" decoding="async" width="400" height="400">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}
+      {% if im %}<img src="{{ im.thumb_url or im.url }}" data-product-image data-product-full="{{ im.url or '' }}" data-product-fallback="{{ fallback_img or '' }}" alt="{{ im.alt or p.name }}" loading="lazy" decoding="async" width="400" height="400">{% elif fallback_img %}<img src="{{ fallback_img }}" data-product-image data-product-fallback="" alt="{{ p.name }}" loading="lazy" decoding="async" width="400" height="400">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}
       {% if pct %}<span class="tag tag--off">{{ pct }}% off</span>{% endif %}
       {% if left <= 0 %}<span class="tag tag--out">Out of stock</span>{% endif %}
     </span>
@@ -87,12 +87,13 @@
 {% endmacro %}
 
 {# Carousel card used in the home page scroll rows (bestsellers, new arrivals). #}
-{% macro rcard(p) %}
-{% set im = p.primary_image %}{% set pct = off_pct(p.mrp, p.final_price)|int %}{% set left = available_qty(p) %}{% set opts = active_variants(p) %}
-<li class="rc">
+{% macro rcard(p, clone=false) %}
+{% set im = p.primary_image %}{% set fallback_img = product_image_fallback(p) %}{% set pct = off_pct(p.mrp, p.final_price)|int %}{% set left = available_qty(p) %}{% set opts = active_variants(p) %}
+<li class="rc"{% if clone %} aria-hidden="true" inert{% endif %}>
+  <form class="rc__wish" method="post" action="{{ url_for('shop.wishlist_toggle') }}" data-wish>{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}"><button class="wish {{ 'is-on' if in_wishlist(p.id) else '' }}" type="submit" aria-pressed="{{ 'true' if in_wishlist(p.id) else 'false' }}" aria-label="{{ 'Remove ' ~ p.name ~ ' from wishlist' if in_wishlist(p.id) else 'Save ' ~ p.name ~ ' to wishlist' }}">♥</button></form>
   <a class="rc__img" href="{{ url_for('shop.product', slug=p.slug) }}" tabindex="-1" aria-hidden="true">
-    {% if im %}<img src="{{ im.thumb_url or im.url }}" alt="" loading="lazy" decoding="async" width="400" height="400">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}
-    {% if left <= 0 %}<span class="tag tag--out">Sold out</span>{% elif pct %}<span class="tag tag--off">{{ pct }}% off</span>{% endif %}
+    {% if im %}<img src="{{ im.thumb_url or im.url }}" data-product-image data-product-full="{{ im.url or '' }}" data-product-fallback="{{ fallback_img or '' }}" alt="{{ p.name }}" loading="lazy" decoding="async" width="400" height="400">{% elif fallback_img %}<img src="{{ fallback_img }}" data-product-image data-product-fallback="" alt="{{ p.name }}" loading="lazy" decoding="async" width="400" height="400">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}
+    {% if left <= 0 %}<span class="tag tag--out">Sold out</span>{% elif pct %}<span class="tag tag--off" aria-label="{{ pct }} percent discount">{{ pct }}% OFF</span>{% endif %}
   </a>
   <div class="rc__body">
     <p class="rc__cat">{{ p.category.name if p.category else '' }}</p>

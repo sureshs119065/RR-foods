@@ -175,32 +175,121 @@ def product(slug):
     from ..models import Bundle
     bundles = db.session.scalars(select(Bundle).where(Bundle.is_active.is_(True))).all()
     product_bundles = [b for b in bundles if any(int(x.get("product_id", 0)) == p.id for x in (b.product_quantities or []))]
+    from ..services.product_catalogue import catalogue_for_product
+    catalogue_content = catalogue_for_product(p)
     return render_template("shop/product.html", p=p, variants=variants, stock=available_qty(p), offers=offers, coupons=coupons, reviews=reviews,
                            questions=questions, crumbs=crumbs, together=together, together_ids=[t.id for t in together if not active_variants(t)],
-                           similar=storefront.you_may_like(p), shopper=shopper, can_review=can_review, my_review=my_review, voted=voted, recent=storefront.recently_viewed(exclude=p.id), rating_dist=rating_dist, alert_on=alert_on, now=now, product_bundles=product_bundles, delivery_settings=delivery_settings)
+                           similar=storefront.you_may_like(p), shopper=shopper, can_review=can_review, my_review=my_review, voted=voted, rating_dist=rating_dist, alert_on=alert_on, now=now, product_bundles=product_bundles, delivery_settings=delivery_settings,
+                           catalogue_content=catalogue_content)
+
+
+# Alternative keyword sets (tried in order) used to find the real store product behind each catalogue combo line
+# (same order as the combo items). The pack size in the catalogue line is used to pick between several matches.
+_COMBO_MATCH_KEYS = [
+    [("multi millet", "instant noodles"), ("multi", "noodles"), ("millet", "noodles")],
+    [("multi millet", "pasta"), ("multi", "pasta"), ("millet", "pasta")],
+    [("multi millet", "vermicelli"), ("multi", "semiya"), ("vermicelli",)],
+    [("multi millet", "chapati"), ("multi", "chapati"), ("chapati",), ("grain atta",)],
+    [("soup mix", "selected variant"), ("soup mix",), ("soup",)],
+    [("tirunelveli", "idli podi"), ("tirunelveli", "podi"), ("idli podi",), ("idli", "podi")],
+    [("karuppu kavuni",), ("kavuni",), ("kanji mix",)],
+]
+COMBO_BUNDLE_SLUG = "rr-foods-traditional-grains-combo"
+
+
+def _digits(text):
+    return re.sub(r"[^0-9]", "", text or "")
+
+
+def _combo_lines(combo):
+    """Resolve each catalogue combo item to a live product (image, link, price). Missing -> product None."""
+    products = db.session.scalars(select(Product).options(joinedload(Product.images)).where(
+        Product.is_active.is_(True), Product.is_deleted.is_(False))).unique().all()
+    lines = []
+    used = set()
+    for index, item in enumerate(combo["items"]):
+        alternatives = _COMBO_MATCH_KEYS[index] if index < len(_COMBO_MATCH_KEYS) else []
+        found = None
+        for keys in alternatives:
+            hay = lambda prod: " ".join([(prod.name or ""), (prod.slug or "").replace("-", " ")]).lower()
+            candidates = [pr for pr in products if pr.id not in used and all(k in hay(pr) for k in keys)]
+            if candidates:
+                want = _digits(item["pack"])
+                preferred = [pr for pr in candidates if want and want == _digits(pr.pack_size)]
+                found = (preferred or candidates)[0]
+                break
+        if found is not None:
+            used.add(found.id)
+        lines.append({"name": item["name"], "pack": item["pack"], "product": found})
+    return lines
+
+
+def _combo_price(combo):
+    digits = re.sub(r"[^0-9.]", "", combo["price"])
+    return Decimal(digits or "0")
+
+
+def ensure_catalogue_combo_bundle():
+    """Make sure the catalogue combo exists as a Bundle so the admin can see and edit it (price, products, active, dates).
+    Created once if missing and never overwritten afterwards. If some products cannot be matched it is created as
+    Hidden with the products that were found, so the admin can complete it. Returns the Bundle or None."""
+    from flask import current_app
+    from ..models import Bundle
+    from ..services.product_catalogue import CATALOGUE_COMBO_OFFER
+    bundle = db.session.scalar(select(Bundle).where(Bundle.slug == COMBO_BUNDLE_SLUG))
+    if bundle is not None:
+        return bundle
+    lines = _combo_lines(CATALOGUE_COMBO_OFFER)
+    matched = [l for l in lines if l["product"] is not None]
+    if not matched:
+        current_app.logger.warning("Combo bundle not created: no combo products matched store products.")
+        return None
+    missing = [l["name"] for l in lines if l["product"] is None]
+    if missing:
+        current_app.logger.warning("Combo bundle created Hidden; unmatched products: %s", "; ".join(missing))
+    bundle = Bundle(name=CATALOGUE_COMBO_OFFER["title"], slug=COMBO_BUNDLE_SLUG,
+                    description=CATALOGUE_COMBO_OFFER["strapline"],
+                    product_quantities=[{"product_id": l["product"].id, "quantity": 1} for l in matched],
+                    bundle_price=float(_combo_price(CATALOGUE_COMBO_OFFER)), is_active=not missing)
+    db.session.add(bundle)
+    db.session.commit()
+    return bundle
 
 
 @bp.get("/offers")
 def offers():
     now = utcnow()
     coupons = db.session.scalars(select(Coupon).where(Coupon.is_active.is_(True), (Coupon.expires_at.is_(None)) | (Coupon.expires_at > now)).order_by(Coupon.id)).all()
-    from ..models import Bundle, Combo, Offer, SiteSetting
-    active_offers = db.session.scalars(select(Offer).where(Offer.is_active.is_(True),
-        (Offer.starts_at.is_(None)) | (Offer.starts_at <= now),
-        (Offer.ends_at.is_(None)) | (Offer.ends_at > now)).order_by(Offer.name)).all()
-    bundles = db.session.scalars(select(Bundle).where(Bundle.is_active.is_(True),
-        (Bundle.starts_at.is_(None)) | (Bundle.starts_at <= now),
-        (Bundle.ends_at.is_(None)) | (Bundle.ends_at > now)).order_by(Bundle.created_at.desc())).all()
-    products = {p.id: p for p in db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all()}
-    originals = {b.id: sum((Decimal(str(products[int(line.get("product_id", 0))].final_price)) * int(line.get("quantity", 1))
-        for line in (b.product_quantities or []) if int(line.get("product_id", 0)) in products), Decimal("0")) for b in bundles}
-    combos = db.session.scalars(select(Combo).where(Combo.is_active.is_(True)).order_by(Combo.created_at.desc())).all()
-    combo_products = {p.id: p for p in db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all()}
-    end_setting = db.session.get(SiteSetting, "diwali_end_at")
-    diwali_end_at = end_setting.value if end_setting and isinstance(end_setting.value, str) else "2026-11-12T23:59:00+05:30"
-    return render_template("shop/offers.html", coupons=coupons, highlight=(request.args.get("coupon") or "").upper()[:40],
-        rows=storefront.home_rows(), active_offers=active_offers, bundles=bundles, products=products, originals=originals,
-        diwali_combos=combos, combo_products=combo_products, diwali_end_at=diwali_end_at)
+    from ..services.product_catalogue import CATALOGUE_COMBO_OFFER
+    combo_lines = _combo_lines(CATALOGUE_COMBO_OFFER)
+    bundle = ensure_catalogue_combo_bundle()
+    bundle_live = bool(bundle and bundle.is_active
+                       and (not bundle.starts_at or bundle.starts_at <= now)
+                       and (not bundle.ends_at or bundle.ends_at > now))
+    combo_ready = bundle_live and all(l["product"] is not None and available_qty(l["product"]) > 0 and not active_variants(l["product"]) for l in combo_lines)
+    regular_total = sum((Decimal(l["product"].final_price) for l in combo_lines if l["product"]), Decimal("0"))
+    combo_price = Decimal(str(bundle.bundle_price)) if bundle else _combo_price(CATALOGUE_COMBO_OFFER)
+    combo = dict(CATALOGUE_COMBO_OFFER)
+    combo["price"] = "₹{:,.0f}".format(combo_price) if combo_price == combo_price.to_integral_value() else "₹{:,.2f}".format(combo_price)
+    return render_template("shop/offers.html", coupons=coupons,
+        highlight=(request.args.get("coupon") or "").upper()[:40],
+        catalogue_combo=combo, combo_lines=combo_lines, combo_ready=combo_ready,
+        combo_regular_total=regular_total, combo_price_value=combo_price)
+
+
+@bp.post("/offers/combo/add")
+@limiter.limit("20 per minute")
+def offers_combo_add():
+    """Add the catalogue combo to the cart at the combo price (uses the existing bundle cart logic)."""
+    from flask import flash
+    if not g.get("user") or g.user.role != "user":
+        return redirect(url_for("auth.login", next=url_for("shop.offers")))
+    bundle = ensure_catalogue_combo_bundle()
+    if bundle is None:
+        flash("This combo is not available right now. Please contact the shop.", "error")
+        return redirect(url_for("shop.offers"))
+    from .content import add_bundle
+    return add_bundle(bundle.id)
 
 
 # ---------------------------------------------------------------- JSON helpers for the page scripts
