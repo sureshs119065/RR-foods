@@ -2,77 +2,24 @@
 {% block title %}Offers &amp; combo deals | RR FOODS{% endblock %}
 {% block head_extra %}{% endblock %}
 {% block content %}
+{% from "shop/_bundle_deal.html" import bundle_deal with context %}
 <div class="container offers-page">
   <header class="offers-hero">
     <p class="eyebrow">Fresh savings from our kitchen</p>
     <h1 class="pg-h">Offers &amp; combo deals</h1>
     <p>Discover product offers, save with coupon codes and get more value with curated RR FOODS combos.</p>
-    <a class="btn" href="{% if catalogue_combo %}#catalogue-combo{% else %}#combo-bundles{% endif %}">Explore combo offers</a>
+    {% if bundle_cards %}<a class="btn" href="#combo-bundles">Explore combo offers</a>{% endif %}
   </header>
 
-  {% if catalogue_combo %}
-  <section class="sec rr-catalogue-combo-detail combo-box" id="catalogue-combo" aria-labelledby="catalogue-combo-title">
-    <div class="combo-box__head">
-      <div class="combo-box__copy">
-        <p class="eyebrow">RR FOODS CATALOGUE COMBO OFFER</p>
-        <h2 id="catalogue-combo-title">{{ catalogue_combo.title }}</h2>
-        <p class="rr-catalogue-combo-detail__strapline">{{ catalogue_combo.strapline }}</p>
-        <p>{{ catalogue_combo.description }}</p>
-      </div>
-      <div class="combo-box__buy">
-        <span class="combo-box__label">Combo price</span>
-        <strong class="combo-box__price">{{ catalogue_combo.price }}</strong>
-        {% if combo_regular_total and combo_regular_total > combo_price_value %}
-        <span class="combo-box__was"><s>{{ s.inr0(combo_regular_total) }}</s> <b>You save {{ s.inr0(combo_regular_total - combo_price_value) }}</b></span>
-        {% endif %}
-        <span class="combo-box__count">{{ combo_lines|length }} products · one pack each</span>
-        {% if combo_ready %}
-        <form method="post" action="{{ url_for('shop.offers_combo_add') }}">
-          {{ s.csrf() }}
-          <button class="btn combo-box__cta" type="submit">Add combo to cart</button>
-        </form>
-        {% else %}
-        <button class="btn combo-box__cta" type="button" disabled>Currently unavailable</button>
-        {% endif %}
-      </div>
-    </div>
-
-    <h3 class="combo-box__sub">What the combo includes</h3>
-    <ul class="combo-items">
-      {% for line in combo_lines %}
-      {% set pr = line.product %}
-      {% set im = pr.primary_image if pr else None %}
-      {% set fb = product_image_fallback(pr) if pr else None %}
-      <li class="combo-item">
-        {% if pr %}<a class="combo-item__link" href="{{ url_for('shop.product', slug=pr.slug) }}" aria-label="View {{ pr.name }}">{% else %}<div class="combo-item__link">{% endif %}
-          <span class="combo-item__img">
-            {% if im %}<img src="{{ im.thumb_url or im.url }}" data-product-image data-product-full="{{ im.url or '' }}" data-product-fallback="{{ fb or '' }}" alt="{{ im.alt or pr.name }}" loading="lazy" width="72" height="72">
-            {% elif fb %}<img src="{{ fb }}" data-product-image data-product-fallback="" alt="{{ pr.name }}" loading="lazy" width="72" height="72">
-            {% else %}<span class="combo-item__ph" aria-hidden="true">▧</span>{% endif %}
-          </span>
-          <span class="combo-item__body">
-            <b>{{ pr.name if pr else line.name }}</b>
-            <small>Pack: {{ line.pack }}{% if pr %} · {{ s.inr0(pr.final_price) }}{% endif %}</small>
-            {% if pr %}<span class="combo-item__go">View product →</span>{% else %}<span class="combo-item__go combo-item__go--off">Not listed in store yet</span>{% endif %}
-          </span>
-        {% if pr %}</a>{% else %}</div>{% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    <p class="rr-catalogue-combo-detail__closing">{{ catalogue_combo.closing }}</p>
-  </section>
-  {% endif %}
-
-
-  {% if bundle_items %}
+  {% if bundle_cards %}
   <section class="sec" id="combo-bundles"><h2 class="sec__h">Combo bundles</h2>
-    <div class="content-grid">{% for bundle in bundle_items %}<article class="content-card">{% if bundle.image_url %}<img src="{{ bundle.image_url }}" alt="" loading="lazy">{% else %}<div class="content-placeholder">Bundle</div>{% endif %}<div class="content-card__body"><h3>{{ bundle.name }}</h3><p>{{ bundle.description or '' }}</p><ul>{% for line in bundle.product_quantities or [] %}<li>{{ bundle_products[line.get('product_id')].name if line.get('product_id') in bundle_products else 'Unavailable product' }} × {{ line.get('quantity', 1) }}</li>{% endfor %}</ul><p><del>₹{{ '%.2f'|format(bundle_originals[bundle.id]) }}</del> <b>Bundle price: ₹{{ '%.2f'|format(bundle_prices[bundle.id]) }}</b></p>{% if bundle_originals[bundle.id] > bundle_prices[bundle.id] %}<small class="good">You save ₹{{ '%.2f'|format(bundle_originals[bundle.id] - bundle_prices[bundle.id]) }}</small>{% endif %}<form method="post" action="{{ url_for('shop.add_bundle', bundle_id=bundle.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn" type="submit">Add bundle to cart</button></form></div></article>{% endfor %}</div>
+    <div class="bd-list">{% for c in bundle_cards %}{{ bundle_deal(c, 'offers') }}{% endfor %}</div>
   </section>
   {% endif %}
 
   <section class="sec"><h2 class="sec__h">Coupon codes</h2>
     {% if coupons %}<ul class="coupons">{% for c in coupons %}<li class="couponcard {% if c.code|upper == highlight %}couponcard--on{% endif %}"><b class="couponcard__code">{{ c.code }}</b><span>{{ c.description or ((c.discount_value|int ~ '% off') if c.discount_type == 'percent' else ('₹' ~ c.discount_value|int ~ ' off')) }}</span><span class="muted small">{% if c.min_cart_value %}On orders above ₹{{ c.min_cart_value|int }}. {% endif %}{% if c.expires_at %}Valid till {{ c.expires_at|local_display }}.{% endif %}</span></li>{% endfor %}</ul><p class="muted">Enter the code in your cart to use it.</p>{% else %}<p class="muted">No coupon codes are active right now.</p>{% endif %}
   </section>
-  {% if not catalogue_combo and not coupons and not bundle_items %}<div class="empty"><h2>New offers are coming soon</h2><p class="muted">Check back for special RR FOODS deals.</p><a class="btn" href="{{ url_for('shop.listing') }}">Browse products</a></div>{% endif %}
+  {% if not coupons and not bundle_cards %}<div class="empty"><h2>New offers are coming soon</h2><p class="muted">Check back for special RR FOODS deals.</p><a class="btn" href="{{ url_for('shop.listing') }}">Browse products</a></div>{% endif %}
 </div>
 {% endblock %}

@@ -10,6 +10,7 @@
   {% if carousel.banners and (carousel.banners[0].mobile_image or carousel.banners[0].desktop_image) %}<link rel="preload" as="image" href="{{ carousel.banners[0].mobile_image or carousel.banners[0].desktop_image }}" fetchpriority="high" media="(max-width: 767px)">{% endif %}
 {% endblock %}
 {% block content %}
+{% from "shop/_bundle_deal.html" import bundle_deal with context %}
 <script src="{{ url_for('static', filename='js/home-loop.js') }}" defer></script>
 {% include "partials/header_carousel.html" %}
 {% if not (carousel and carousel.banners) %}
@@ -47,27 +48,14 @@
 
 
 <div class="container home-shelves-shell">
-  {% if rows.deals or rows.catalogue_combo %}
+  {% if rows.deals or rows.bundles %}
   <section class="sec rr-offers-section" aria-labelledby="offers-heading">
     <div class="sec__row">
       <h2 id="offers-heading" class="sec__h">Offers &amp; Combo</h2>
       <div class="sec__tools"><a href="{{ url_for('shop.offers') }}">Explore all offers →</a></div>
     </div>
-    {% if rows.catalogue_combo %}
-    <a class="rr-combo" href="{{ url_for('shop.offers') }}#catalogue-combo" aria-label="{{ rows.catalogue_combo.title }} — {{ rows.catalogue_combo.price }}. View combo details">
-      <span class="rr-combo__rings" aria-hidden="true"><i></i><i></i><i></i></span>
-      <span class="rr-combo__leaf" aria-hidden="true">{{ s.icon('leaf') }}</span>
-      <span class="rr-combo__copy">
-        <span class="rr-combo__badge">✦ Combo offer</span>
-        <span class="rr-combo__title">{{ rows.catalogue_combo.title }}</span>
-        <span class="rr-combo__sub">Curated RR FOODS pack — one order, many favourites.</span>
-      </span>
-      <span class="rr-combo__buy">
-        <span class="rr-combo__price-label">Combo price</span>
-        <strong class="rr-combo__price">{{ rows.catalogue_combo.price }}</strong>
-        <span class="rr-combo__cta">View combo <span aria-hidden="true">→</span></span>
-      </span>
-    </a>
+    {% if rows.bundles %}
+    <div class="bd-list">{% for c in rows.bundles[:2] %}{{ bundle_deal(c, 'home') }}{% endfor %}</div>
     {% endif %}
     {% if rows.deals %}
     <div class="rr-loop" data-loop aria-label="Discounted RR FOODS products">

@@ -1,8 +1,6 @@
 import pytest
 
 from app.models import Bundle
-from app.services.product_catalogue import CATALOGUE_COMBO_OFFER
-from app.shop.catalog import COMBO_BUNDLE_SLUG
 from tests.helpers import make_user, post, sign_in
 from tests.test_step2_models import make_category, make_product
 
@@ -59,19 +57,22 @@ def test_admin_bundle_shows_on_customer_offers_page(app, session, admin):
     assert "Festival Special" in html and "Add bundle to cart" in html
 
 
-def test_deleted_catalogue_combo_is_gone_everywhere(app, session, admin):
-    p1, p2 = _two_products(session)
-    session.add(Bundle(name=CATALOGUE_COMBO_OFFER["title"], slug=COMBO_BUNDLE_SLUG, bundle_price=100,
-                       product_quantities=[{"product_id": p1.id, "quantity": 1}], is_active=True))
-    session.commit()
+def test_nothing_is_hardcoded_and_nothing_is_auto_created(app, session, admin):
     shop = app.test_client()
-    assert "TRADITIONAL GRAINS" in shop.get("/offers").get_data(as_text=True)
-    bid = session.query(Bundle).one().id
-    post(admin, f"/admin/bundles/{bid}/delete", page="/admin/bundles")
-    admin.get("/admin/bundles")  # the list used to silently re-create the combo here
+    for url in ("/", "/offers"):
+        assert "TRADITIONAL GRAINS" not in shop.get(url).get_data(as_text=True)
+    admin.get("/admin/bundles")
     session.expire_all()
     assert session.query(Bundle).count() == 0
-    assert "TRADITIONAL GRAINS" not in shop.get("/offers").get_data(as_text=True)
-    shop.get("/offers")
-    session.expire_all()
-    assert session.query(Bundle).count() == 0
+
+
+def test_hiding_a_bundle_in_admin_removes_it_from_home_and_offers(app, session, admin):
+    p1, p2 = _two_products(session)
+    post(admin, "/admin/bundles/new", _data(p1, p2, name="Festival Special"), page="/admin/bundles/new")
+    shop = app.test_client()
+    assert "Festival Special" in shop.get("/").get_data(as_text=True)
+    b = session.query(Bundle).one()
+    b.is_active = False
+    session.commit()
+    assert "Festival Special" not in shop.get("/").get_data(as_text=True)
+    assert "Festival Special" not in shop.get("/offers").get_data(as_text=True)

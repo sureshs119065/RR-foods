@@ -245,15 +245,74 @@ def home_rows() -> dict:
     new = db.session.scalars(select(Product).where(LIVE, in_stock_sql()).options(*opts).order_by(Product.created_at.desc(), Product.id.desc()).limit(8)).all()
     counts = dict(db.session.execute(select(Product.category_id, func.count()).where(LIVE).group_by(Product.category_id)).all())
     top_deal = max((round((p.mrp - p.final_price) * 100 / p.mrp) for p in deals if p.mrp and p.mrp > p.final_price), default=0)
-    # The homepage has one catalogue-defined combo teaser only. Do not pull
-    # arbitrary sample/admin combo records into this shelf: the homepage card
-    # is a link to the full Offers & Combo page, not a second detail listing.
-    from .product_catalogue import CATALOGUE_COMBO_OFFER
-    catalogue_combo = CATALOGUE_COMBO_OFFER
     offers = deals
     return {"categories": top, "deals": deals, "offers": offers,
-            "catalogue_combo": catalogue_combo,
+            "bundles": bundle_cards(),
             "best": best, "new": new, "counts": counts, "top_deal": int(top_deal)}
+
+
+def _aware(dt):
+    from datetime import timezone
+    return dt if dt is None or dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _bundle_title(name: str) -> str:
+    """Bundle names often end with the price ('... | ₹999'); the price has its own spot on the card."""
+    return re.sub(r"\s*[|\-–]\s*(?:Rs\.?|₹)\s*[\d,]+\s*$", "", name or "").strip()
+
+
+def bundle_cards(*, include_upcoming: bool = True) -> list[dict]:
+    """Admin-managed bundles shaped for the storefront cards (home 'Offers & Combo' and the Offers page).
+
+    Live bundles come first; a bundle that starts within the next 7 days is included as 'upcoming' so the
+    banner is not empty the day before a festival combo opens. Every bundle is managed in admin."""
+    from datetime import datetime, timedelta, timezone
+    from zoneinfo import ZoneInfo
+
+    now = datetime.now(timezone.utc)
+    ist = ZoneInfo("Asia/Kolkata")
+    rows = db.session.scalars(select(Bundle).where(Bundle.is_active.is_(True))
+                              .order_by(Bundle.created_at.desc())).all()
+    ids = {int(l.get("product_id", 0)) for b in rows for l in (b.product_quantities or [])}
+    products = {p.id: p for p in db.session.scalars(
+        select(Product).where(Product.id.in_(ids), Product.is_deleted.is_(False))
+        .options(selectinload(Product.images), selectinload(Product.variants))).all()} if ids else {}
+    cards = []
+    for b in rows:
+        starts, ends = _aware(b.starts_at), _aware(b.ends_at)
+        if ends and ends <= now:
+            continue
+        upcoming = bool(starts and starts > now)
+        if upcoming and (not include_upcoming or starts - now > timedelta(days=7)):
+            continue
+        items, regular, ok = [], Decimal("0"), True
+        for line in (b.product_quantities or []):
+            pr, qty = products.get(int(line.get("product_id", 0))), max(1, int(line.get("quantity", 1)))
+            if pr is None:
+                ok = False
+                continue
+            regular += Decimal(str(pr.final_price)) * qty
+            if not pr.is_active or active_variants(pr) or available_qty(pr) < qty:
+                ok = False
+            items.append({"product": pr, "qty": qty})
+        if not items:
+            continue
+        price = Decimal(str(b.bundle_price)).quantize(Decimal("0.01"))
+        saving = regular - price if regular > price else Decimal("0")
+        if starts and ends:
+            window = f"{starts.astimezone(ist):%-d} – {ends.astimezone(ist):%-d %b}" if starts.astimezone(ist).month == ends.astimezone(ist).month else f"{starts.astimezone(ist):%-d %b} – {ends.astimezone(ist):%-d %b}"
+        elif ends:
+            window = f"Until {ends.astimezone(ist):%-d %b}"
+        else:
+            window = ""
+        cards.append({"id": b.id, "title": _bundle_title(b.name), "description": (b.description or "").strip(),
+                      "price": price, "regular": regular, "saving": saving,
+                      "pct": int(round(saving * 100 / regular)) if regular > 0 and saving else 0,
+                      "items": items, "count": sum(i["qty"] for i in items), "available": ok and not upcoming,
+                      "upcoming": upcoming, "window": window,
+                      "starts_label": f"{starts.astimezone(ist):%-d %b}" if starts else ""})
+    cards.sort(key=lambda c: c["upcoming"])
+    return cards
 
 
 def breadcrumb_for(cat: Category | None) -> list[tuple[str, str | None]]:

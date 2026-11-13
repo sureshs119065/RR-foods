@@ -279,45 +279,12 @@ def restore_catalogue_combo_bundle():
 
 @bp.get("/offers")
 def offers():
+    """Everything here comes from the admin panel: coupons and bundles. Nothing is built into the code."""
     now = utcnow()
     coupons = db.session.scalars(select(Coupon).where(Coupon.is_active.is_(True), (Coupon.expires_at.is_(None)) | (Coupon.expires_at > now)).order_by(Coupon.id)).all()
-    from ..services.product_catalogue import CATALOGUE_COMBO_OFFER
-    combo_lines = _combo_lines(CATALOGUE_COMBO_OFFER)
-    bundle = ensure_catalogue_combo_bundle()
-    bundle_live = bool(bundle and bundle.is_active
-                       and (not bundle.starts_at or bundle.starts_at <= now)
-                       and (not bundle.ends_at or bundle.ends_at > now))
-    combo_ready = bundle_live and all(l["product"] is not None and available_qty(l["product"]) > 0 and not active_variants(l["product"]) for l in combo_lines)
-    regular_total = sum((Decimal(l["product"].final_price) for l in combo_lines if l["product"]), Decimal("0"))
-    combo_price = Decimal(str(bundle.bundle_price)) if bundle else _combo_price(CATALOGUE_COMBO_OFFER)
-    combo = dict(CATALOGUE_COMBO_OFFER)
-    combo["price"] = "₹{:,.0f}".format(combo_price) if combo_price == combo_price.to_integral_value() else "₹{:,.2f}".format(combo_price)
-    # The catalogue combo shows only while its bundle exists AND is published in admin: deleting or hiding the
-    # bundle removes it from this page. Other admin-created bundles are listed in their own section.
-    show_catalogue_combo = bool(bundle is not None and bundle.is_active)
-    from .content import live_bundle_data
-    bundle_items, bundle_products, bundle_originals, bundle_prices = live_bundle_data(exclude_slugs=(COMBO_BUNDLE_SLUG,))
     return render_template("shop/offers.html", coupons=coupons,
         highlight=(request.args.get("coupon") or "").upper()[:40],
-        bundle_items=bundle_items, bundle_products=bundle_products,
-        bundle_originals=bundle_originals, bundle_prices=bundle_prices,
-        catalogue_combo=combo if show_catalogue_combo else None, combo_lines=combo_lines, combo_ready=combo_ready,
-        combo_regular_total=regular_total, combo_price_value=combo_price)
-
-
-@bp.post("/offers/combo/add")
-@limiter.limit("20 per minute")
-def offers_combo_add():
-    """Add the catalogue combo to the cart at the combo price (uses the existing bundle cart logic)."""
-    from flask import flash
-    if not g.get("user") or g.user.role != "user":
-        return redirect(url_for("auth.login", next=url_for("shop.offers")))
-    bundle = ensure_catalogue_combo_bundle()
-    if bundle is None:
-        flash("This combo is not available right now. Please contact the shop.", "error")
-        return redirect(url_for("shop.offers"))
-    from .content import add_bundle
-    return add_bundle(bundle.id)
+        bundle_cards=storefront.bundle_cards())
 
 
 # ---------------------------------------------------------------- JSON helpers for the page scripts
