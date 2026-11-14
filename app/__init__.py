@@ -137,6 +137,7 @@ def create_app(config_object=None):
     from .services import whatsapp as wa
     app.jinja_env.globals["wa_owner_link"] = wa.owner_link          # customer -> owner: order already written
     app.jinja_env.globals["wa_order_text"] = wa.order_message
+    app.jinja_env.globals["wa_owner_number"] = wa.owner_number  # one place decides which config key holds the shop's number
     app.jinja_env.globals["wa_customer_link"] = wa.customer_link    # owner -> customer: status message already written
 
     def product_image_fallback(product):

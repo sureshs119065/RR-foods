@@ -76,24 +76,5 @@
     <article class="sa-chart-card"><h3>Coupon performance</h3>{% for item in sales_analytics.coupon_performance %}<p>{{ item.code }} · {{ item.orders }} orders · ₹{{ '%.2f'|format(item.discount) }} discount</p>{% else %}<p>No coupon usage.</p>{% endfor %}</article>
   </div>
   <p class="sa-footnote">Sales include orders in Confirmed, Packed, Shipped, Out for delivery and Delivered status. Placed, rejected, cancelled, returned and refunded orders are excluded. Product/category charts use saved order-item line totals.</p>
-  <script>
-    window.rrSalesAnalyticsData = {{ sales_analytics|tojson }};
-  </script>
-
-<script>
-  (() => {
-    const range = document.getElementById('sa-range');
-    const dates = document.getElementById('sa-custom-dates');
-    if (!range || !dates) return;
-    const sync = () => {
-      const custom = range.value === 'custom';
-      dates.hidden = !custom;
-      dates.querySelectorAll('input[type="date"]').forEach((input) => {
-        input.required = custom;
-      });
-    };
-    range.addEventListener('change', sync);
-    sync();
-  })();
-</script>
+  <script type="application/json" id="sa-data">{{ sales_analytics|tojson }}</script>
 </section>

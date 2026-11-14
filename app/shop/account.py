@@ -248,7 +248,7 @@ def set_language():
     lang = request.form.get("language", "en")
     if lang not in ("en", "ta"): abort(400)
     g.user.preferred_language = lang; db.session.commit(); session["language"] = lang
-    return redirect(request.referrer or url_for("shop.account"))
+    return redirect(request.referrer or url_for("auth.account"))
 
 @bp.get("/account/referrals")
 @user_only

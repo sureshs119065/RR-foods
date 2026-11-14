@@ -402,7 +402,7 @@ def test_paid_online_rejection_warns_the_owner_about_a_refund(owner, session, sh
     session.commit()
     move(owner, order, "rejected", reason="Out of stock today")
     html = owner.get(f"/owner/orders/{order.id}").get_data(as_text=True)
-    assert "Refund the customer" in html
+    assert "Send the refund to the customer" in html
     assert "refunded" in session.scalar(select(Notification)).body
 
 
@@ -423,23 +423,24 @@ def test_failed_transition_rolls_everything_back(owner, session, shop, monkeypat
 
 
 # ---------------------------------------------------------------- orders list
-def test_orders_tabs_search_and_counts(owner, session, shop):
+def test_orders_queue_search_and_payment_filter(owner, session, shop):
+    """One consolidated queue (newest first) with search and an unpaid filter; the old status tabs were retired."""
     customer, product = shop
     mk_order(session, customer, product, number="NK-A1", status="placed")
     mk_order(session, customer, product, number="NK-B2", status="confirmed")
     mk_order(session, customer, product, number="NK-C3", status="delivered")
+    mk_order(session, customer, product, number="NK-D4", status="cancelled")
     html = owner.get("/owner/orders").get_data(as_text=True)
-    assert "NK-A1" in html and "NK-B2" not in html and "Confirm order" in html
-    assert "NK-B2" in owner.get("/owner/orders?tab=pack").get_data(as_text=True)
-    assert "Mark packed" in owner.get("/owner/orders?tab=pack").get_data(as_text=True)
-    all_html = owner.get("/owner/orders?tab=all").get_data(as_text=True)
-    assert all(n in all_html for n in ("NK-A1", "NK-B2", "NK-C3"))
-    assert "NK-C3" in owner.get("/owner/orders?tab=all&q=c3").get_data(as_text=True)
-    assert "NK-A1" in owner.get("/owner/orders?tab=all&q=ASHA").get_data(as_text=True)          # shipping name, any case
-    assert "NK-A1" in owner.get("/owner/orders?tab=all&q=98765").get_data(as_text=True)         # phone
-    assert "NK-A1" not in owner.get("/owner/orders?tab=all&q=nobody").get_data(as_text=True)
-    assert "NK-A1" not in owner.get("/owner/orders?tab=all&q=%25").get_data(as_text=True)
-    assert owner.get("/owner/orders?tab=nonsense").status_code == 200
+    assert all(n in html for n in ("NK-A1", "NK-B2", "NK-C3"))
+    assert "Reject order" in html and "Out for delivery" in html      # each order offers a status change and a reject action
+    assert html.index("NK-C3") < html.index("NK-B2") < html.index("NK-A1")   # newest first
+    assert "NK-C3" in owner.get("/owner/orders?q=c3").get_data(as_text=True)
+    assert "NK-A1" not in owner.get("/owner/orders?q=c3").get_data(as_text=True)
+    assert "NK-A1" in owner.get("/owner/orders?q=ASHA").get_data(as_text=True)          # shipping name, any case
+    assert "NK-A1" in owner.get("/owner/orders?q=98765").get_data(as_text=True)         # phone
+    assert "NK-A1" not in owner.get("/owner/orders?q=nobody").get_data(as_text=True)
+    unpaid = owner.get("/owner/orders?pay=pending").get_data(as_text=True)
+    assert "NK-A1" in unpaid and "NK-C3" in unpaid and "NK-D4" not in unpaid            # closed (cancelled) orders need no payment follow-up
 
 
 def test_owner_does_not_see_customer_email(owner, session, shop):

@@ -106,11 +106,9 @@ def test_compare(app, session, catalog):
         c.post("/compare/toggle", data={"product_id": o.id, "csrf_token": tk()}, headers=JSON)
     r = c.post("/compare/toggle", data={"product_id": others[3].id, "csrf_token": tk()}, headers=JSON)
     assert r.status_code == 409 and "up to 4" in r.get_json()["message"]
-    html = c.get("/compare").get_data(as_text=True)
-    assert "Millet Soup Mix" in html and "Shelf life" in html and "6 months" in html and "Other 4" in html and "Other 6" not in html
-    c.post("/compare/toggle", data={"product_id": p.id, "csrf_token": tk()}, headers=JSON)
-    assert "Millet Soup Mix" not in c.get("/compare").get_data(as_text=True).split("<tbody>")[0]
-    assert "Nothing to compare" in app.test_client().get("/compare").get_data(as_text=True)
+    r = c.get("/compare")                             # the compare page was retired: it just sends people to the shop
+    assert r.status_code == 302 and r.headers["Location"] == "/shop"
+    assert app.test_client().get("/compare").status_code == 302
 
 
 # ================================================================ reviews
@@ -309,7 +307,7 @@ def test_owner_has_an_inbox_too(app, cust, session, catalog):
     post(cust, f"/account/orders/{o.order_number}/cancel", {}, page="/")
     html = ow.get("/notifications").get_data(as_text=True)
     assert "was cancelled by the customer" in html and "Sign out" in html            # rendered in the owner layout
-    assert "nav__count" in ow.get("/owner/").get_data(as_text=True)
+    # (the owner menu deliberately has no notifications link or badge any more; low-stock alerts have their own menu entry)
     assert app.test_client().get("/notifications").status_code == 302
     a = staff(app, session, "admin")
     assert a.get("/notifications").status_code == 403
@@ -387,8 +385,8 @@ def test_invoice_pdf(app, cust, session, catalog, tmp_path):
     try:
         text = subprocess.run(["pdftotext", "-layout", str(f), "-"], capture_output=True, text=True, timeout=20).stdout
     except FileNotFoundError:
-        text = "NK-I1 Millet Soup Mix Rs. 200.00 Asha Rao"
-    for needle in ("NK-I1", "Millet Soup Mix", "Rs. 200.00", "Asha Rao", "12 Lake Road"):
+        text = "NK-I1 Millet Soup Mix ₹200.00 Asha Rao"
+    for needle in ("NK-I1", "Millet Soup Mix", "₹200.00", "Asha Rao", "12 Lake Road"):
         assert needle in text, needle
     ow = staff(app, session, "owner")
     assert ow.get(f"/owner/orders/{o.id}/invoice.pdf").data.startswith(b"%PDF")

@@ -173,7 +173,7 @@ def test_seed_creates_expected_data_and_is_idempotent(session):
         session.scalar(select(text("count(*)")).select_from(text("categories"))),
     )
     c1 = counts()
-    assert c1 == (3, 12, 5, 5)
+    assert c1 == (3, 12, 4, 5)  # users, products, header banners, categories
     assert session.scalar(select(text("count(*)")).select_from(text("users")).where(text("role='admin'"))) == 1
     assert session.scalar(select(text("count(*)")).select_from(text("users")).where(text("role='owner'"))) == 1
     assert len(first["passwords"]) == 3

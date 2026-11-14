@@ -54,9 +54,10 @@ def get_settings():
 def _locked_settings_row():
     row = db.session.scalar(select(SiteSetting).where(SiteSetting.key == SETTING_KEY).with_for_update().execution_options(populate_existing=True))
     if row is None:
-        row = SiteSetting(key=SETTING_KEY, value=deepcopy(DEFAULTS))
-        db.session.add(row)
-        db.session.flush()
+        # Two checkouts can reach this at once on a fresh database: "do nothing if it already exists" keeps the loser
+        # from failing with a duplicate-key error, then both queue on the row lock below.
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+        db.session.execute(pg_insert(SiteSetting).values(key=SETTING_KEY, value=deepcopy(DEFAULTS)).on_conflict_do_nothing(index_elements=["key"]))
         row = db.session.scalar(select(SiteSetting).where(SiteSetting.key == SETTING_KEY).with_for_update().execution_options(populate_existing=True))
     return row
 

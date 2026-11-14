@@ -18,9 +18,10 @@ LOGIN_PAGES = {"/login", "/owner/login", "/admin/login"}
 PUBLIC_GET = {"/", "/shop", "/category/<slug>", "/product/<slug>", "/offers", "/compare", "/offline", "/sw.js", "/manifest.webmanifest",
               "/robots.txt", "/sitemap.xml", "/healthz", "/readyz", "/api/header-banners", "/api/pincode/<pin>", "/api/suggest",
               "/banner-colors.css", "/uploads/<path:filename>", "/login", "/owner/login", "/admin/login", "/register", "/forgot",
-              "/reset/<token>"}
-# public POSTs: sign-in forms, sign-up, compare toggle (no account needed), password-reset forms
-PUBLIC_POST = {"/login", "/owner/login", "/admin/login", "/register", "/forgot", "/reset/<token>", "/compare/toggle"}
+              "/reset/<token>", "/about", "/bestsellers", "/bundles", "/help", "/recipes", "/recipes/<slug>", "/health", "/favicon.ico",
+              "/push/vapid-public-key"}
+# public POSTs: sign-in forms, sign-up, compare toggle and the Help page message form (no account needed), password-reset forms
+PUBLIC_POST = {"/login", "/owner/login", "/admin/login", "/register", "/forgot", "/reset/<token>", "/compare/toggle", "/help"}
 
 
 def _routes(app):

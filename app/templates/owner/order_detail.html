@@ -184,7 +184,6 @@
 <form class="formbar" method="post" action="{{ url_for('owner.order_status', order_id=order.id) }}" data-once>
   {{ m.csrf() }}<input type="hidden" name="to" value="{{ nxt }}"><input type="hidden" name="from_status" value="{{ order.status }}">
   {% if order.status == 'return_requested' %}<label class="opt"><input type="checkbox" name="restock" value="1"> Put the items back in stock</label>{% endif %}
-  {% if nxt == 'confirmed' and order.payment_status == 'pending' %}<label class="opt"><input type="checkbox" name="paid" value="1"> Payment already received on WhatsApp (mark as paid)</label>{% endif %}
   <button class="btn" type="submit">{{ svc.ACTION_LABELS[nxt] }}</button>
 </form>
 

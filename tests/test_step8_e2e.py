@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from app.models import (
     Address, AuditLog, Coupon, CouponUsage, DeliveryZone, InventoryLog, Notification, Order, OrderStatusHistory, Product, Review,
 )
-from tests.helpers import PW, make_user, post, sign_in, token
+from tests.helpers import PW, checkout_post, checkout_token, make_user, post, sign_in, token
 from tests.test_step2_models import make_category, make_product
 
 
@@ -61,13 +61,13 @@ def test_full_shop_journey(app, session):
 
     # ---- checkout, cash on delivery: 3 x 100 = 300, 10% off = 30, delivery 40, total 310
     addr_id = session.scalar(select(Address.id))
-    r = post(cust, "/checkout", {"address_id": addr_id, "method": "cod"}, page="/account")
+    r = checkout_post(cust, {"address_id": addr_id, "method": "upi_manual"}, page="/account")
     assert r.status_code == 302
     number = re.search(r"(NK\d+)", r.headers["Location"]).group(1)
     session.expire_all()
     order = session.scalar(select(Order).where(Order.order_number == number))
     oid = order.id
-    assert (order.status, order.subtotal, order.payment_method) == ("placed", Decimal("300.00"), "cod")
+    assert (order.status, order.subtotal, order.payment_method) == ("placed", Decimal("300.00"), "upi_manual")
     assert order.total == Decimal("310.00")
     assert session.get(Product, pid).stock_qty == 7                       # stock left the shelf at once
     assert session.scalar(select(func.count(CouponUsage.id))) == 1
@@ -90,7 +90,7 @@ def test_full_shop_journey(app, session):
     assert pdf.status_code == 200 and pdf.data.startswith(b"%PDF") and pdf.mimetype == "application/pdf"
     assert owner.get(f"/owner/orders/{oid}/invoice.pdf").status_code == 200
     assert move("delivered", "shipped") == "delivered"
-    assert session.get(Order, oid).payment_status == "paid"               # cash collected on delivery
+    assert session.get(Order, oid).payment_status == "pending"            # WhatsApp orders are marked paid by the owner, not by delivery
     page = cust.get(f"/account/orders/{number}").get_data(as_text=True)
     assert all(word in page for word in ("Placed", "Confirmed", "Packed", "Shipped", "Delivered"))
 
@@ -151,8 +151,8 @@ def test_two_customers_race_for_the_last_item(app, session):
     wins = 0
     for c, uid in buyers:
         aid = session.scalar(select(Address.id).where(Address.user_id == uid))
-        loc = post(c, "/checkout", {"address_id": aid, "method": "cod"}, page="/account").headers.get("Location", "")
-        wins += "/account/orders/NK" in loc
+        loc = checkout_post(c, {"address_id": aid, "method": "upi_manual"}, page="/account").headers.get("Location", "")
+        wins += "/order-placed/NK" in loc
     session.expire_all()
     assert wins == 1
     assert session.scalar(select(func.count(Order.id))) == 1
@@ -188,12 +188,12 @@ def test_truly_simultaneous_checkouts_for_the_last_item(app, session):
         for c, uid in users:
             assert post(c, "/cart/add", {"product_id": pid, "qty": 1}, page="/account").status_code in (200, 302)
             aid = session.scalar(select(Address.id).where(Address.user_id == uid))
-            jobs.append((c, aid, token(c, "/account")))
+            jobs.append((c, aid, token(c, "/account"), checkout_token(c)))
         gate, results = threading.Barrier(2), []
 
-        def go(c, aid, tok):
+        def go(c, aid, tok, ctok):
             gate.wait()
-            r = c.post("/checkout", data={"address_id": aid, "method": "cod", "csrf_token": tok})
+            r = c.post("/checkout", data={"address_id": aid, "method": "upi_manual", "csrf_token": tok, "checkout_token": ctok})
             results.append(r.headers.get("Location", ""))
 
         threads = [threading.Thread(target=go, args=j) for j in jobs]
@@ -204,7 +204,7 @@ def test_truly_simultaneous_checkouts_for_the_last_item(app, session):
         sold = session.scalar(select(func.count(OrderItem.id)).where(OrderItem.product_id == pid))
         assert sold == 1, f"round {rnd}: {sold} orders for 1 unit"
         assert session.get(Product, pid).stock_qty == 0, f"round {rnd}: stock {session.get(Product, pid).stock_qty}"
-        assert sum("/account/orders/NK" in loc for loc in results) == 1, f"round {rnd}: {results}"
+        assert sum("/order-placed/NK" in loc for loc in results) == 1, f"round {rnd}: {results}"
         # clear leftover cart lines of the loser so the next round starts clean
         from app.models import CartItem
         session.execute(CartItem.__table__.delete())

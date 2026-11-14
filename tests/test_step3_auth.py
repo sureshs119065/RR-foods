@@ -4,7 +4,7 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import select
 
-from app.models import AuditLog, User
+from app.models import AuditLog, LoginLockout, User
 from app.models.base import utcnow
 from app.security import hash_password
 
@@ -188,7 +188,9 @@ def test_account_locks_after_five_wrong_passwords_then_recovers(client, users, s
     assert r.status_code == 429 and "Too many attempts" in r.get_data(as_text=True)
     session.expire_all()
     u = session.scalar(select(User).where(User.email == "user@test.com"))
-    u.locked_until = utcnow() - timedelta(seconds=1)  # lock time passes
+    u.locked_until = utcnow() - timedelta(seconds=1)  # lock time passes (the per-account and per-IP lockout rows too)
+    for row in session.scalars(select(LoginLockout)).all():
+        row.locked_until = utcnow() - timedelta(seconds=1)
     session.commit()
     assert sign_in(client, "user").status_code == 302
     session.expire_all()

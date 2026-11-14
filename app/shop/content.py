@@ -130,10 +130,9 @@ def add_recipe_ingredients(recipe_id):
 @bp.route("/help", methods=["GET", "POST"])
 def help_page():
     """Public contact page with a validated WhatsApp/email message handoff."""
-    import re
+    from ..services import whatsapp as wa
 
-    whatsapp_raw = str(current_app.config.get("WHATSAPP_NUMBER") or "")
-    whatsapp_number = re.sub(r"\D", "", whatsapp_raw)
+    whatsapp_number = wa.owner_number()
     support_email = (current_app.config.get("SUPPORT_EMAIL") or "").strip()
 
     if request.method == "POST":

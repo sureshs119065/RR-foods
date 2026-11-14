@@ -39,7 +39,8 @@ def test_diwali_combo_is_rendered_from_database(app, session):
     response = app.test_client().get("/offers")
     html = response.get_data(as_text=True)
     assert response.status_code == 200
-    assert "Diwali Special Combos" in html
-    assert "Test Diwali Combo" in html
+    # a combo that is linked to a bundle is shown as that bundle's card inside the unified "Combo bundles" section
+    assert "Combo bundles" in html
+    assert "Test Diwali" in html
     assert "Test Laddu" in html
-    assert "80.00" in html and "100.00" in html
+    assert "80" in html

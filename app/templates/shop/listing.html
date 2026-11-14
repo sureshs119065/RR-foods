@@ -100,7 +100,7 @@
           <a class="btn" href="{{ clear_url }}">Clear all filters</a>
           <p class="muted small empty__more">Or browse a category</p>
           <ul class="chips2">{% for c in nav_categories() %}<li><a class="chip" href="{{ url_for('shop.category_listing', slug=c.slug) }}">{{ c.name }}</a></li>{% endfor %}</ul>
-          {% if config.get('WHATSAPP_NUMBER') %}<p><a class="btn btn--ghost" href="https://wa.me/{{ config.get('WHATSAPP_NUMBER') }}?text={{ ('Hi, I could not find ' ~ (request.args.get('q') or 'a product') ~ ' on your website. Do you have it?')|urlencode }}" target="_blank" rel="noopener">Can't find it? Ask us on WhatsApp</a></p>{% endif %}
+          {% if wa_owner_number() %}<p><a class="btn btn--ghost" href="https://wa.me/{{ wa_owner_number() }}?text={{ ('Hi, I could not find ' ~ (request.args.get('q') or 'a product') ~ ' on your website. Do you have it?')|urlencode }}" target="_blank" rel="noopener">Can't find it? Ask us on WhatsApp</a></p>{% endif %}
         </div>
       {% endif %}
     </section>

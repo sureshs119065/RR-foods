@@ -86,22 +86,4 @@
     </div>
   </form>
 </dialog>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const dialog = document.getElementById('reject-order-dialog');
-  const form = document.getElementById('reject-order-form');
-  if (!dialog || !form) return;
-  document.querySelectorAll('[data-reject-order]').forEach((button) => {
-    button.addEventListener('click', () => {
-      form.action = button.dataset.action;
-      document.getElementById('reject-from-status').value = button.dataset.fromStatus;
-      document.getElementById('reject-order-number').textContent = `Reject ${button.dataset.orderNumber}? The customer will be notified and reserved stock will be restored.`;
-      document.getElementById('reject-reason').value = '';
-      dialog.showModal();
-    });
-  });
-  dialog.querySelector('[data-close-reject]').addEventListener('click', () => dialog.close());
-  dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
-});
-</script>
 {% endblock %}

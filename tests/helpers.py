@@ -22,6 +22,20 @@ def token(client, url):
     return m.group(1)
 
 
+def checkout_token(client):
+    """The one-time token the checkout page embeds (guards against double submits). Empty if the page did not render one."""
+    html = client.get("/checkout").get_data(as_text=True)
+    m = re.search(r'name="checkout_token" value="([^"]+)"', html)
+    return m.group(1) if m else ""
+
+
+def checkout_post(client, data=None, page=None, follow=False):
+    """POST /checkout the way a browser does: load the checkout page first to receive its token."""
+    data = dict(data or {})
+    data.setdefault("checkout_token", checkout_token(client))
+    return post(client, "/checkout", data, page=page, follow=follow)
+
+
 def sign_in(client, role="admin"):
     url = {"user": "/login", "owner": "/owner/login", "admin": "/admin/login"}[role]
     return client.post(url, data={"email": f"{role}@test.com", "password": PW, "csrf_token": token(client, url)})

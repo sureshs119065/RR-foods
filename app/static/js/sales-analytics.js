@@ -1,5 +1,23 @@
 (() => {
-  let data = window.rrSalesAnalyticsData;
+  // Show the custom date inputs only when "Custom" is chosen.
+  const range = document.getElementById('sa-range');
+  const dates = document.getElementById('sa-custom-dates');
+  if (range && dates) {
+    const sync = () => {
+      const custom = range.value === 'custom';
+      dates.hidden = !custom;
+      dates.querySelectorAll('input[type="date"]').forEach((input) => { input.required = custom; });
+    };
+    range.addEventListener('change', sync);
+    sync();
+  }
+
+  // The numbers arrive as a JSON data block: inline scripts are blocked by the site's CSP.
+  let data = null;
+  const holder = document.getElementById('sa-data');
+  if (holder) {
+    try { data = JSON.parse(holder.textContent); } catch (e) { data = null; }
+  }
   if (!data) return;
 
   const money = (value) => new Intl.NumberFormat('en-IN', {

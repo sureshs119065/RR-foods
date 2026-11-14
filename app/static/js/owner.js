@@ -100,4 +100,22 @@
     var box = $(b.getAttribute("data-fill"));
     if (box) { box.value = b.getAttribute("data-text"); box.focus(); }
   });
+
+  /* ---- reject-order dialog (owner orders list) ---- */
+  (function () {
+    var dialog = document.getElementById("reject-order-dialog");
+    var form = document.getElementById("reject-order-form");
+    if (!dialog || !form) return;
+    $$("[data-reject-order]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        form.action = button.dataset.action;
+        document.getElementById("reject-from-status").value = button.dataset.fromStatus;
+        document.getElementById("reject-order-number").textContent = "Reject " + button.dataset.orderNumber + "? The customer will be notified and reserved stock will be restored.";
+        document.getElementById("reject-reason").value = "";
+        dialog.showModal();
+      });
+    });
+    dialog.querySelector("[data-close-reject]").addEventListener("click", function () { dialog.close(); });
+    dialog.addEventListener("click", function (event) { if (event.target === dialog) dialog.close(); });
+  })();
 })();

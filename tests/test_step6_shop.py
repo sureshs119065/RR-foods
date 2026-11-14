@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 from decimal import Decimal
 
@@ -11,7 +12,7 @@ from app.models import (
 )
 from app.models.base import utcnow
 from app.services import header_banners
-from tests.helpers import make_user, post, sign_in, token
+from tests.helpers import checkout_post, checkout_token, make_user, post, sign_in, token
 from tests.test_step2_models import make_category, make_product
 
 JSON = {"Accept": "application/json"}
@@ -57,7 +58,7 @@ def address_id(session, user):
 
 
 def checkout(c, session, user, method="upi_manual", **extra):
-    return post(c, "/checkout", {"address_id": address_id(session, user), "method": method, **extra}, page="/")
+    return checkout_post(c, {"address_id": address_id(session, user), "method": method, **extra}, page="/")
 
 
 # ================================================================ public pages
@@ -177,7 +178,7 @@ def test_search_is_typo_tolerant_and_literal(app, many):
     assert names(c, "?q=RAGI") == ["Ragi Cookies"]               # any case
     assert names(c, "?q=amma") == ["Rice Idli Podi", "Ragi Cookies"] or set(names(c, "?q=amma")) == {"Rice Idli Podi", "Ragi Cookies"}  # brand
     assert names(c, "?q=%25") == [] and names(c, "?q=zzzzqq") == []
-    assert "We could not find" in c.get("/shop?q=zzzzqq").get_data(as_text=True)
+    assert "No products match your filters" in c.get("/shop?q=zzzzqq").get_data(as_text=True)
     assert c.get("/shop?q=" + "a" * 500).status_code == 200
 
 
@@ -213,8 +214,10 @@ def test_pagination(app, session, catalog):
         mk(session, cat, i, name=f"Bulk {i}")
     session.commit()
     c = app.test_client()
-    assert "Page 1 of 2" in c.get("/shop").get_data(as_text=True)
-    assert "Page 2 of 2" in c.get("/shop?page=2").get_data(as_text=True)
+    from app.services.storefront import PER_PAGE
+    pages = -(-31 // PER_PAGE)                         # 1 catalogue item + 30 bulk items
+    assert f"Page 1 of {pages}" in c.get("/shop").get_data(as_text=True)
+    assert f"Page 2 of {pages}" in c.get("/shop?page=2").get_data(as_text=True)
 
 
 def test_suggest_and_pincode_apis(app, many):
@@ -222,7 +225,8 @@ def test_suggest_and_pincode_apis(app, many):
     d = c.get("/api/suggest?q=milet").get_json()
     assert d["products"][0]["name"] == "Millet Soup Mix" and d["products"][0]["url"] == "/product/item-1"
     assert c.get("/api/suggest?q=sn").get_json()["categories"][0]["name"] == "Snacks"
-    assert c.get("/api/suggest?q=a").get_json() == {"products": [], "categories": []}
+    short = c.get("/api/suggest?q=a").get_json()      # too short to search: the popular picks are offered instead
+    assert short["popular"] is True and "products" in short and "categories" in short
     ok = c.get("/api/pincode/641001").get_json()
     assert ok["deliverable"] and ok["eta_days"] == 2 and ok["fee"] == 40
     assert c.get("/api/pincode/600001").get_json()["deliverable"] is False
@@ -236,13 +240,17 @@ def test_recently_viewed_you_may_like_and_bought_together(app, session, many, cu
     c = app.test_client()
     c.get(f"/product/{b.slug}")
     html = c.get(f"/product/{a.slug}").get_data(as_text=True)
-    assert "Recently viewed" in html and "Ragi Cookies" in html and "You may also like" in html
+    assert "You may also like" in html
+    home = c.get("/").get_data(as_text=True)          # recently viewed lives on the home page
+    assert "Recently viewed" in home and "Ragi Cookies" in home
     # "bought together": two past orders contained a + b
     from tests.test_step5_owner import mk_order
     for i in (1, 2):
         o = mk_order(session, cust.user, a, number=f"NK-T{i}")
         o.items.append(__import__("app.models", fromlist=["OrderItem"]).OrderItem(product_id=b.id, name=b.name, unit_price=1, mrp=1, quantity=1, line_total=1))
     session.commit()
+    from app.services import recommendations as _rec
+    _rec._CACHE.clear()
     def fbt(slug):
         html = app.test_client().get(f"/product/{slug}").get_data(as_text=True)
         return html.split('id="fbt-h"')[1].split("</section>")[0] if 'id="fbt-h"' in html else ""
@@ -250,7 +258,11 @@ def test_recently_viewed_you_may_like_and_bought_together(app, session, many, cu
     rej = mk_order(session, cust.user, a, number="NK-T9", status="rejected")
     rej.items.append(__import__("app.models", fromlist=["OrderItem"]).OrderItem(product_id=c3.id, name=c3.name, unit_price=1, mrp=1, quantity=1, line_total=1))
     session.commit()
-    assert "Jaggery Laddu" not in fbt(a.slug)       # rejected orders do not count
+    from app.services import recommendations as rec   # the section also fills up from the same category, so check the co-purchase data itself
+    rec._CACHE.clear()                                  # results are cached for six hours; start fresh
+    with app.app_context():
+        related = rec._related_ids(a.id, 12)
+    assert b.id in related and c3.id not in related   # rejected orders do not count
 
 
 
@@ -494,9 +506,10 @@ def test_prices_come_from_the_database_not_the_form(cust, session, catalog):
 def test_stock_is_rechecked_at_placement(cust, session, catalog):
     _, p = catalog
     add(cust, p, 5)
-    p.stock_qty = 3                                   # someone else bought some meanwhile
+    tok = checkout_token(cust)                        # the customer has the checkout page open...
+    p.stock_qty = 3                                   # ...while someone else buys some meanwhile
     session.commit()
-    r = checkout(cust, session, cust.user)
+    r = checkout(cust, session, cust.user, checkout_token=tok)
     assert r.status_code == 302 and r.headers["Location"].startswith("/checkout")
     session.expire_all()
     assert session.scalar(select(Order)) is None and session.get(Product, p.id).stock_qty == 3
@@ -519,7 +532,7 @@ def test_last_item_cannot_be_sold_twice(app, cust, session, catalog):
     add(cust, p)
     add(other, p)
     checkout(cust, session, cust.user)
-    r = post(other, "/checkout", {"address_id": address_id(session, second), "method": "upi_manual"}, page="/")
+    r = checkout_post(other, {"address_id": address_id(session, second), "method": "upi_manual"}, page="/")
     session.expire_all()
     assert session.scalar(select(func.count(Order.id))) == 1 and session.get(Product, p.id).stock_qty == 0
     assert "out of stock" in other.get("/cart").get_data(as_text=True).lower()
@@ -534,9 +547,9 @@ def test_checkout_address_rules(app, cust, session, catalog):
     session.add_all([foreign, far])
     session.commit()
     for aid in (foreign.id, far.id, 0, 99999):
-        post(cust, "/checkout", {"address_id": aid, "method": "upi_manual"}, page="/checkout")
-    post(cust, "/checkout", {"method": "upi_manual"}, page="/checkout")
-    post(cust, "/checkout", {"address_id": address_id(session, cust.user), "method": "bitcoin"}, page="/checkout")
+        checkout_post(cust, {"address_id": aid, "method": "upi_manual"}, page="/checkout")
+    checkout_post(cust, {"method": "upi_manual"}, page="/checkout")
+    checkout_post(cust, {"address_id": address_id(session, cust.user), "method": "bitcoin"}, page="/checkout")
     assert session.scalar(select(Order)) is None and session.scalar(select(CartItem)) is not None
     assert "do not deliver" in cust.get("/checkout").get_data(as_text=True)
 
@@ -553,10 +566,11 @@ def test_checkout_without_address_or_cart(cust, session, catalog):
 def test_double_submit_creates_one_order(cust, session, catalog):
     _, p = catalog
     add(cust, p, 2)
-    checkout(cust, session, cust.user)
-    r = post(cust, "/checkout", {"address_id": address_id(session, cust.user), "method": "upi_manual"}, page="/", follow=True)
+    tok = checkout_token(cust)                        # one page load, then the button is pressed twice
+    checkout(cust, session, cust.user, checkout_token=tok)
+    r = checkout_post(cust, {"address_id": address_id(session, cust.user), "method": "upi_manual", "checkout_token": tok}, page="/", follow=True)
     assert session.scalar(select(func.count(Order.id))) == 1 and session.get(Product, p.id).stock_qty == 8
-    assert "Check My orders" in r.get_data(as_text=True)
+    assert "already been submitted" in r.get_data(as_text=True)
 
 
 def test_saved_for_later_items_stay_after_checkout(cust, session, catalog):
@@ -580,7 +594,7 @@ def test_only_whatsapp_ordering_is_offered(app, cust, session, catalog):
     html = cust.get("/checkout").get_data(as_text=True)
     assert "Order and pay on WhatsApp" in html and "Pay online" not in html and "Cash on delivery" not in html
     for old_method in ("online", "cod"):  # the old payment options are gone
-        post(cust, "/checkout", {"address_id": address_id(session, cust.user), "method": old_method}, page="/checkout")
+        checkout_post(cust, {"address_id": address_id(session, cust.user), "method": old_method}, page="/checkout")
         assert session.scalar(select(Order)) is None
     assert cust.get("/pay/NK-1").status_code == 404
 
@@ -593,11 +607,11 @@ def test_order_placed_page_opens_whatsapp_with_the_order(app, cust, session, cat
         r = checkout(cust, session, cust.user, notes="Call me")
         o = session.scalar(select(Order))
         html = cust.get(r.headers["Location"]).get_data(as_text=True)
-        assert "https://wa.me/919876500000?text=" in html and "Send order on WhatsApp" in html
+        assert "https://wa.me/919876500000?text=" in html and "Open WhatsApp and send order" in html
         assert o.order_number in html and "Millet Soup Mix" in html and "Call me" in html and "Please confirm my order" in html
         assert "Test mode" not in html and "Razorpay" not in html
         app.config["ADMIN_WHATSAPP_NUMBER"] = ""
-        assert "not set up yet" in cust.get(r.headers["Location"]).get_data(as_text=True)
+        assert "not configured" in cust.get(r.headers["Location"]).get_data(as_text=True)
         other = app.test_client()
         assert other.get(r.headers["Location"]).status_code == 302          # signed-out visitors are sent to sign in
     finally:
@@ -617,7 +631,7 @@ def test_order_list_and_detail_are_private(app, cust, session, catalog):
     html = cust.get("/account/orders").get_data(as_text=True)
     assert o.order_number in html and "Millet Soup Mix" in html
     det = cust.get(f"/account/orders/{o.order_number}").get_data(as_text=True)
-    assert "Order placed" in det and "Order confirmed" in det and "Cancel order" in det and "12 Lake Road" in det
+    assert "Order placed" in det and "Confirmed" in det and "Cancel order" in det and "12 Lake Road" in det
     make_user(session, "user", "peek@x.com")
     other = app.test_client()
     other.post("/login", data={"email": "peek@x.com", "password": "Sup3rSecret!", "csrf_token": token(other, "/login")})
@@ -639,7 +653,7 @@ def test_tracking_timeline_follows_owner_actions(app, cust, session, catalog):
         session.refresh(o)
         post(ow, f"/owner/orders/{o.id}/status", {"to": step, "from_status": o.status}, page="/owner/orders")
     html = cust.get(f"/account/orders/{o.order_number}").get_data(as_text=True)
-    assert html.count("is-done") >= 2 and 'aria-current="step"' in html and "Packed, waiting for the courier" in html  # packed is shown inside Confirmed
+    assert html.count("is-done") >= 2 and 'aria-current="step"' in html and re.search(r'is-done is-now"[^>]*>\s*<span[^>]*></span>\s*<b>Packed</b>', html)  # the current step is Packed
     n = session.scalars(select(Notification).where(Notification.user_id == cust.user.id)).all()
     assert any(f"/account/orders/{o.order_number}" == x.link for x in n)
     assert cust.get(n[-1].link).status_code == 200                      # the notification link from Step 5 now works

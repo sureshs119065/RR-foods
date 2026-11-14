@@ -62,7 +62,7 @@ def test_owner_pages_confirm_paid_and_filter(app, session, shop, owner):
     b = mk_order(session, customer, product, status="placed", method="upi_manual", number="NK-W2")
     html = owner.get(f"/owner/orders/{a.id}").get_data(as_text=True)
     assert "Message customer on WhatsApp" in html and "https://wa.me/919876543210?text=" in html
-    assert "Payment already received on WhatsApp" in html and "Mark as paid" in html
+    assert "Payment received" in html and "Mark as paid" in html
     post(owner, f"/owner/orders/{a.id}/status", {"to": "confirmed", "from_status": "placed", "paid": "1"}, page=f"/owner/orders/{a.id}")
     post(owner, f"/owner/orders/{b.id}/status", {"to": "confirmed", "from_status": "placed"}, page=f"/owner/orders/{b.id}")
     session.expire_all()
