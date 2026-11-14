@@ -2,6 +2,11 @@
 
 One file for every update made to RR FOODS, newest first. It replaces the separate phase, patch, version and "update notes" files that used to sit in the project root. Statements like "tests were not run" in the original notes described the environment they were packaged in; the current state of verification is in the README.
 
+## 2026-11-14 — Reset a password from the terminal
+
+**Added**
+- `flask reset-password EMAIL` sets a new password for an existing account (admin, owner or customer). It prompts twice with hidden input, applies the same password rules as the change-password form, clears any sign-in lock, and signs the account out of every other device. Use it when locked out of admin; on Render run it in the service's Shell tab. Test: `tests/test_reset_password_cli.py`.
+
 ## 2026-11-14 — Features merged from the second build
 
 **Added**

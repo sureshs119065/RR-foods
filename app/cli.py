@@ -61,6 +61,29 @@ def register_cli(app):
         db.session.commit()
         click.echo(f"Created {role} {email}")
 
+    @app.cli.command("reset-password")
+    @click.argument("email")
+    @click.password_option(prompt="New password")
+    def reset_password_command(email, password):
+        """Set a new password for an existing account (use this if you are locked out of admin)."""
+        from sqlalchemy import func, select
+
+        from .auth.passwords import password_problems
+        from .models import User
+        from .security import hash_password
+
+        user = db.session.scalar(select(User).where(func.lower(User.email) == email.strip().lower()))
+        if user is None:
+            raise click.ClickException(f"No account with the email {email}.")
+        problems = password_problems(password, user.email, user.name)
+        if problems:
+            raise click.ClickException(" ".join(problems))
+        user.password_hash = hash_password(password)
+        user.failed_login_count = 0
+        user.locked_until = None
+        db.session.commit()
+        click.echo(f"Password updated for {user.role} {user.email}. Every device signed in as this account is now signed out.")
+
 
 def register_settings_cli(app):
     @app.cli.command("set-setting")
