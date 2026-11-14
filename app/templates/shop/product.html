@@ -60,11 +60,13 @@
     </section>
 
     <section class="buy">
+      <div class="buy__head">
       <h1 class="buy__t">{{ p.name }}</h1>
       <div class="buy__tools">
         <form method="post" action="{{ url_for('shop.wishlist_toggle') }}" data-wish>{{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.path }}">
           <button class="btn btn--ghost btn--sm wishbtn {{ 'is-on' if in_wishlist(p.id) else '' }}" type="submit" aria-pressed="{{ 'true' if in_wishlist(p.id) else 'false' }}"><span aria-hidden="true">♥</span> <span data-wish-label>{{ 'Saved' if in_wishlist(p.id) else 'Wishlist' }}</span></button></form>
         <button class="btn btn--ghost btn--sm" type="button" data-share data-share-title="{{ p.name }}" data-share-url="{{ url_for('shop.product', slug=p.slug, _external=True) }}"><span aria-hidden="true">↗</span> Share</button>
+      </div>
       </div>
       {% if p.brand %}<p class="muted buy__brand">by <a href="{{ url_for('shop.listing', brand=p.brand) }}">{{ p.brand }}</a></p>{% endif %}
       {% if p.review_count %}<p><a class="stars" href="#reviews">{{ '%.1f'|format(p.avg_rating) }} ★</a> <span class="muted">{{ p.review_count }} review{{ '' if p.review_count == 1 else 's' }}</span></p>{% endif %}
