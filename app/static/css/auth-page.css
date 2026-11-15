@@ -1,0 +1,7 @@
+/* Sign in, create account and password recovery: a single centred card, no site header or footer. */
+html body main.auth-page { display: grid; place-items: center; box-sizing: border-box; width: 100%; min-height: 100vh; min-height: 100dvh; margin: 0; padding: clamp(1rem, 4vw, 2rem); }
+html body .auth-wrap { display: grid; justify-items: center; gap: 1rem; width: 100%; max-width: 28rem; }
+html body .auth-wrap > .card, html body .auth-wrap > .alert { width: 100%; box-sizing: border-box; margin: 0; }
+html body .auth-logo { display: inline-flex; border-radius: 16px; }
+html body .auth-logo img { display: block; width: auto; height: 72px; }
+html body .auth-logo:focus-visible { outline: 3px solid #ffd21f; outline-offset: 4px; }

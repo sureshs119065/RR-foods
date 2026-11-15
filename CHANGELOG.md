@@ -2,6 +2,11 @@
 
 One file for every update made to RR FOODS, newest first. It replaces the separate phase, patch, version and "update notes" files that used to sit in the project root. Statements like "tests were not run" in the original notes described the environment they were packaged in; the current state of verification is in the README.
 
+## 2026-11-15 — Sign-in pages without the site header and footer
+
+**Changed**
+- Customer, admin and owner sign in, create account, forgot password and reset password pages now stand alone: one centred card with the RR FOODS logo (linking home), and no storefront header or footer. New `templates/auth/_layout.html` and `static/css/auth-page.css`; the four auth templates extend it. Storefront and error pages keep their header and footer. Test: `tests/test_auth_pages_standalone.py`.
+
 ## 2026-11-14 — Reset a password from the terminal
 
 **Added**
