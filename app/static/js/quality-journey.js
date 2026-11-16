@@ -1,43 +1,80 @@
+/* RR FOODS quality journey: nurse guide. Rewritten for stable scroll sync. */
 (function () {
   "use strict";
   var root = document.querySelector("[data-nurse-guide]");
   if (!root) return;
   var stages = Array.prototype.slice.call(root.querySelectorAll("[data-nurse-stage]"));
-  var title = root.querySelector("[data-nurse-title]");
-  var speech = root.querySelector("[data-nurse-speech]");
-  var nurse = root.querySelector("[data-nurse-character]");
-  var progress = root.querySelector("[data-nurse-progress]");
-  var finish = root.querySelector("[data-nurse-finish]");
-  var confetti = root.querySelector("[data-nurse-confetti]");
-  var prev = root.querySelector("[data-nurse-prev]");
-  var next = root.querySelector("[data-nurse-next]");
-  var counter = root.querySelector("[data-nurse-counter]");
-  var meter = root.querySelector("[data-nurse-meter]");
+  if (!stages.length) return;
+  function q(sel) { return root.querySelector(sel); }
+  var guide = q(".nurse-guide__guide"), timeline = q(".nurse-guide__timeline"), rail = q(".nurse-guide__rail");
+  var title = q("[data-nurse-title]"), speech = q("[data-nurse-speech]"), live = q("[data-nurse-live]");
+  var progress = q("[data-nurse-progress]"), finish = q("[data-nurse-finish]"), confetti = q("[data-nurse-confetti]");
+  var prev = q("[data-nurse-prev]"), next = q("[data-nurse-next]"), counter = q("[data-nurse-counter]"), meter = q("[data-nurse-meter]");
+  var header = document.getElementById("sh");
   var reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
-  var active = -1, typingTimer = 0, observed = false;
+  var mobile = window.matchMedia("(max-width: 760px)");
+  var last = stages.length - 1;
+  var active = -1, completed = false, typingTimer = 0, lockUntil = 0, lockTimer = 0, queued = false;
+
   var data = stages.map(function (item) {
     var h = item.querySelector("h3"), p = item.querySelector(".nurse-stage__card > p:not(.nurse-stage__eyebrow)");
-    return { title: h ? h.textContent.trim() : "", text: p ? p.textContent.trim() : "", pose: item.dataset.stagePose || "sourcing" };
+    return {
+      title: h ? h.textContent.trim() : "",
+      text: p ? p.textContent.replace(/\s+/g, " ").trim() : "",
+      pose: item.dataset.stagePose || "sourcing"
+    };
   });
-  function countStat(index) {
-    var el = stages[index].querySelector("[data-nurse-count]");
+
+  function headerBottom() { return header ? Math.max(0, header.getBoundingClientRect().bottom) : 0; }
+  function topOffset() { return headerBottom() + (mobile.matches && guide ? guide.offsetHeight + 12 : 12); }
+  function readingLine() { var t = topOffset(); return t + (window.innerHeight - t) * 0.3; }
+
+  function syncVars() {
+    root.style.setProperty("--ux-header-h", Math.round(headerBottom() || 70) + "px");
+    root.style.setProperty("--ux-guide-h", (guide ? Math.round(guide.offsetHeight) : 180) + "px");
+  }
+  function dotCenter(i) {
+    var d = stages[i].querySelector(".nurse-stage__dot");
+    var r = d ? d.getBoundingClientRect() : stages[i].getBoundingClientRect();
+    return r.top + r.height / 2;
+  }
+  function layoutRail() {
+    if (!rail || !timeline) return;
+    var tl = timeline.getBoundingClientRect(), a = dotCenter(0), b = dotCenter(last);
+    rail.style.top = (a - tl.top) + "px";
+    rail.style.bottom = "auto";
+    rail.style.height = Math.max(0, b - a) + "px";
+  }
+
+  function countStat(i) {
+    var el = stages[i].querySelector("[data-nurse-count]");
     if (!el || el.dataset.counted) return;
     el.dataset.counted = "1";
     var target = Number(el.dataset.nurseCount || 0), suffix = el.dataset.suffix || "";
-    if (reduce.matches || target === 0) { el.textContent = String(target) + suffix; return; }
-    var start = performance.now(), duration = 850;
-    function tick(now) { var t = Math.min(1, (now - start) / duration); el.textContent = Math.round(target * (1 - Math.pow(1 - t, 3))) + suffix; if (t < 1) requestAnimationFrame(tick); }
-    requestAnimationFrame(tick);
+    if (reduce.matches || !target) { el.textContent = String(target) + suffix; return; }
+    var start = performance.now(), dur = 850;
+    (function tick(now) {
+      var t = Math.min(1, (now - start) / dur);
+      el.textContent = Math.round(target * (1 - Math.pow(1 - t, 3))) + suffix;
+      if (t < 1) requestAnimationFrame(tick);
+    })(start);
   }
-  function typeText(text) {
+
+  function say(text) {
     window.clearInterval(typingTimer);
+    if (live) live.textContent = text;
     if (!speech) return;
     if (reduce.matches) { speech.textContent = text; return; }
     speech.textContent = "";
     var i = 0;
-    typingTimer = window.setInterval(function () { speech.textContent += text.charAt(i++); if (i >= text.length) window.clearInterval(typingTimer); }, 19);
+    typingTimer = window.setInterval(function () {
+      i += 1;
+      speech.textContent = text.slice(0, i);
+      if (i >= text.length) window.clearInterval(typingTimer);
+    }, 14);
   }
-  function confettiBurst() {
+
+  function burst() {
     if (!confetti || reduce.matches) return;
     confetti.innerHTML = "";
     var colors = ["#f5a623", "#1f5c3a", "#e56b45", "#8dbb78", "#e6c85c"];
@@ -46,87 +83,104 @@
       piece.className = "nurse-confetti-piece";
       piece.style.setProperty("--confetti-color", colors[i % colors.length]);
       piece.style.setProperty("--angle", (i * 29) + "deg");
-      piece.style.setProperty("--dx", (Math.cos(i * .7) * (45 + i % 5 * 13)) + "px");
-      piece.style.setProperty("--dy", (Math.sin(i * .7) * (45 + i % 5 * 13) - 35) + "px");
+      piece.style.setProperty("--dx", (Math.cos(i * 0.7) * (45 + i % 5 * 13)) + "px");
+      piece.style.setProperty("--dy", (Math.sin(i * 0.7) * (45 + i % 5 * 13) - 35) + "px");
       confetti.appendChild(piece);
     }
-    window.setTimeout(function () { if (confetti) confetti.innerHTML = ""; }, 1100);
+    window.setTimeout(function () { confetti.innerHTML = ""; }, 1100);
   }
-  function setStage(index, scrollTo) {
-    index = Math.max(0, Math.min(stages.length - 1, index));
-    active = index;
-    root.classList.add("is-moving");
-    window.clearTimeout(root._nurseMoveTimer);
-    root._nurseMoveTimer = window.setTimeout(function () { root.classList.remove("is-moving"); }, 600);
-    root.dataset.pose = index === stages.length - 1 && root.dataset.completed === "true" ? "complete" : data[index].pose;
-    if (title) title.textContent = "Step " + (index + 1) + " · " + data[index].title;
-    typeText(data[index].text);
+
+  function render() {
+    var atEnd = completed && active === last;
+    root.dataset.pose = atEnd ? "complete" : data[active].pose;
     stages.forEach(function (stage, i) {
-      stage.classList.toggle("is-active", i === index);
-      stage.classList.toggle("is-complete", i < index || (root.dataset.completed === "true" && i === index));
+      stage.classList.toggle("is-active", i === active);
+      stage.classList.toggle("is-complete", completed || i < active);
       var dot = stage.querySelector("[data-nurse-jump]");
-      if (dot) { if (i === index) dot.setAttribute("aria-current", "step"); else dot.removeAttribute("aria-current"); }
+      if (dot) { if (i === active) dot.setAttribute("aria-current", "step"); else dot.removeAttribute("aria-current"); }
     });
-    if (progress) progress.style.transform = "scaleY(" + (index / Math.max(1, stages.length - 1)) + ")";
-    if (counter) counter.textContent = "Stage " + (index + 1) + " of " + stages.length;
-    if (meter) meter.style.width = (((index + 1) / stages.length) * 100) + "%";
-    if (prev) prev.disabled = index === 0;
-    if (next) { next.disabled = root.dataset.completed === "true"; next.textContent = index === stages.length - 1 ? "Finish journey ✓" : "Next stage →"; }
-    countStat(index);
-    if (finish) finish.hidden = !(root.dataset.completed === "true" && index === stages.length - 1);
-    if (scrollTo && stages[index]) stages[index].scrollIntoView({ behavior: reduce.matches ? "auto" : "smooth", block: "center" });
+    if (counter) counter.textContent = completed ? "All " + stages.length + " stages completed" : "Stage " + (active + 1) + " of " + stages.length;
+    if (meter) meter.style.width = (completed ? 100 : ((active + 1) / stages.length) * 100) + "%";
+    if (prev) prev.disabled = active === 0;
+    if (next) next.textContent = active < last ? "Next stage →" : (completed ? "Replay journey ↺" : "Finish journey ✓");
+    if (finish) finish.hidden = !atEnd;
   }
-  function completeJourney() {
-    root.dataset.completed = "true";
-    root.dataset.pose = "complete";
-    stages.forEach(function (stage) { stage.classList.add("is-complete"); });
-    if (finish) finish.hidden = false;
+
+  function setStage(i) {
+    i = Math.max(0, Math.min(last, i));
+    var changed = i !== active;
+    active = i;
+    root.classList.add("is-moving");
+    window.clearTimeout(root._moveTimer);
+    root._moveTimer = window.setTimeout(function () { root.classList.remove("is-moving"); }, 700);
+    if (title) title.textContent = "Step " + (i + 1) + " · " + data[i].title;
+    if (changed || !speech.textContent) say(completed && i === last ? "That's our promise: thoughtful care at every stage. Thank you for choosing RR FOODS!" : data[i].text);
+    render();
+    countStat(i);
+  }
+
+  function complete() {
+    if (completed) return;
+    completed = true;
+    active = last;
     if (title) title.textContent = "Quality care, from start to finish";
-    typeText("That's our promise: thoughtful care at every stage. Thank you for choosing RR FOODS!");
-    if (counter) counter.textContent = "All 6 stages completed";
-    if (meter) meter.style.width = "100%";
-    if (next) { next.disabled = true; next.textContent = "Journey complete ✓"; }
-    confettiBurst();
+    say("That's our promise: thoughtful care at every stage. Thank you for choosing RR FOODS!");
+    render();
+    burst();
   }
-  stages.forEach(function (stage, index) {
-    var dot = stage.querySelector("[data-nurse-jump]");
-    if (dot) dot.addEventListener("click", function () { setStage(index, true); });
-  });
-  if (prev) prev.addEventListener("click", function () { if (active > 0) setStage(active - 1, true); });
-  if (next) next.addEventListener("click", function () { if (active < stages.length - 1) setStage(active + 1, true); else completeJourney(); });
-  function activateFromScroll() {
-    var target = window.innerHeight * .48, best = active, distance = Infinity;
-    stages.forEach(function (stage, index) { var rect = stage.getBoundingClientRect(); if (rect.top < window.innerHeight * .78 && rect.bottom > window.innerHeight * .2) { var d = Math.abs((rect.top + rect.height / 2) - target); if (d < distance) { distance = d; best = index; } } });
-    if (best >= 0 && best !== active) setStage(best, false);
-    var first = stages[0].getBoundingClientRect(), last = stages[stages.length - 1].getBoundingClientRect();
-    var total = Math.max(1, (last.top + last.height / 2) - (first.top + first.height / 2));
-    var amount = Math.max(0, Math.min(1, (window.innerHeight * .48 - (first.top + first.height / 2)) / total));
+
+  function lock() {
+    lockUntil = performance.now() + 1000;
+    window.clearTimeout(lockTimer);
+    lockTimer = window.setTimeout(update, 1050);
+  }
+  function goTo(i) {
+    i = Math.max(0, Math.min(last, i));
+    lock();
+    setStage(i);
+    syncVars();
+    stages[i].scrollIntoView({ behavior: reduce.matches ? "auto" : "smooth", block: "start" });
+  }
+  function replay() {
+    completed = false;
+    stages.forEach(function (s) { s.classList.remove("is-complete"); });
+    active = -1;
+    goTo(0);
+  }
+
+  function update() {
+    queued = false;
+    if (performance.now() < lockUntil) return;
+    var line = readingLine(), best = 0;
+    stages.forEach(function (stage, i) { if (stage.getBoundingClientRect().top <= line) best = i; });
+    var doc = document.documentElement;
+    if (window.innerHeight + window.scrollY >= doc.scrollHeight - 2) best = last;
+    if (best !== active) setStage(best);
+    var a = dotCenter(0), b = dotCenter(last);
+    var amount = b > a ? Math.max(0, Math.min(1, (line - a) / (b - a))) : 0;
     if (progress) progress.style.transform = "scaleY(" + amount + ")";
-    if (last.bottom < window.innerHeight * .65 && root.dataset.completed !== "true") completeJourney();
+    if (!completed && best === last && stages[last].getBoundingClientRect().bottom < window.innerHeight * 0.85) complete();
   }
-  if (reduce.matches) {
-    stages.forEach(function (stage, i) { stage.classList.add("is-complete"); stage.classList.toggle("is-active", i === 0); });
-    root.dataset.pose = "sourcing";
-    if (title) title.textContent = "Step 1 · " + data[0].title;
-    if (speech) speech.textContent = data.map(function (d, i) { return (i + 1) + ". " + d.title + ": " + d.text; }).join(" ");
-    if (progress) progress.style.transform = "scaleY(1)";
-    if (meter) meter.style.width = (100 / stages.length) + "%";
-    stages.forEach(function (_, i) { countStat(i); });
-    if (finish) finish.hidden = false;
-    if (next) next.disabled = false;
-    if (counter) counter.textContent = "All 6 stages · reduced motion";
-    if (prev) prev.disabled = true;
-    next && next.addEventListener("click", function () { var i = Math.min(stages.length - 1, active + 1); active = i; stages.forEach(function (stage, j) { stage.classList.toggle("is-active", j === i); }); if (title) title.textContent = "Step " + (i + 1) + " · " + data[i].title; });
-    return;
-  }
-  setStage(0, false);
-  if ("IntersectionObserver" in window) {
-    var observer = new IntersectionObserver(function (entries) { entries.forEach(function (entry) { if (entry.isIntersecting) { var i = stages.indexOf(entry.target); if (i >= 0 && (active < 0 || Math.abs(i - active) <= 1)) setStage(i, false); } }); }, { rootMargin: "-25% 0px -25% 0px", threshold: 0.15 });
-    stages.forEach(function (stage) { observer.observe(stage); });
-    observed = true;
-  }
-  var scrollQueued = false;
-  window.addEventListener("scroll", function () { if (scrollQueued) return; scrollQueued = true; requestAnimationFrame(function () { scrollQueued = false; activateFromScroll(); }); }, { passive: true });
-  window.addEventListener("resize", activateFromScroll, { passive: true });
-  activateFromScroll();
+  function queueUpdate() { if (queued) return; queued = true; requestAnimationFrame(update); }
+  function relayout() { syncVars(); layoutRail(); queueUpdate(); }
+
+  stages.forEach(function (stage, i) {
+    var dot = stage.querySelector("[data-nurse-jump]");
+    if (dot) dot.addEventListener("click", function () { goTo(i); });
+  });
+  if (prev) prev.addEventListener("click", function () { if (active > 0) goTo(active - 1); });
+  if (next) next.addEventListener("click", function () {
+    if (active < last) goTo(active + 1);
+    else if (!completed) { lock(); complete(); }
+    else replay();
+  });
+
+  window.addEventListener("scroll", queueUpdate, { passive: true });
+  window.addEventListener("resize", relayout, { passive: true });
+  if (window.ResizeObserver && timeline) new ResizeObserver(relayout).observe(timeline);
+
+  syncVars();
+  layoutRail();
+  setStage(0);
+  update();
 })();

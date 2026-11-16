@@ -10,7 +10,6 @@
   {% if carousel.banners and (carousel.banners[0].mobile_image or carousel.banners[0].desktop_image) %}<link rel="preload" as="image" href="{{ carousel.banners[0].mobile_image or carousel.banners[0].desktop_image }}" fetchpriority="high" media="(max-width: 767px)">{% endif %}
 {% endblock %}
 {% block content %}
-{% from "shop/_bundle_deal.html" import bundle_deal with context %}
 {% from "shop/_offer_placeholders.html" import combo_banner, offer_banner %}
 <script src="{{ url_for('static', filename='js/home-loop.js') }}" defer></script>
 {% include "partials/header_carousel.html" %}
@@ -54,21 +53,8 @@
       <div><h2 id="offers-heading" class="sec__h">Offers &amp; Combo</h2><p class="sec__sub">Deals and value packs from RR FOODS.</p></div>
       <div class="sec__tools"><a href="{{ url_for('shop.offers') }}">Explore all offers →</a></div>
     </div>
-    {% if rows.deals or rows.bundles %}
-    {% if rows.bundles %}
-    <div class="bd-list">{% for c in rows.bundles[:2] %}{{ bundle_deal(c, 'home') }}{% endfor %}</div>
-    {% endif %}
-    {% if rows.deals %}
-    <div class="rr-loop" data-loop aria-label="Discounted RR FOODS products">
-      <ul class="rr-loop__track">
-        {% for p in rows.deals[:8] %}{{ s.rcard(p) }}{% endfor %}
-        {% for p in rows.deals[:8] %}{{ s.rcard(p, true) }}{% endfor %}
-      </ul>
-    </div>
-    {% endif %}
-    {% else %}
+    {# Offers & combo products are intentionally not listed on the home page: both spaces show "Coming soon" banners. #}
     <div class="op-grid">{{ combo_banner() }}{{ offer_banner() }}</div>
-    {% endif %}
   </section>
 
   {% if rows.categories %}

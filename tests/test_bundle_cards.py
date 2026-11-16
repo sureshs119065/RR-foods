@@ -20,22 +20,20 @@ def _bundle(session, **over):
     return b
 
 
-def test_home_shows_new_bundle_with_thumbnails_and_not_old_combo(app, session):
+def test_home_offers_space_is_coming_soon_only_even_with_a_live_bundle(app, session):
     _bundle(session)
     html = app.test_client().get("/").get_data(as_text=True)
-    assert "bd__title" in html and "Children&#39;s Day Special Combo" in html
-    assert "| ₹999" not in html          # price lives in the price panel, not the title
-    assert "bd--link" in html and "bd__thumb" not in html and "bd__item" not in html  # home is only a link
-    assert "Seven favourites" not in html
+    assert "op--combo" in html and "op--offer" in html and "Coming soon" in html
+    assert "Children&#39;s Day Special Combo" not in html and "bd__title" not in html
     assert "TRADITIONAL GRAINS" not in html and "rr-combo" not in html and "Combo offer" not in html
 
 
-def test_upcoming_bundle_is_teased_and_cannot_be_bought(app, session):
+def test_upcoming_bundle_is_teased_on_offers_page_only_and_cannot_be_bought(app, session):
     start = datetime.now(timezone.utc) + timedelta(days=1)
     b = _bundle(session, starts_at=start, ends_at=start + timedelta(days=2))
     shop = app.test_client()
     home = shop.get("/").get_data(as_text=True)
-    assert "bd--soon" in home and "Opens" in home
+    assert "bd--soon" not in home and "Coming soon" in home
     offers = shop.get("/offers").get_data(as_text=True)
     assert f'id="bundle-{b.id}"' in offers and "Add bundle to cart" not in offers
 

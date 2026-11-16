@@ -51,8 +51,9 @@
           <g class="nurse-guide__clipboard"><rect x="42" y="195" width="42" height="55" rx="5" fill="#d9e7d8" stroke="#1f5c3a" stroke-width="3"/><path d="M54 195v-6h18v6m-19 17h20m-20 9h20m-20 9h14" stroke="#1f5c3a" stroke-width="3" stroke-linecap="round"/></g>
         </svg>
       </div>
-      <div class="nurse-guide__speech" aria-live="polite" aria-atomic="true"><span class="nurse-guide__speech-label" data-nurse-title>Step 1 · Sourcing</span><p data-nurse-speech>We handpick millets, grains and nuts from trusted farmers. Every ingredient is chosen with care, right from the source.</p></div>
+      <div class="nurse-guide__speech"><span class="nurse-guide__speech-label" data-nurse-title>Step 1 · Sourcing</span><p data-nurse-speech>We handpick millets, grains and nuts from trusted farmers. Every ingredient is chosen with care, right from the source.</p></div>
       <div class="nurse-guide__controls"><button type="button" data-nurse-prev disabled>← Previous</button><button type="button" data-nurse-next>Next stage →</button></div>
+      <p class="nurse-sr" aria-live="polite" aria-atomic="true" data-nurse-live></p>
       <p class="nurse-guide__counter" data-nurse-counter>Stage 1 of 6</p>
       <div class="nurse-guide__meter" aria-label="Journey progress"><span data-nurse-meter></span></div>
     </aside>
@@ -61,7 +62,7 @@
       <ol class="nurse-guide__stages">
         {% for stage in quality_stages %}
         <li class="nurse-stage" data-nurse-stage data-stage-index="{{ loop.index0 }}" data-stage-pose="{{ stage.pose }}">
-          <button class="nurse-stage__dot" type="button" data-nurse-jump="{{ loop.index0 }}" aria-label="Go to stage {{ stage.number }}: {{ stage.title }}" aria-current="step">{{ stage.number }}</button>
+          <button class="nurse-stage__dot" type="button" data-nurse-jump="{{ loop.index0 }}" aria-label="Go to stage {{ stage.number }}: {{ stage.title }}"{% if loop.first %} aria-current="step"{% endif %}>{{ stage.number }}</button>
           <article class="nurse-stage__card">
             <p class="nurse-stage__eyebrow">STEP {{ '%02d'|format(stage.number) }}</p>
             <h3>{{ stage.title }}</h3>

@@ -66,11 +66,12 @@ def test_nothing_is_hardcoded_and_nothing_is_auto_created(app, session, admin):
     assert session.query(Bundle).count() == 0
 
 
-def test_hiding_a_bundle_in_admin_removes_it_from_home_and_offers(app, session, admin):
+def test_hiding_a_bundle_in_admin_removes_it_from_offers_and_home_never_lists_it(app, session, admin):
     p1, p2 = _two_products(session)
     post(admin, "/admin/bundles/new", _data(p1, p2, name="Festival Special"), page="/admin/bundles/new")
     shop = app.test_client()
-    assert "Festival Special" in shop.get("/").get_data(as_text=True)
+    assert "Festival Special" not in shop.get("/").get_data(as_text=True)  # home shows "Coming soon" banners only
+    assert "Festival Special" in shop.get("/offers").get_data(as_text=True)
     b = session.query(Bundle).one()
     b.is_active = False
     session.commit()
