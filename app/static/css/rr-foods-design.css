@@ -298,7 +298,8 @@ html, html[data-shop], html[data-shop][data-theme="dark"], html[data-shop]:not([
   --c-warn:#8B7656 !important; --c-on-brand:#FFFFFF !important;
 }
 body {background:#FFFCF7 !important;color:#302C28 !important}
-h1,h2,h3,h4,.sec__h,.pg-h,.pagehead h2 {color:#38352D !important}
+/* Heading colour is set by normal rules (not !important) so headings on dark green panels can stay white. */
+h1,h2,h3,h4,.sec__h,.pg-h,.pagehead h2 {color:#38352D}
 a {color:#655B45}
 :focus-visible {outline:3px solid #8A754F !important;outline-offset:3px}
 .btn,button.btn,a.btn {background:#665E4B !important;color:#fff !important;border:1px solid #665E4B !important;min-height:44px;box-shadow:none !important}

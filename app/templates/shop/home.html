@@ -11,14 +11,15 @@
 {% endblock %}
 {% block content %}
 {% from "shop/_bundle_deal.html" import bundle_deal with context %}
+{% from "shop/_offer_placeholders.html" import combo_banner, offer_banner %}
 <script src="{{ url_for('static', filename='js/home-loop.js') }}" defer></script>
 {% include "partials/header_carousel.html" %}
 {% if not (carousel and carousel.banners) %}
 <section class="hero" aria-labelledby="hero-t">
   <div class="hero__in container">
     <p class="hero__badge">Fresh • Healthy • Trusted</p>
-    <h1 id="hero-t" class="hero__t">Fresh &amp; Healthy <span>Groceries</span></h1>
-    <p class="hero__p">Delivered to Your Door</p>
+    <h1 id="hero-t" class="hero__t">Healthy, Home-style <span>Millet Foods</span></h1>
+    <p class="hero__p">Traditional taste, delivered to your door</p>
     <div class="hero__btns"><a class="btn btn--accent btn--lg" href="{{ url_for('shop.listing') }}">Shop Now →</a></div>
   </div>
 </section>
@@ -48,12 +49,12 @@
 
 
 <div class="container home-shelves-shell">
-  {% if rows.deals or rows.bundles %}
   <section class="sec rr-offers-section" aria-labelledby="offers-heading">
     <div class="sec__row">
-      <h2 id="offers-heading" class="sec__h">Offers &amp; Combo</h2>
+      <div><h2 id="offers-heading" class="sec__h">Offers &amp; Combo</h2><p class="sec__sub">Deals and value packs from RR FOODS.</p></div>
       <div class="sec__tools"><a href="{{ url_for('shop.offers') }}">Explore all offers →</a></div>
     </div>
+    {% if rows.deals or rows.bundles %}
     {% if rows.bundles %}
     <div class="bd-list">{% for c in rows.bundles[:2] %}{{ bundle_deal(c, 'home') }}{% endfor %}</div>
     {% endif %}
@@ -65,12 +66,14 @@
       </ul>
     </div>
     {% endif %}
+    {% else %}
+    <div class="op-grid">{{ combo_banner() }}{{ offer_banner() }}</div>
+    {% endif %}
   </section>
-  {% endif %}
 
   {% if rows.categories %}
   <section class="sec rr-categories-section" id="categories" aria-labelledby="cats-h">
-    <div class="sec__row"><div><h2 id="cats-h" class="sec__h">Shop by Category</h2><p class="sec__sub">Explore our everyday grocery essentials.</p></div><a href="{{ url_for('shop.listing') }}">View all →</a></div>
+    <div class="sec__row"><div><h2 id="cats-h" class="sec__h">Shop by Category</h2><p class="sec__sub">Browse our millet mixes, noodles, snacks and sweets.</p></div><a href="{{ url_for('shop.listing') }}">View all →</a></div>
     <div class="rr-category-track-wrap">
     <button class="rowarrow rr-category-arrow rr-category-prev" type="button" data-row-prev="rr-category-track" aria-label="Previous categories">{{ s.icon('left') }}</button>
     <ul class="ctiles rr-category-track" id="rr-category-track" tabindex="0" aria-label="Categories, scroll sideways for more">

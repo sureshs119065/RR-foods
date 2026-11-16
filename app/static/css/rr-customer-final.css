@@ -1,0 +1,470 @@
+/* ==========================================================================
+   RR FOODS - customer storefront, final layer.
+   Loaded LAST (see base.html). This is the single place that decides how the
+   customer-facing header, product cards, section headings, offers and contact
+   pages look, so they stay uniform. No decorative animation in here.
+   ========================================================================== */
+
+:root {
+  --cx-ink: #17251b;
+  --cx-muted: #5b6b60;
+  --cx-line: #e0e8e1;
+  --cx-green: #0b7d3e;
+  --cx-green-dark: #075b2d;
+  --cx-deep: #0e3a24;
+  --cx-red: #c62839;
+  --cx-radius-card: 12px;
+  --cx-radius-ctl: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   1. HEADER / NAVIGATION - plain, static, professional (Amazon / Flipkart style)
+   -------------------------------------------------------------------------- */
+html body .sh,
+html body .sh *,
+html body .sh *::before,
+html body .sh *::after {
+  transition: none !important;
+  animation: none !important;
+}
+html body .sh { background: #fff; border-bottom: 1px solid var(--cx-line); box-shadow: none; }
+html body .sh .rr-brand:hover .rr-brand__logo { transform: none; }
+
+html body .sh__row.rr-header__row { min-height: 72px; padding-block: 0; }
+
+html[data-shop] body .sh .rr-header__links ul { gap: 2px; }
+html[data-shop] body .sh .rr-header__links ul li .nav-link {
+  position: relative;
+  height: 72px;
+  min-height: 0;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--cx-ink);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+html[data-shop] body .sh .rr-header__links ul li .nav-link:hover { background: transparent; color: var(--cx-green) !important; }
+html[data-shop] body .sh .rr-header__links ul li .nav-link[aria-current="page"] {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  color: var(--cx-green) !important;
+  font-weight: 700;
+}
+/* the only "active page" marker: one thin bar along the bottom edge of the header */
+html[data-shop] body .sh .rr-header__links ul li .nav-link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 14px; right: 14px; bottom: 0;
+  height: 3px;
+  background: var(--cx-green);
+}
+
+/* search */
+html body .sh__search.rr-header__search {
+  height: 44px;
+  border: 1px solid #cdd9cf;
+  border-radius: var(--cx-radius-ctl);
+  background: #fff;
+}
+html body .sh__search.rr-header__search:focus-within { border-color: var(--cx-green); }
+html body .sh__search .sh__go {
+  background: var(--cx-green) !important;
+  color: #fff !important;
+  border-radius: 6px;
+  box-shadow: none !important;
+}
+
+/* action icons: all the same size, colour and shape (cart is no longer a special green blob) */
+html body .sh__actions { gap: 4px; }
+html body .sh__actions .icon-btn,
+html body .sh__actions .sh__cart,
+html body .sh__actions .rr-action-cart {
+  background: transparent !important;
+  color: var(--cx-ink) !important;
+  border: 0 !important;
+  border-radius: var(--cx-radius-ctl) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+html[data-shop] body .sh__actions .icon-btn svg,
+html[data-shop] body .sh__actions .sh__cart .ic { color: var(--cx-ink) !important; stroke: currentColor; }
+html[data-shop] body .sh__actions .icon-btn:hover svg,
+html[data-shop] body .sh__actions .sh__cart:hover .ic { color: var(--cx-green) !important; }
+html body .sh__actions .icon-btn:not(.rr-action-track) { width: 42px; height: 42px; min-width: 42px; }
+html body .sh__actions .rr-action-cart { width: 42px; height: 42px; }
+html body .sh__actions .icon-btn:hover,
+html body .sh__actions .sh__cart:hover,
+html body .sh__actions .rr-action-cart:hover { background: #eef4ef !important; color: var(--cx-green) !important; }
+html body .sh__actions .dot-n {
+  top: 2px; right: 2px;
+  min-width: 18px; height: 18px;
+  background: var(--cx-red); color: #fff;
+  border: 2px solid #fff;
+  font-size: 10px; font-weight: 700; line-height: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   2. HEADINGS & SECTION TITLES - one scale, readable on light and dark surfaces
+   -------------------------------------------------------------------------- */
+html[data-shop] body .sec__row { align-items: flex-end; margin-bottom: 18px; }
+html[data-shop] body .sec__h,
+html body .rr-how-order__heading h2,
+html[data-shop] body .rv__titles h2,
+html body .home-bottom__shortcuts h2,
+html body .home-contact-section .pg-h {
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+html[data-shop] body .sec__sub,
+html body .rr-how-order__heading p { margin: 4px 0 0; font-size: 14px; color: var(--cx-muted); }
+html[data-shop] body .sec__row > a,
+html[data-shop] body .sec__tools a { font-size: 14px; font-weight: 600; color: var(--cx-green); white-space: nowrap; }
+html[data-shop] body .sec__note { margin: 12px 0 0; font-size: 14px; color: var(--cx-muted); }
+html body .sec { margin-block: 36px; }
+
+/* text on dark green surfaces must always be light */
+html body .contact-aside h2,
+html body .home-bottom__story h2,
+html body .home-bottom__order h2,
+html body .sf h2, html body .sf h3 { color: #fff; }
+
+/* --------------------------------------------------------------------------
+   3. PRODUCT CARDS - same layout everywhere (Shop, Offers, home rows, wishlist)
+      image box -> name (2 lines) -> pack + rating -> price -> button
+   -------------------------------------------------------------------------- */
+html[data-shop] body .pgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(208px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+@media (max-width: 700px) {
+  html[data-shop] body .pgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+}
+
+html[data-shop] body .pc,
+html[data-shop] body .rc {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid var(--cx-line);
+  border-radius: var(--cx-radius-card);
+  box-shadow: none;
+  overflow: hidden;
+  animation: none !important;
+  transition: none !important;
+  transform: none !important;
+}
+html[data-shop] body .pgrid > .pc { height: 100%; }
+html[data-shop] body .pc:hover,
+html[data-shop] body .rc:hover { border-color: #bfd0c3; box-shadow: 0 4px 14px rgba(15, 50, 30, .10); transform: none !important; }
+
+html[data-shop] body .pc__link { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; color: inherit; text-decoration: none; }
+
+/* image box */
+html[data-shop] body .pc__img,
+html[data-shop] body .rc__img {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  padding: 12px;
+  background: #fff;
+  border-bottom: 1px solid #eef3ef;
+  overflow: hidden;
+}
+html[data-shop] body .pc__img img,
+html[data-shop] body .rc__img img {
+  display: block;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  transform: none !important;
+  transition: none !important;
+}
+html[data-shop] body .pc__ph { display: block; width: 100%; height: 100%; border-radius: 8px; background: #f0f5f1; }
+html[data-shop] body .pc--out .pc__img img { opacity: .55; }
+html[data-shop] body .pc__img .tag--out,
+html[data-shop] body .rc__img .tag--out {
+  position: absolute; left: 8px; bottom: 8px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #3b4a40; color: #fff;
+  font-size: 11px; font-weight: 600; line-height: 1.4;
+}
+
+/* wishlist heart */
+html[data-shop] body .pc__wish,
+html[data-shop] body .rc__wish { position: absolute; top: 8px; right: 8px; z-index: 2; margin: 0; }
+html[data-shop] body .pc__wish .wish,
+html[data-shop] body .rc__wish .wish {
+  display: grid; place-items: center;
+  width: 32px; height: 32px; min-height: 0; padding: 0;
+  border-radius: 50%;
+  border: 1px solid #dfe8e1;
+  background: #fff;
+  color: #9aa89f;
+  font-size: 16px; line-height: 1;
+  box-shadow: none;
+}
+html[data-shop] body .pc__wish .wish.is-on,
+html[data-shop] body .rc__wish .wish.is-on { color: var(--cx-red); border-color: #f1c3ca; }
+
+/* text block */
+html[data-shop] body .pc__body,
+html[data-shop] body .rc__body {
+  display: flex; flex-direction: column;
+  gap: 6px;
+  flex: 1 1 auto;
+  padding: 12px 12px 10px;
+  min-width: 0;
+}
+html[data-shop] body .pc__name,
+html[data-shop] body .rc__name {
+  margin: 0;
+  height: 40px;                       /* always two lines tall, so every card lines up */
+  font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: 0;
+  color: var(--cx-ink);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+html[data-shop] body .rc__name a { color: inherit; text-decoration: none; }
+
+html[data-shop] body .pc__meta,
+html[data-shop] body .rc__meta {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  height: 22px; margin: 0;
+  font-size: 12.5px; color: var(--cx-muted);
+}
+html[data-shop] body .pc__rate { display: inline-flex; align-items: center; gap: 4px; }
+html[data-shop] body .pc__rate .stars {
+  padding: 1px 6px; border-radius: 4px;
+  background: #1f8a4c; color: #fff;
+  font-size: 11.5px; font-weight: 700; line-height: 18px;
+}
+html[data-shop] body .pc__count { color: var(--cx-muted); font-size: 12px; }
+html[data-shop] body .rc__stock { font-weight: 600; color: var(--cx-green); }
+html[data-shop] body .rc__stock.is-out { color: var(--cx-red); }
+html[data-shop] body .rc__cat { display: none; }
+
+html[data-shop] body .pc__price,
+html[data-shop] body .rc__price {
+  display: flex; align-items: baseline; flex-wrap: wrap;
+  gap: 2px 8px;
+  min-height: 26px; margin: auto 0 0;
+}
+html[data-shop] body .pc__price b,
+html[data-shop] body .rc__price b { font-size: 17px; line-height: 24px; font-weight: 700; color: var(--cx-ink); }
+html[data-shop] body .pc__price s,
+html[data-shop] body .rc__price s { font-size: 13px; color: #7c8a80; text-decoration: line-through; }
+html[data-shop] body .pc__off,
+html[data-shop] body .rc__save { font-size: 13px; font-weight: 600; color: #1f8a4c; }
+
+/* action button: identical height & radius on every card */
+html[data-shop] body .pc__add,
+html[data-shop] body .rc__act { margin: 0; padding: 0 12px 12px; display: block; }
+html[data-shop] body .rc__act form { margin: 0; }
+html[data-shop] body .pc__add .btn,
+html[data-shop] body a.pc__add,
+html[data-shop] body .rc__act .btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 100%; height: 40px; min-height: 40px; padding: 0 12px;
+  border-radius: var(--cx-radius-ctl);
+  font-size: 14px; font-weight: 700; line-height: 1;
+  box-shadow: none !important;
+  text-decoration: none;
+  background: var(--cx-green) !important;
+  color: #fff !important;
+  border: 1px solid var(--cx-green) !important;
+}
+html[data-shop] body a.pc__add { margin: 0 12px 12px; width: calc(100% - 24px); padding: 0 12px; }
+html[data-shop] body .pc__add .btn:hover,
+html[data-shop] body .rc__act .btn:hover { background: var(--cx-green-dark) !important; border-color: var(--cx-green-dark) !important; }
+/* secondary actions: Choose option / Notify me */
+html[data-shop] body a.pc__add.btn--ghost,
+html[data-shop] body .rc__act .btn--ghost {
+  background: #fff !important;
+  color: var(--cx-green) !important;
+  border: 1px solid var(--cx-green) !important;
+}
+html[data-shop] body a.pc__add.btn--ghost:hover,
+html[data-shop] body .rc__act .btn--ghost:hover { background: #eef7f0 !important; }
+html[data-shop] body .rc__act .btn[disabled] {
+  background: #eef1ee !important; color: #7a877e !important; border-color: #dfe5e0 !important; cursor: not-allowed;
+}
+
+/* home carousel rows: card width */
+html[data-shop] body .rr-loop__track > .rc { flex: 0 0 220px; width: 220px; }
+@media (max-width: 700px) {
+  html[data-shop] body .rr-loop__track > .rc { flex-basis: 168px; width: 168px; }
+  html[data-shop] body .pc__name, html[data-shop] body .rc__name { font-size: 13px; }
+  html[data-shop] body .pc__price b, html[data-shop] body .rc__price b { font-size: 16px; }
+}
+html[data-shop] body .rv__list > .rc { width: auto; flex: none; }
+
+/* --------------------------------------------------------------------------
+   4. OFFERS & COMBO - placeholder banners (replaced by real offers automatically)
+   -------------------------------------------------------------------------- */
+html[data-shop] body .op-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+html[data-shop] body .op {
+  position: relative;
+  display: flex; align-items: center;
+  min-height: 200px;
+  padding: 28px 32px;
+  border-radius: 14px;
+  overflow: hidden;
+  isolation: isolate;
+  color: #fff;
+  text-decoration: none;
+  background-color: var(--cx-deep);
+  background-size: cover;
+  background-position: right center;
+}
+html[data-shop] body .op::before {
+  content: "";
+  position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(90deg, rgba(9, 52, 30, .95) 0%, rgba(9, 52, 30, .82) 46%, rgba(9, 52, 30, .12) 100%);
+}
+html[data-shop] body .op--combo { background-image: url("../img/bestsellers-bg.jpg"); }
+html[data-shop] body .op--offer { background-image: url("../img/new-arrivals-bg.jpg"); }
+html[data-shop] body .op__body { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; max-width: 58%; }
+html[data-shop] body .op__tag {
+  padding: 4px 10px; border-radius: 4px;
+  background: #ffd21f; color: #1b2a10;
+  font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+}
+html[data-shop] body .op__title { font-size: 26px; line-height: 1.2; font-weight: 700; color: #fff; }
+html[data-shop] body .op__text { font-size: 14.5px; line-height: 1.5; color: rgba(255, 255, 255, .9); }
+html[data-shop] body .op__cta { margin-top: 4px; font-size: 14px; font-weight: 700; color: #ffd21f; }
+html[data-shop] body .op:hover .op__cta { text-decoration: underline; }
+html[data-shop] body .op:focus-visible { outline: 3px solid #ffd21f; outline-offset: 3px; }
+/* one banner on its own (Offers page) is full width and a little taller */
+html body .sec > .op { min-height: 220px; }
+@media (max-width: 760px) {
+  html[data-shop] body .op-grid { grid-template-columns: 1fr; }
+  html[data-shop] body .op { min-height: 180px; padding: 22px 20px; }
+  html[data-shop] body .op::before { background: linear-gradient(90deg, rgba(9, 52, 30, .94) 0%, rgba(9, 52, 30, .78) 70%, rgba(9, 52, 30, .45) 100%); }
+  html[data-shop] body .op__body { max-width: 86%; }
+  html[data-shop] body .op__title { font-size: 22px; }
+}
+
+/* page header used by Offers and Contact (same look on both) */
+html[data-shop] body .offers-hero,
+html[data-shop] body .contact-hero {
+  margin: 20px 0 8px;
+  padding: 32px 40px;
+  border: 1px solid var(--cx-line);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f1f8f2 0%, #ffffff 70%);
+  box-shadow: none;
+  color: var(--cx-ink);
+  text-align: left;
+}
+html[data-shop] body .offers-hero .eyebrow,
+html[data-shop] body .contact-eyebrow {
+  display: block; margin: 0 0 8px;
+  font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--cx-green);
+}
+html[data-shop] body .offers-hero .pg-h,
+html[data-shop] body .contact-hero h1 { margin: 0 0 8px; font-size: clamp(26px, 3.4vw, 36px); line-height: 1.2; color: var(--cx-ink); }
+html[data-shop] body .offers-hero p:not(.eyebrow),
+html[data-shop] body .contact-hero p { margin: 0; max-width: 62ch; font-size: 16px; line-height: 1.55; color: var(--cx-muted); }
+@media (max-width: 600px) {
+  html[data-shop] body .offers-hero, html[data-shop] body .contact-hero { padding: 22px 20px; }
+}
+
+/* coupons */
+html[data-shop] body .coupons { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
+html[data-shop] body .couponcard {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px dashed #8fc6a1;
+  border-radius: var(--cx-radius-card);
+  box-shadow: none;
+}
+html[data-shop] body .couponcard--on { border-style: solid; border-color: var(--cx-green); background: #f3faf5; }
+html[data-shop] body .couponcard__code { font-size: 18px; font-weight: 800; letter-spacing: .04em; color: var(--cx-green-dark); }
+html[data-shop] body .couponcard__desc { font-size: 14.5px; color: var(--cx-ink); }
+html[data-shop] body .couponcard__meta { font-size: 13px; color: var(--cx-muted); }
+
+/* --------------------------------------------------------------------------
+   5. CONTACT PAGE
+   -------------------------------------------------------------------------- */
+html[data-shop] .contact-page { max-width: 1280px; padding-inline: var(--rr-gutter, 24px); }
+html[data-shop] .contact-methods {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+html[data-shop] .contact-method { min-height: 88px; height: 100%; align-items: center; }
+html[data-shop] .contact-content { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 20px; align-items: stretch; }
+html[data-shop] .contact-aside { align-self: stretch; padding: 28px; background: var(--cx-deep); border-radius: 16px; color: #fff; }
+html[data-shop] .contact-aside .contact-eyebrow { color: #a9dcb9; }
+html[data-shop] .contact-aside h2 { margin: 6px 0 12px; font-size: 24px; color: #fff; }
+html[data-shop] .contact-aside p { color: rgba(255, 255, 255, .88); }
+html[data-shop] .contact-aside li { color: #fff; }
+
+html[data-shop] .contact-form__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 20px; align-items: start; }
+html[data-shop] .contact-form label { display: flex; flex-direction: column; gap: 6px; margin: 0; font-size: 14px; font-weight: 600; color: var(--cx-ink); }
+html[data-shop] .contact-form .fl { display: block; line-height: 20px; }
+html[data-shop] .contact-form .fl em { font-style: normal; font-weight: 400; color: var(--cx-muted); }
+html[data-shop] .contact-form input,
+html[data-shop] .contact-form textarea { width: 100%; box-sizing: border-box; min-height: 46px; padding: 11px 14px; border-radius: var(--cx-radius-ctl); font-size: 15px; }
+html[data-shop] .contact-form textarea { min-height: 150px; }
+html[data-shop] .contact-form__message { grid-column: 1 / -1; }
+html[data-shop] .contact-form__submit { height: 46px; border-radius: var(--cx-radius-ctl); }
+@media (max-width: 900px) {
+  html[data-shop] .contact-content { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  html[data-shop] .contact-form__grid { grid-template-columns: 1fr; }
+}
+
+/* --------------------------------------------------------------------------
+   6. SHARED CONTROLS - one button radius, no hover lift, no entrance fades
+   -------------------------------------------------------------------------- */
+html body .btn,
+html body a.btn,
+html body button.btn { border-radius: var(--cx-radius-ctl); font-weight: 700; transform: none !important; }
+html body .combo-card,
+html body .promotion-card,
+html body .content-card { animation: none !important; transform: none !important; }
+html body .combo-card:hover,
+html body .promotion-card:hover { transform: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  html body *, html body *::before, html body *::after { scroll-behavior: auto !important; }
+}
+
+/* old card rules gave these inner rows side margins; the card body already pads them */
+html[data-shop] body .pc__rate,
+html[data-shop] body .pc__price,
+html[data-shop] body .pc__pack,
+html[data-shop] body .rc__meta,
+html[data-shop] body .rc__price { margin-inline: 0; }
+html[data-shop] body .pc__name,
+html[data-shop] body .rc__name { margin: 0; font-weight: 600; }
+html[data-shop] body .pc__pack { font-size: 12.5px; color: var(--cx-muted); }
+
+/* Contact page: same width as the header and every other page */
+html[data-shop] body .contact-page { width: 100%; max-width: var(--rr-max, 1280px); margin: 0 auto; padding: 0 var(--rr-gutter, 24px) 48px; box-sizing: border-box; }
+
+/* small text: a little darker so it stays readable */
+html[data-shop] body .pc__off,
+html[data-shop] body .rc__save,
+html[data-shop] body .rc__stock { color: #16743d; }
+html[data-shop] body .nurse-stage__eyebrow { color: #8a5a12; }
+html[data-shop] body .nurse-stage__eyebrow ~ * small,
+html[data-shop] body .nurse-stage span { color: #5b6b60; }

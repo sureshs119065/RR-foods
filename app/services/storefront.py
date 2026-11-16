@@ -235,6 +235,14 @@ def bought_together(p: Product, limit: int = 3) -> list[Product]:
     return frequently_bought_together(p, limit=limit)
 
 
+def deal_products(limit: int = 12) -> list:
+    """In-stock products that are priced below MRP, biggest discount first (Offers page)."""
+    opts = (selectinload(Product.images), selectinload(Product.variants))
+    pct = case((Product.mrp > 0, (Product.mrp - Product.final_price) * 100 / Product.mrp), else_=0)
+    return db.session.scalars(select(Product).where(LIVE, in_stock_sql(), Product.final_price < Product.mrp)
+                              .options(*opts).order_by(pct.desc(), Product.id).limit(limit)).all()
+
+
 def home_rows() -> dict:
     opts = (selectinload(Product.images), selectinload(Product.variants))
     top = db.session.scalars(select(Category).where(Category.parent_id.is_(None), Category.is_deleted.is_(False), Category.is_active.is_(True)).order_by(Category.sort_order, Category.name).limit(12)).all()

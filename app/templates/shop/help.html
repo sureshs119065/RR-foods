@@ -30,6 +30,11 @@
       <span><b>Order support</b><small>Check your orders and delivery updates</small></span>
       <span class="contact-method__arrow" aria-hidden="true">↗</span>
     </a>
+    <a class="contact-method" href="#contact-form">
+      <span class="contact-method__icon" aria-hidden="true">✎</span>
+      <span><b>Send a message</b><small>Fill in the form and we will get back to you</small></span>
+      <span class="contact-method__arrow" aria-hidden="true">↓</span>
+    </a>
   </section>
   <section class="contact-content">
     <div class="contact-aside">
@@ -42,15 +47,15 @@
         <li><span>✓</span> Returns and general feedback</li>
       </ul>
     </div>
-    <form class="contact-form" method="post" action="{{ url_for('shop.help_page') }}">
+    <form class="contact-form" id="contact-form" method="post" action="{{ url_for('shop.help_page') }}">
       {{ s.csrf() }}
       <h2>Send us a message</h2>
       <div class="contact-form__grid">
-        <label>Your name<input name="name" type="text" maxlength="100" autocomplete="name" placeholder="Enter your name" required></label>
-        <label>Email address <span>(optional)</span><input name="email" type="email" maxlength="160" autocomplete="email" placeholder="you@example.com"></label>
-        <label>Phone number <span>(optional)</span><input name="phone" type="tel" maxlength="30" autocomplete="tel" placeholder="Your contact number"></label>
-        <label>Subject<input name="subject" type="text" maxlength="140" placeholder="What do you need help with?" required></label>
-        <label class="contact-form__message">Message<textarea name="message" rows="6" maxlength="4000" minlength="10" placeholder="Tell us how we can help..." required></textarea></label>
+        <label><span class="fl">Your name</span><input name="name" type="text" maxlength="100" autocomplete="name" placeholder="Enter your name" required></label>
+        <label><span class="fl">Email address <em>(optional)</em></span><input name="email" type="email" maxlength="160" autocomplete="email" placeholder="you@example.com"></label>
+        <label><span class="fl">Phone number <em>(optional)</em></span><input name="phone" type="tel" maxlength="30" autocomplete="tel" placeholder="Your contact number"></label>
+        <label><span class="fl">Subject</span><input name="subject" type="text" maxlength="140" placeholder="What do you need help with?" required></label>
+        <label class="contact-form__message"><span class="fl">Message</span><textarea name="message" rows="6" maxlength="4000" minlength="10" placeholder="Tell us how we can help..." required></textarea></label>
       </div>
       <button class="btn contact-form__submit" type="submit">Continue to send message <span aria-hidden="true">→</span></button>
       <p class="contact-form__note">Your message is not sent until you confirm it in WhatsApp or your email app.</p>

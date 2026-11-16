@@ -284,7 +284,7 @@ def offers():
     coupons = db.session.scalars(select(Coupon).where(Coupon.is_active.is_(True), (Coupon.expires_at.is_(None)) | (Coupon.expires_at > now)).order_by(Coupon.id)).all()
     return render_template("shop/offers.html", coupons=coupons,
         highlight=(request.args.get("coupon") or "").upper()[:40],
-        bundle_cards=storefront.bundle_cards())
+        bundle_cards=storefront.bundle_cards(), deal_products=storefront.deal_products())
 
 
 # ---------------------------------------------------------------- JSON helpers for the page scripts

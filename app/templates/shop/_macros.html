@@ -37,27 +37,27 @@
 
 {% macro card(p) %}
 {% set im = p.primary_image %}{% set fallback_img = product_image_fallback(p) %}{% set pct = off_pct(p.mrp, p.final_price)|int %}{% set left = available_qty(p) %}
-<article class="pc">
+<article class="pc{{ ' pc--out' if left <= 0 else '' }}">
   <form class="pc__wish" method="post" action="{{ url_for('shop.wishlist_toggle') }}" data-wish>{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
     <button class="wish {{ 'is-on' if in_wishlist(p.id) else '' }}" type="submit" aria-pressed="{{ 'true' if in_wishlist(p.id) else 'false' }}" aria-label="{{ 'Remove ' ~ p.name ~ ' from wishlist' if in_wishlist(p.id) else 'Save ' ~ p.name ~ ' to wishlist' }}">♥</button></form>
   <a class="pc__link" href="{{ url_for('shop.product', slug=p.slug) }}">
     <span class="pc__img">
       {% if im %}<img src="{{ im.thumb_url or im.url }}" data-product-image data-product-full="{{ im.url or '' }}" data-product-fallback="{{ fallback_img or '' }}" alt="{{ im.alt or p.name }}" loading="lazy" decoding="async" width="400" height="400">{% elif fallback_img %}<img src="{{ fallback_img }}" data-product-image data-product-fallback="" alt="{{ p.name }}" loading="lazy" decoding="async" width="400" height="400">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}
-      {% if pct %}<span class="tag tag--off">{{ pct }}% off</span>{% endif %}
       {% if left <= 0 %}<span class="tag tag--out">Out of stock</span>{% endif %}
     </span>
-    <h3 class="pc__name">{{ p.name }}</h3>
-    {% if p.review_count %}<span class="pc__rate"><span class="stars">{{ '%.1f'|format(p.avg_rating) }} ★</span> <span class="muted">({{ p.review_count }})</span></span>{% endif %}
-    <span class="pc__price"><b>{{ inr(p.final_price) }}</b>{% if pct %} <s class="muted">{{ inr(p.mrp) }}</s>{% endif %}</span>
-    {% if p.pack_size %}<span class="pc__pack muted">{{ p.pack_size }}</span>{% endif %}
+    <span class="pc__body">
+      <h3 class="pc__name">{{ p.name }}</h3>
+      <span class="pc__meta"><span class="pc__pack">{{ p.pack_size or '' }}</span>{% if p.review_count %}<span class="pc__rate"><span class="stars">{{ '%.1f'|format(p.avg_rating) }} ★</span><span class="pc__count">({{ p.review_count }})</span></span>{% endif %}</span>
+      <span class="pc__price"><b>{{ inr0(p.final_price) }}</b>{% if pct %}<s>{{ inr0(p.mrp) }}</s><span class="pc__off">{{ pct }}% off</span>{% endif %}</span>
+    </span>
   </a>
   {% if left > 0 and not active_variants(p) %}
   <form class="pc__add" method="post" action="{{ url_for('shop.cart_add') }}" data-quickadd>{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="qty" value="1"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
-    <button class="btn btn--ghost btn--sm" type="submit" aria-label="Add {{ p.name }} to cart">Add to cart</button></form>
+    <button class="btn btn--sm pc__btn pc__btn--primary" type="submit" aria-label="Add {{ p.name }} to cart">Add to cart</button></form>
   {% elif left <= 0 %}
-  <a class="pc__add pc__opts btn btn--ghost btn--sm" href="{{ url_for('shop.product', slug=p.slug) }}#notify">Notify me</a>
+  <a class="pc__add pc__opts btn btn--ghost btn--sm pc__btn" href="{{ url_for('shop.product', slug=p.slug) }}#notify">Notify me</a>
   {% elif left > 0 %}
-  <a class="pc__add pc__opts btn btn--ghost btn--sm" href="{{ url_for('shop.product', slug=p.slug) }}">Choose option</a>
+  <a class="pc__add pc__opts btn btn--ghost btn--sm pc__btn" href="{{ url_for('shop.product', slug=p.slug) }}">Choose option</a>
   {% endif %}
 </article>
 {% endmacro %}
@@ -93,16 +93,16 @@
   <form class="rc__wish" method="post" action="{{ url_for('shop.wishlist_toggle') }}" data-wish>{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}"><button class="wish {{ 'is-on' if in_wishlist(p.id) else '' }}" type="submit" aria-pressed="{{ 'true' if in_wishlist(p.id) else 'false' }}" aria-label="{{ 'Remove ' ~ p.name ~ ' from wishlist' if in_wishlist(p.id) else 'Save ' ~ p.name ~ ' to wishlist' }}">♥</button></form>
   <a class="rc__img" href="{{ url_for('shop.product', slug=p.slug) }}" tabindex="-1" aria-hidden="true">
     {% if im %}<img src="{{ im.thumb_url or im.url }}" data-product-image data-product-full="{{ im.url or '' }}" data-product-fallback="{{ fallback_img or '' }}" alt="{{ p.name }}" loading="lazy" decoding="async" width="400" height="400">{% elif fallback_img %}<img src="{{ fallback_img }}" data-product-image data-product-fallback="" alt="{{ p.name }}" loading="lazy" decoding="async" width="400" height="400">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}
-    {% if left <= 0 %}<span class="tag tag--out">Sold out</span>{% elif pct %}<span class="tag tag--off" aria-label="{{ pct }} percent discount">{{ pct }}% OFF</span>{% endif %}
+    {% if left <= 0 %}<span class="tag tag--out">Out of stock</span>{% endif %}
   </a>
   <div class="rc__body">
     <p class="rc__cat">{{ p.category.name if p.category else '' }}</p>
     <h3 class="rc__name"><a href="{{ url_for('shop.product', slug=p.slug) }}">{{ p.name }}</a></h3>
-    <p class="rc__meta"><span>{{ p.pack_size or '' }}</span><span class="rc__stock{{ ' is-out' if left <= 0 else '' }}">{{ 'Sold out' if left <= 0 else 'In stock' }}</span></p>
-    <p class="rc__price"><b>{{ inr0(p.final_price) }}</b>{% if pct %} <s class="muted">{{ inr0(p.mrp) }}</s> <span class="rc__save">Save {{ inr0(p.mrp - p.final_price) }}</span>{% endif %}</p>
+    <p class="rc__meta"><span>{{ p.pack_size or '' }}</span><span class="rc__stock{{ ' is-out' if left <= 0 else '' }}">{{ 'Out of stock' if left <= 0 else 'In stock' }}</span></p>
+    <p class="rc__price"><b>{{ inr0(p.final_price) }}</b>{% if pct %}<s>{{ inr0(p.mrp) }}</s><span class="rc__save">{{ pct }}% off</span>{% endif %}</p>
     <div class="rc__act">
-      {% if left <= 0 %}<button class="btn btn--block" type="button" disabled>Sold out</button>
-      {% elif opts %}<a class="btn btn--block" href="{{ url_for('shop.product', slug=p.slug) }}">Choose options</a>
+      {% if left <= 0 %}<button class="btn btn--block" type="button" disabled>Out of stock</button>
+      {% elif opts %}<a class="btn btn--block btn--ghost" href="{{ url_for('shop.product', slug=p.slug) }}">Choose option</a>
       {% else %}<form method="post" action="{{ url_for('shop.cart_add') }}" data-addcart data-name="{{ p.name }}">{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="qty" value="1"><button class="btn btn--block" type="submit" aria-label="Add {{ p.name }} to cart">Add to cart</button></form>{% endif %}
     </div>
   </div>

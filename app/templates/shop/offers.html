@@ -3,23 +3,32 @@
 {% block head_extra %}{% endblock %}
 {% block content %}
 {% from "shop/_bundle_deal.html" import bundle_deal with context %}
+{% from "shop/_offer_placeholders.html" import combo_banner, offer_banner %}
 <div class="container offers-page">
   <header class="offers-hero">
-    <p class="eyebrow">Fresh savings from our kitchen</p>
+    <p class="eyebrow">Savings from our kitchen</p>
     <h1 class="pg-h">Offers &amp; combo deals</h1>
-    <p>Discover product offers, save with coupon codes and get more value with curated RR FOODS combos.</p>
-    {% if bundle_cards %}<a class="btn" href="#combo-bundles">Explore combo offers</a>{% endif %}
+    <p>Product offers, coupon codes and curated RR FOODS combos in one place.</p>
   </header>
 
-  {% if bundle_cards %}
-  <section class="sec" id="combo-bundles"><h2 class="sec__h">Combo bundles</h2>
-    <div class="bd-list">{% for c in bundle_cards %}{{ bundle_deal(c, 'offers') }}{% endfor %}</div>
+  <section class="sec" id="combo-bundles" aria-labelledby="combo-h">
+    <div class="sec__row"><h2 id="combo-h" class="sec__h">Combo packs</h2></div>
+    {% if bundle_cards %}<div class="bd-list">{% for c in bundle_cards %}{{ bundle_deal(c, 'offers') }}{% endfor %}</div>
+    {% else %}{{ combo_banner() }}{% endif %}
   </section>
-  {% endif %}
 
-  <section class="sec"><h2 class="sec__h">Coupon codes</h2>
-    {% if coupons %}<ul class="coupons">{% for c in coupons %}<li class="couponcard {% if c.code|upper == highlight %}couponcard--on{% endif %}"><b class="couponcard__code">{{ c.code }}</b><span>{{ c.description or ((c.discount_value|int ~ '% off') if c.discount_type == 'percent' else ('₹' ~ c.discount_value|int ~ ' off')) }}</span><span class="muted small">{% if c.min_cart_value %}On orders above ₹{{ c.min_cart_value|int }}. {% endif %}{% if c.expires_at %}Valid till {{ c.expires_at|local_display }}.{% endif %}</span></li>{% endfor %}</ul><p class="muted">Enter the code in your cart to use it.</p>{% else %}<p class="muted">No coupon codes are active right now.</p>{% endif %}
+  <section class="sec" id="product-offers" aria-labelledby="offers-h">
+    <div class="sec__row"><h2 id="offers-h" class="sec__h">Product offers</h2></div>
+    {% if deal_products %}{{ s.grid(deal_products) }}
+    {% else %}{{ offer_banner() }}{% endif %}
   </section>
-  {% if not coupons and not bundle_cards %}<div class="empty"><h2>New offers are coming soon</h2><p class="muted">Check back for special RR FOODS deals.</p><a class="btn" href="{{ url_for('shop.listing') }}">Browse products</a></div>{% endif %}
+
+  <section class="sec" id="coupons" aria-labelledby="coupons-h">
+    <div class="sec__row"><h2 id="coupons-h" class="sec__h">Coupon codes</h2></div>
+    {% if coupons %}
+    <ul class="coupons">{% for c in coupons %}<li class="couponcard {% if c.code|upper == highlight %}couponcard--on{% endif %}"><b class="couponcard__code">{{ c.code }}</b><span class="couponcard__desc">{{ c.description or ((c.discount_value|int ~ '% off') if c.discount_type == 'percent' else ('₹' ~ c.discount_value|int ~ ' off')) }}</span><span class="couponcard__meta">{% if c.min_cart_value %}On orders above ₹{{ c.min_cart_value|int }}. {% endif %}{% if c.expires_at %}Valid till {{ c.expires_at|local_display }}.{% endif %}</span></li>{% endfor %}</ul>
+    <p class="sec__note">Enter the code in your cart to use it.</p>
+    {% else %}<p class="sec__note">No coupon codes are active right now.</p>{% endif %}
+  </section>
 </div>
 {% endblock %}
