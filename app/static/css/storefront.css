@@ -4324,3 +4324,14 @@ html body .nurse-stage__dot { width: var(--tap); height: var(--tap); left: calc(
   }
   html body .sh__actions .rr-action-track .sh__action-label { margin: 0; line-height: 1; }
 }
+
+/* Header on laptop screens (1101px and up): the nav, the action buttons and the 28px column gaps used almost all the width and
+   squeezed the search bar down to its 220px minimum. Tighter gaps and padding give the search box room again. */
+@media (min-width: 1101px) {
+  html body .sh__row.rr-header__row { grid-template-columns: 56px auto minmax(300px, 1fr) auto; column-gap: 14px; }
+  html body .sh__links .nav-link { padding: 0 10px; }
+  html body .sh__links ul { gap: 2px; }
+  html body .sh__search.rr-header__search { max-width: 520px; justify-self: stretch; }
+  html body .sh__actions.rr-header__actions { gap: 2px; }
+  html body .sh__actions .icon-btn.rr-action-track { padding: 0 10px 0 8px !important; }
+}
