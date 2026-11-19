@@ -4314,3 +4314,13 @@ html body .nurse-stage__dot { width: var(--tap); height: var(--tap); left: calc(
 .rr-loop__pause { display: inline-flex; align-items: center; min-height: 44px; margin: 0 0 var(--sp-2); padding: 0 var(--sp-4);
   border: 1px solid var(--ui-border); border-radius: var(--radius-sm); background: var(--c-surface); color: var(--c-ink); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
 .rr-loop__pause[aria-pressed="true"] { background: var(--c-soft); }
+
+/* Header: the "Track Orders" button was forced to a 44px circle by the tap-target rule above, so its text spilled over the account icon.
+   On wide screens let this one button grow to fit its icon and label (the label is hidden below 1100px, where the 44px circle is right). */
+@media (min-width: 1101px) {
+  html body .sh__actions .icon-btn.rr-action-track {
+    width: auto !important; flex: 0 0 auto !important; padding: 0 14px 0 12px !important;
+    gap: 6px; border-radius: 999px; white-space: nowrap;
+  }
+  html body .sh__actions .rr-action-track .sh__action-label { margin: 0; line-height: 1; }
+}
