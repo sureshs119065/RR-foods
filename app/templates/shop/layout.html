@@ -5,7 +5,6 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="{{ url_for('static', filename='img/rr-foods-icon-192.png') }}" type="image/png">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/rr-foods-icon-192.png') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}?v=rr-storefront-v26">
   {% block head_extra %}{% endblock %}
   <link rel="preload" href="{{ url_for('static', filename='fonts/bricolage-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
 {% endblock %}
@@ -15,9 +14,7 @@
 {% block main %}
 <main id="main" class="shop-main">
   <div class="container flashes">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}<div class="alert alert--{{ category }}" role="status">{{ message }}</div>{% endfor %}
-    {% endwith %}
+    {% from 'shared/_flash.html' import flashes %}{{ flashes() }}
   </div>
   {% block content %}{% endblock %}
 </main>

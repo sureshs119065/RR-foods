@@ -7,10 +7,17 @@
 {% set addr = order.shipping_address or {} %}
 {% set nxt = svc.next_step(order.status) %}
 <p class="row"><a href="{{ url_for('owner.orders') }}">&larr; All orders</a></p>
-{% if order.status not in ('placed', 'rejected', 'cancelled') %}<p><a class="btn btn--block" href="{{ url_for('owner.order_invoice', order_id=order.id) }}" download>&#11015; Download invoice (PDF)</a></p>{% endif %}
+{% if order.status not in ('pending_whatsapp', 'placed', 'rejected', 'cancelled') %}<p><a class="btn btn--block" href="{{ url_for('owner.order_invoice', order_id=order.id) }}" download>&#11015; Download invoice (PDF)</a></p>{% endif %}
 
 <section class="panel">
   <div class="row">{{ o.status_badge(order.status) }}{{ o.pay_badge(order) }}<span class="hint">Placed {{ order.created_at|local_display }}</span></div>
+  {% if order.status == 'pending_whatsapp' %}
+    <p class="notice"><b>This is a checkout request, not an order yet.</b> No stock is held and it is not counted in your sales. When the customer's WhatsApp message quoting <b>{{ order.order_number }}</b> reaches you, press <b>Message received</b>. If it never arrives, close the request.</p>
+    <div class="row">
+      <form method="post" action="{{ url_for('owner.order_whatsapp_received', order_id=order.id) }}" data-once>{{ m.csrf() }}<button class="btn" type="submit">Message received · place order</button></form>
+      <form method="post" action="{{ url_for('owner.order_discard_request', order_id=order.id) }}" data-once>{{ m.csrf() }}<input type="hidden" name="next" value="{{ url_for('owner.orders', tab='awaiting') }}"><button class="btn btn--danger" type="submit">Close request</button></form>
+    </div>
+  {% endif %}
   {% if order.status == 'rejected' %}
     <p class="notice">Rejected. Reason given to the customer: <b>{{ order.rejection_reason }}</b>
     {% if order.payment_status == 'paid' %}<br><b>This order was marked paid. Send the refund to the customer yourself (UPI or bank transfer) and tell them on WhatsApp.</b>{% endif %}</p>
@@ -24,7 +31,7 @@
   {% if order.gift_message %}<p class="notice"><b>Gift message:</b> {{ order.gift_message }}</p>{% endif %}
   {% if order.hide_prices %}<p class="notice">Customer requested prices hidden on invoice.</p>{% endif %}
   {% if order.customer_notes %}<p class="notice"><b>Customer note:</b> {{ order.customer_notes }}</p>{% endif %}
-  {% if order.delivery_date %}<p class="notice"><b>Delivery slot:</b> {{ order.delivery_date.strftime('%d %b %Y') }} · {{ order.delivery_slot or 'Not set' }}</p>{% endif %}
+  {% if order.delivery_date and order.status not in ('cancelled','rejected','pending_whatsapp') %}<p class="notice"><b>Expected delivery:</b> {{ order.delivery_date.strftime('%d %b %Y') }}</p>{% endif %}
   <p><a class="btn btn--ghost" href="{{ url_for('owner.packing_slip', order_id=order.id) }}" target="_blank">Print packing slip</a></p>
 </section>
 
@@ -72,6 +79,7 @@
 </section>
 
 
+{% if order.status not in ('cancelled', 'rejected', 'pending_whatsapp') %}
 <section class="panel" aria-labelledby="tracking-edit-title">
   <h2 id="tracking-edit-title">Courier tracking details</h2>
   <form method="post" action="{{ url_for('owner.order_tracking', order_id=order.id) }}" class="form" data-once>
@@ -79,9 +87,11 @@
     <label class="field"><span>Courier name</span><input name="courier_name" maxlength="120" value="{{ order.courier_name or '' }}" autocomplete="off"></label>
     <label class="field"><span>Tracking ID</span><input name="tracking_id" maxlength="120" value="{{ order.tracking_id or '' }}" autocomplete="off"></label>
     <label class="field"><span>Tracking URL (HTTPS)</span><input type="url" name="tracking_url" maxlength="500" value="{{ order.tracking_url or '' }}" placeholder="https://courier.example/track/..."></label>
+    <label class="field"><span>Expected delivery date (optional, from the courier)</span><input type="date" name="expected_delivery" value="{{ order.delivery_date.isoformat() if order.delivery_date else '' }}"></label>
     <button class="btn" type="submit">Save tracking details</button>
   </form>
 </section>
+{% endif %}
 
 <section class="panel"><h2>Send order update on WhatsApp</h2><p class="hint">Opens WhatsApp with a message in the customer's saved language. The history records that the message was opened; confirm sending in WhatsApp.</p><div class="row">{% for stage in ['confirmed','packed','shipped','delivered'] %}<form method="post" action="{{ url_for('owner.whatsapp_update', order_id=order.id) }}">{{ m.csrf() }}<input type="hidden" name="stage" value="{{ stage }}"><button class="btn btn--ghost" type="submit">{{ stage|title }}</button></form>{% endfor %}</div><p><a href="{{ url_for('owner.whatsapp_templates') }}">Edit message templates</a></p></section>
 

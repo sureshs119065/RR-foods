@@ -24,6 +24,7 @@
 {% block content %}
 <div class="container pdp">
   {{ s.crumbs(crumbs) }}
+  {{ img_priority_spent() }}{# the gallery image is this page's LCP; related-product cards below the fold load lazily #}
   <div class="pdp__grid">
     <section class="gal" aria-label="Product images" data-gallery>
       <div class="gal__main">
@@ -31,6 +32,7 @@
           <button class="gal__zoom" type="button" data-zoom aria-label="Zoom image">
             <img id="gal-main" data-product-image
                  src="{{ main_src }}"
+                 {% set main_ss = img_srcset(im.url, im.thumb_url, true) if im else img_srcset(fallback_img, none, true) %}{% if main_ss %}srcset="{{ main_ss }}" sizes="(max-width: 900px) 100vw, 50vw"{% endif %}
                  data-product-full="{{ im.url if im else '' }}"
                  data-product-fallback="{{ fallback_img or '' }}"
                  alt="{{ im.alt if im and im.alt else p.name }}"
@@ -50,7 +52,7 @@
           {% set thumb_src = product_image_src(img, p, True) %}
           {% set full_src = product_image_src(img, p) %}
           {% if full_src %}
-          <li><button type="button" class="gal__t" data-src="{{ full_src }}" data-full-src="{{ img.url }}" data-alt="{{ img.alt or p.name }}" aria-label="Image {{ loop.index }}" {% if img == im %}aria-current="true"{% endif %}>
+          <li><button type="button" class="gal__t" data-src="{{ full_src }}" data-full-src="{{ img.url }}" data-alt="{{ img.alt or p.name }}" aria-label="{{ p.name }}, image {{ loop.index }}" {% if img == im %}aria-current="true"{% endif %}>
             <img src="{{ thumb_src or full_src }}" data-product-image data-product-full="{{ img.url }}" data-product-fallback="{{ fallback_img or '' }}" alt="" loading="lazy" width="96" height="96">
           </button></li>
           {% endif %}
@@ -79,6 +81,15 @@
       </p>
       <p class="muted small">Inclusive of all taxes</p>
 
+      <section class="pin-box" aria-labelledby="pin-h">
+        <h2 id="pin-h" class="h3 pin-box__h">Check delivery to your pincode</h2>
+        <form class="pin" id="pinform" data-pin autocomplete="off" novalidate>
+          <label for="pin" class="sr">Delivery pincode</label>
+          <div class="pin__row"><input id="pin" name="pin" type="text" inputmode="numeric" maxlength="6" pattern="\d{6}" placeholder="Enter 6 digit pincode" autocomplete="postal-code" aria-describedby="pin-msg"><button class="btn btn--ghost" type="submit">Check</button></div>
+          <p class="pin__msg" id="pin-msg" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
       <form class="buyform" id="buyform" method="post" action="{{ url_for('shop.cart_add') }}" data-addcart>
         {{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.path }}">
         {% if variants %}
@@ -100,6 +111,7 @@
           <div class="stepper"><button type="button" data-step="-1" aria-label="Decrease quantity">−</button><input id="qty" name="qty" type="number" inputmode="numeric" min="1" max="10" value="1"><button type="button" data-step="1" aria-label="Increase quantity">+</button></div>
         </div>
         <div class="buybar" id="buybar">
+          <p class="buybar__price" aria-hidden="true"><span class="muted small">Price</span><b id="bar-price">{{ s.inr(p.final_price) }}</b></p>
           <button class="btn btn--ghost" type="submit" {% if not variants and stock <= 0 %}disabled{% endif %} data-add>Add to cart</button>
           <button class="btn" type="submit" formaction="{{ url_for('shop.buy_now') }}" {% if not variants and stock <= 0 %}disabled{% endif %} data-buy>Buy now</button>
         </div>
@@ -112,12 +124,6 @@
       </form>
       {% endif %}
 
-      <p class="muted small">Order before {{ delivery_settings.cutoff_time }} for next-day delivery, subject to available slots.</p>
-      <form class="pin" id="pinform" data-pin autocomplete="off">
-        <label for="pin">Delivery</label>
-        <div class="pin__row"><input id="pin" name="pin" type="text" inputmode="numeric" maxlength="6" pattern="\d{6}" placeholder="Enter 6 digit pincode" autocomplete="postal-code"><button class="btn btn--ghost" type="submit">Check</button></div>
-        <p class="pin__msg" id="pin-msg" role="status"></p>
-      </form>
 
       {% if offers or coupons %}
       <div class="offers">
@@ -139,7 +145,6 @@
     <ul class="pdp-trust" aria-label="Why order from us">
       <li><span class="pdp-service-icon" aria-hidden="true">◉</span><div><b>Order on WhatsApp</b><span>The shop confirms every order with you</span></div></li>
       <li><span class="pdp-service-icon" aria-hidden="true">⌁</span><div><b>Track your order</b><span>See each stage from packed to delivered</span></div></li>
-      <li><span class="pdp-service-icon" aria-hidden="true">↻</span><div><b>Easy returns</b><span>Raise a return from your orders page</span></div></li>
     </ul>
   </section>
 
@@ -335,7 +340,7 @@
         <li>
           <p><span class="stars">{{ r.rating }} ★</span> <b>{{ r.title or '' }}</b></p>
           {% if r.body %}<p>{{ r.body }}</p>{% endif %}
-          {% if r.photos %}<ul class="revphotos">{% for ph in r.photos %}<li><a href="{{ ph }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="Photo from the customer's review" loading="lazy" width="96" height="96"></a></li>{% endfor %}</ul>{% endif %}
+          {% if r.photos %}<ul class="revphotos">{% for ph in r.photos %}<li><a href="{{ ph }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="Photo from the customer's review" loading="lazy" decoding="async" width="96" height="96"></a></li>{% endfor %}</ul>{% endif %}
           <p class="muted small">{{ (r.user.name.split()[0] if r.user and r.user.name else 'Customer') }}{% if r.is_verified_purchase %} · <span class="verified">Verified purchase</span>{% endif %} · {{ r.created_at|local_display }}</p>
           <div class="revact">
             <form method="post" action="{{ url_for('shop.review_helpful', review_id=r.id) }}" data-helpful>{{ s.csrf() }}<input type="hidden" name="next" value="{{ request.path }}#reviews">
@@ -381,8 +386,9 @@
 
 <div class="zoom" id="zoom" role="dialog" aria-modal="true" aria-label="Zoomed image" hidden>
   <button class="icon-btn zoom__x" type="button" data-zoom-close aria-label="Close">{{ s.icon('close') }}</button>
-  <div class="zoom__scroll"><img id="zoom-img" src="" alt=""></div>
+  <div class="zoom__scroll"><img id="zoom-img" src="" alt="" width="800" height="560" loading="lazy" decoding="async"></div>
   <p class="zoom__hint">Tap the image to zoom in or out</p>
 </div>
 {% if product_bundles %}<section class="container sec"><h2>Available bundles with this product</h2><div class="content-grid">{% for bundle in product_bundles %}<article class="content-card"><div class="content-card__body"><h3>{{ bundle.name }}</h3><p>{{ bundle.description or '' }}</p><b>₹{{ '%.2f'|format(bundle.bundle_price) }}</b><form method="post" action="{{ url_for('shop.add_bundle', bundle_id=bundle.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn--small" type="submit">Add bundle to cart</button></form></div></article>{% endfor %}</div></section>{% endif %}
+<script src="{{ asset_url('js/ui-states.js') }}" defer></script>
 {% endblock %}

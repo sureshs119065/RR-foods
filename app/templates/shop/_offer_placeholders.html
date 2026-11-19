@@ -1,23 +1,23 @@
 {# Banners shown in the Offers & Combo spaces while the admin has not added any combos or discounted products yet.
    As soon as a combo bundle or a discounted product exists, the pages show the real items instead. #}
 {% macro combo_banner() %}
-<a class="op op--combo" href="{{ url_for('shop.listing') }}">
+<a class="op op--combo" href="{{ url_for('shop.bundles') }}">
   <span class="op__body">
     <span class="op__tag">Coming soon</span>
     <strong class="op__title">Value combos</strong>
     <span class="op__text">Value combos of your favourite RR FOODS products are on the way.</span>
-    <span class="op__cta">Shop all products <span aria-hidden="true">→</span></span>
+    <span class="op__cta">View combo deals <span aria-hidden="true">→</span></span>
   </span>
 </a>
 {% endmacro %}
 
 {% macro offer_banner() %}
-<a class="op op--offer" href="{{ url_for('shop.listing') }}">
+<a class="op op--offer" href="{{ url_for('shop.offers') }}#product-offers">
   <span class="op__body">
     <span class="op__tag">Coming soon</span>
     <strong class="op__title">Festival &amp; seasonal offers</strong>
     <span class="op__text">Festival and seasonal discounts will appear here.</span>
-    <span class="op__cta">Browse products <span aria-hidden="true">→</span></span>
+    <span class="op__cta">View offers <span aria-hidden="true">→</span></span>
   </span>
 </a>
 {% endmacro %}

@@ -1,7 +1,9 @@
 """Safe image uploads.
 
 Every file is opened and re-encoded with Pillow, so a renamed script or a disguised file cannot get through.
-Names are random, never taken from the visitor. Metadata (EXIF, GPS) is dropped. Output is WebP.
+The type is decided by the file's own bytes (never by the extension or the browser-sent MIME type) and only JPEG, PNG and
+WebP decoders are tried. Names are random, never taken from the visitor. Metadata (EXIF, GPS, XMP, comments) is dropped
+because only the pixels are re-encoded. Output is WebP. Files are written without an execute bit.
 """
 import io
 import shutil
@@ -11,13 +13,29 @@ from pathlib import Path
 from flask import current_app
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-Image.MAX_IMAGE_PIXELS = 40_000_000  # refuse "decompression bomb" images
-ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"}
+from . import imaging
+
+MAX_PIXELS = 40_000_000  # refuse "decompression bomb" images (checked from the header, before any pixel is decoded)
+Image.MAX_IMAGE_PIXELS = MAX_PIXELS
+ALLOWED_FORMATS = ("JPEG", "PNG", "WEBP")
 MAX_FILE_BYTES = 5 * 1024 * 1024
+FILE_MODE = 0o644  # never executable
 
 
 class UploadError(ValueError):
     """Message is safe to show to the admin."""
+
+
+def _label(name: str | None) -> str:
+    """The visitor's file name made safe to repeat in a message: no path, no control characters, at most 40 characters."""
+    base = (name or "").replace("\\", "/").rsplit("/", 1)[-1]
+    base = "".join(ch for ch in base if ch.isprintable())[:40].strip()
+    return base or "image"
+
+
+def _store(path: Path, data: bytes) -> None:
+    path.write_bytes(data)
+    path.chmod(FILE_MODE)
 
 
 def upload_root() -> Path:
@@ -35,23 +53,27 @@ def _read(file_storage) -> bytes:
     return data
 
 
-def save_image(file_storage, subdir: str, max_side: int = 1600, thumb_side: int | None = 400) -> tuple[str, str | None]:
-    """Validates, resizes and stores one image. Returns (url, thumb_url). Raises UploadError with a friendly message."""
-    name = getattr(file_storage, "filename", "") or "image"
+def save_image(file_storage, subdir: str, max_side: int = 1600, thumb_side: int | None = 400,
+               budget: int | None = imaging.BUDGET_BYTES) -> tuple[str, str | None]:
+    """Validates, resizes and stores one image. Returns (url, thumb_url). Raises UploadError with a friendly message.
+    `budget` is the target file size (100 KB); pass None to keep full quality (full-width banners)."""
+    name = _label(getattr(file_storage, "filename", ""))
     data = _read(file_storage)
     try:
-        probe = Image.open(io.BytesIO(data))
+        probe = Image.open(io.BytesIO(data), formats=ALLOWED_FORMATS)  # only these decoders are tried
         probe.verify()  # structure check
-        img = Image.open(io.BytesIO(data))  # verify() leaves the object unusable, so reopen
-        fmt = img.format
-        if fmt not in ALLOWED_FORMATS:
+        img = Image.open(io.BytesIO(data), formats=ALLOWED_FORMATS)  # verify() leaves the object unusable, so reopen
+        if img.format not in ALLOWED_FORMATS:
             raise UploadError(f"{name}: use a JPG, PNG or WebP image.")
+        if img.width * img.height > MAX_PIXELS:  # from the header: nothing has been decoded yet
+            raise UploadError(f"{name}: this image has too many pixels. Use one under {MAX_PIXELS // 1_000_000} megapixels.")
         img = ImageOps.exif_transpose(img)
         img.load()
     except UploadError:
         raise
-    except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError, ValueError):
-        raise UploadError(f"{name}: this is not a valid image (or it is too large).")
+    except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError, Image.DecompressionBombWarning,
+            ValueError, MemoryError):
+        raise UploadError(f"{name}: this is not a valid image (use JPG, PNG or WebP; too large files are refused).")
 
     if img.mode not in ("RGB", "RGBA"):
         img = img.convert("RGBA" if "A" in img.getbands() or img.mode == "P" and "transparency" in img.info else "RGB")
@@ -62,14 +84,19 @@ def save_image(file_storage, subdir: str, max_side: int = 1600, thumb_side: int 
 
     main = img.copy()
     main.thumbnail((max_side, max_side), Image.LANCZOS)
-    main.save(folder / f"{stem}.webp", "WEBP", quality=85, method=4)
+    main_path = folder / f"{stem}.webp"
+    if budget is None:
+        buf = io.BytesIO()
+        main.save(buf, "WEBP", quality=85, method=4)  # no exif=/icc_profile= argument: nothing but pixels is written
+        _store(main_path, buf.getvalue())
+    else:
+        _store(main_path, imaging.encode_within_budget(main, budget=budget))  # lower quality first, then size
     url = f"/uploads/{subdir}/{stem}.webp"
 
     thumb_url = None
     if thumb_side:
-        t = img.copy()
-        t.thumbnail((thumb_side, thumb_side), Image.LANCZOS)
-        t.save(folder / f"{stem}_t.webp", "WEBP", quality=80, method=4)
+        # `<stem>_t.webp` (400 px) and, for images wider than that, `<stem>_m.webp` (800 px) for srcset.
+        imaging.write_variants(main, main_path, thumb_side=thumb_side)
         thumb_url = f"/uploads/{subdir}/{stem}_t.webp"
     return url, thumb_url
 
@@ -88,6 +115,8 @@ def delete_files(*urls: str | None) -> None:
         p = _path_for(url)
         if p and p.is_file():
             p.unlink(missing_ok=True)
+        if p and not imaging.is_variant(p):                    # a main image also owns its 800 px copy
+            p.with_name(imaging.variant_name(p.stem, "m", p.suffix)).unlink(missing_ok=True)
 
 
 def copy_file(url: str | None) -> str | None:
@@ -97,6 +126,9 @@ def copy_file(url: str | None) -> str | None:
         return url  # external link or missing file: keep the reference as it is
     new = src.with_name(f"{uuid.uuid4().hex}{'_t' if src.stem.endswith('_t') else ''}{src.suffix}")
     shutil.copyfile(src, new)
+    sibling = src.with_name(imaging.variant_name(src.stem, "m", src.suffix))
+    if not imaging.is_variant(src) and sibling.is_file():
+        shutil.copyfile(sibling, new.with_name(imaging.variant_name(new.stem, "m", new.suffix)))
     return f"/uploads/{new.relative_to(upload_root().resolve()).as_posix()}"
 
 
@@ -132,5 +164,5 @@ def save_video(file_storage, subdir: str) -> str | None:
     folder = upload_root() / subdir
     folder.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid.uuid4().hex}{ext}"
-    (folder / filename).write_bytes(data)
+    _store(folder / filename, data)
     return f"/uploads/{subdir}/{filename}"

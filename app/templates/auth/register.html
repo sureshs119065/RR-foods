@@ -6,8 +6,8 @@
     <span>{{ label }}</span>
     <input type="{{ type }}" name="{{ name }}" {% if type != 'password' %}value="{{ form.get(name, '') }}"{% endif %}
       autocomplete="{{ autocomplete }}" {% if inputmode %}inputmode="{{ inputmode }}"{% endif %}
-      {% if errors.get(name) %}aria-invalid="true" aria-describedby="{{ name }}-err"{% endif %}>
-    {% if hint and not errors.get(name) %}<small class="muted">{{ hint }}</small>{% endif %}
+      {% if errors.get(name) %}aria-invalid="true" aria-describedby="{{ name }}-err"{% elif hint %}aria-describedby="{{ name }}-hint"{% endif %}>
+    {% if hint and not errors.get(name) %}<small class="muted" id="{{ name }}-hint">{{ hint }}</small>{% endif %}
     {% if errors.get(name) %}<small id="{{ name }}-err" class="error">{{ errors[name] }}</small>{% endif %}
   </label>
 {% endmacro %}

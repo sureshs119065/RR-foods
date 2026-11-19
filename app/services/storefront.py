@@ -5,9 +5,10 @@ from decimal import Decimal, InvalidOperation
 
 from flask import session
 from sqlalchemy import and_, case, exists, func, or_, select
-from sqlalchemy.orm import aliased, selectinload
+from sqlalchemy.orm import aliased, joinedload, selectinload
 
 from ..extensions import db
+from . import home_cache
 from ..models import Bundle, Category, Order, OrderItem, Product, ProductVariant, SiteSetting
 
 PER_PAGE = 12
@@ -77,7 +78,8 @@ class Filters:
             return min(int(raw), hi) if raw.isdigit() else 0
 
         sort = args.get("sort", "")
-        q = " ".join((args.get("q") or "").split())[:80]
+        from ..validation import search_query
+        q = search_query(args.get("q"))
         rating = num("rating", 4)
         rating = rating if rating in (2, 3, 4) else 0
         return cls(q=q, category=(args.get("category") or "").strip()[:150], brands=[b[:120] for b in args.getlist("brand")[:20] if b.strip()],
@@ -243,15 +245,40 @@ def deal_products(limit: int = 12) -> list:
                               .options(*opts).order_by(pct.desc(), Product.id).limit(limit)).all()
 
 
+NAV_CATEGORY_LIMIT = 14  # the header menu shows up to this many; the home tiles use the first 8 of the same list
+HOME_NEW_LIMIT = 6   # step 2.5: six New Arrivals cards, each rendered once
+
+
+def _load_top_categories(sess) -> tuple:
+    return tuple(sess.scalars(select(Category).where(Category.parent_id.is_(None), Category.is_deleted.is_(False), Category.is_active.is_(True))
+                              .order_by(Category.sort_order, Category.name).limit(NAV_CATEGORY_LIMIT)).all())
+
+
+def _load_category_counts(sess) -> dict:
+    return dict(sess.execute(select(Product.category_id, func.count()).where(LIVE).group_by(Product.category_id)).all())
+
+
+def _load_new_arrivals(sess) -> tuple:
+    # category is joined in the same query: cards print its name, and a detached product cannot lazy-load it later
+    opts = (selectinload(Product.images), selectinload(Product.variants), joinedload(Product.category))
+    return tuple(sess.scalars(select(Product).where(LIVE, in_stock_sql()).options(*opts)
+                              .order_by(Product.created_at.desc(), Product.id.desc()).limit(HOME_NEW_LIMIT)).all())
+
+
+def top_categories() -> tuple:
+    """Top-level categories for the header menu and the home tiles (cached per worker, see services/home_cache.py)."""
+    return home_cache.get("categories", _load_top_categories)
+
+
 def home_rows() -> dict:
     opts = (selectinload(Product.images), selectinload(Product.variants))
-    top = db.session.scalars(select(Category).where(Category.parent_id.is_(None), Category.is_deleted.is_(False), Category.is_active.is_(True)).order_by(Category.sort_order, Category.name).limit(12)).all()
+    top = top_categories()
     pct = case((Product.mrp > 0, (Product.mrp - Product.final_price) * 100 / Product.mrp), else_=0)
     deals = db.session.scalars(select(Product).where(LIVE, in_stock_sql(), Product.final_price < Product.mrp).options(*opts).order_by(pct.desc(), Product.id).limit(8)).all()
     best = db.session.scalars(select(Product).where(LIVE, in_stock_sql(), Product.is_bestseller.is_(True))
                               .options(*opts).order_by(Product.sales_count.desc(), Product.id).limit(8)).all()
-    new = db.session.scalars(select(Product).where(LIVE, in_stock_sql()).options(*opts).order_by(Product.created_at.desc(), Product.id.desc()).limit(8)).all()
-    counts = dict(db.session.execute(select(Product.category_id, func.count()).where(LIVE).group_by(Product.category_id)).all())
+    new = home_cache.get("new_arrivals", _load_new_arrivals)
+    counts = home_cache.get("category_counts", _load_category_counts)
     top_deal = max((round((p.mrp - p.final_price) * 100 / p.mrp) for p in deals if p.mrp and p.mrp > p.final_price), default=0)
     offers = deals
     return {"categories": top, "deals": deals, "offers": offers,

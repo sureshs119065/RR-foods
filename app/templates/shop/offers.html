@@ -19,7 +19,7 @@
 
   <section class="sec" id="product-offers" aria-labelledby="offers-h">
     <div class="sec__row"><h2 id="offers-h" class="sec__h">Product offers</h2></div>
-    {% if deal_products %}{{ s.grid(deal_products) }}
+    {% if deal_products %}{{ s.grid(deal_products, 'Deal products') }}
     {% else %}{{ offer_banner() }}{% endif %}
   </section>
 

@@ -29,7 +29,7 @@
     <div class="account-main">
       <section class="account-card"><div class="account-card__head"><h2>Recent orders</h2><a href="{{ url_for('shop.orders') }}">View all</a></div>
         {% for order in recent_orders %}
-          <article class="account-order"><div><b>#{{ order.order_number }}</b><span class="muted small">{{ order.created_at|local_display }}</span><span class="muted small">{% for item in order.items[:2] %}{{ item.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% if order.items|length > 2 %} +{{ order.items|length - 2 }} more{% endif %}</span></div><div class="account-order__end"><b>₹{{ '%.2f'|format(order.total) }}</b><span class="status-pill status-pill--{{ order.status }}">{{ order.status|replace('_',' ')|title }}</span><a class="btn btn--ghost btn--sm" href="{{ url_for('shop.order_detail', order_number=order.order_number) }}">Track / View</a></div></article>
+          <article class="account-order"><div><b>#{{ order.order_number }}</b><span class="muted small">{{ order.created_at|local_display }}</span><span class="muted small">{% for item in order.items[:2] %}{{ item.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% if order.items|length > 2 %} +{{ order.items|length - 2 }} more{% endif %}</span></div><div class="account-order__end"><b>₹{{ '%.2f'|format(order.total) }}</b><span class="status-pill status-pill--{{ order.status }}">{{ order.status|replace('_',' ')|title }}</span><a class="btn btn--ghost btn--sm" href="{{ url_for('shop.order_detail', order_number=order.order_number) }}">Track / View</a><form method="post" action="{{ url_for('shop.order_reorder', order_number=order.order_number) }}" class="inline-form">{{ s.csrf() }}<button class="btn btn--sm" type="submit" aria-label="Reorder {{ order.order_number }}">Reorder</button></form></div></article>
         {% else %}<div class="account-empty"><p>No orders yet. Start shopping and discover RR FOODS favourites.</p><a class="btn" href="{{ url_for('shop.listing') }}">Start shopping</a></div>{% endfor %}
       </section>
       <section class="account-card"><div class="account-card__head"><h2>Default address</h2><a href="{{ url_for('shop.addresses') }}">Edit</a></div>
@@ -51,5 +51,5 @@
     </div>
   </div>
 </div>
-<script src="{{ url_for('static', filename='js/push-optin.js') }}" defer></script>
+<script src="{{ asset_url('js/push-optin.js') }}" defer></script>
 {% endblock %}

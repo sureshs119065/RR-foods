@@ -23,7 +23,7 @@ def dashboard():
     tomorrow = today + timedelta(days=1)
     count = lambda q: db.session.scalar(q) or 0
 
-    orders_today = count(select(func.count(Order.id)).where(Order.created_at >= today, Order.created_at < tomorrow))
+    orders_today = count(select(func.count(Order.id)).where(Order.created_at >= today, Order.created_at < tomorrow, Order.status != "pending_whatsapp"))
     pending_q = select(Order).where(Order.status == "placed").order_by(Order.created_at.asc())
     pending = db.session.scalars(pending_q.limit(5)).all()
     pending_total = count(select(func.count(Order.id)).where(Order.status == "placed"))

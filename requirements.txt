@@ -12,6 +12,7 @@ pytest>=8,<10
 
 Flask-WTF>=1.2,<2
 Flask-Limiter>=3.5,<5
+redis>=5,<7   # rate-limit storage (RATELIMIT_STORAGE_URI=redis://...)
 Pillow>=13.0,<14   # 13.0 fixes the 12.x security advisories (image uploads)
 tzdata>=2024.1
 reportlab>=4.2,<5
@@ -20,3 +21,9 @@ reportlab>=4.2,<5
 gunicorn>=22.0
 # Browser Push API (free library; delivery uses browser push services)
 pywebpush>=2.0,<3
+
+# Static assets: build-time minifiers (tools/build_assets.py) and gzip/Brotli responses
+rcssmin>=1.1,<2
+rjsmin>=1.2,<2
+Flask-Compress>=1.15,<2
+brotli>=1.1,<2

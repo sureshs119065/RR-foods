@@ -13,6 +13,21 @@ def is_production(app) -> bool:
     return os.environ.get("FLASK_ENV") == "production" and not app.config.get("TESTING")
 
 
+ALLOWED_ENVS = ("production", "development")
+
+
+def startup_errors(app) -> list[str]:
+    """Hard requirements checked by create_app() outside tests: a secret key and an explicit FLASK_ENV."""
+    errors = []
+    if not app.config.get("SECRET_KEY"):
+        errors.append("SECRET_KEY is not set. There is no default. Generate one with:  "
+                      "python -c \"import secrets; print(secrets.token_urlsafe(48))\"")
+    env = os.environ.get("FLASK_ENV")
+    if env not in ALLOWED_ENVS:
+        errors.append(f"FLASK_ENV is {env!r}. Set FLASK_ENV=production on the server (or FLASK_ENV=development for local work).")
+    return errors
+
+
 def config_problems(app) -> tuple[list[str], list[str]]:
     c = app.config
     fatal, advice = [], []
@@ -29,9 +44,10 @@ def config_problems(app) -> tuple[list[str], list[str]]:
     if c.get("DEBUG"):
         fatal.append("DEBUG is on. Never run debug mode in production.")
 
-    if str(c.get("RATELIMIT_STORAGE_URI", "")).startswith("memory"):
-        advice.append("RATELIMIT_STORAGE_URI is in-memory. Limits are per worker, so with several workers an attacker gets several "
-                      "times the limit. Set RATELIMIT_STORAGE_URI=redis://localhost:6379/0.")
+    if str(c.get("RATELIMIT_STORAGE_URI", "")).startswith("memory") and not c.get("ALLOW_MEMORY_RATELIMIT"):
+        fatal.append("RATELIMIT_STORAGE_URI is in-memory. Limits would be per worker, so with several workers an attacker gets several "
+                     "times the limit and a restart clears them. Set RATELIMIT_STORAGE_URI=redis://localhost:6379/0 "
+                     "(Render: a Key Value instance), or ALLOW_MEMORY_RATELIMIT=1 to accept the risk knowingly.")
     if not str(c.get("SITE_URL", "")).startswith("https://"):
         advice.append("SITE_URL is not https://. Links in emails (password reset) should use your real https address.")
     if not c.get("TRUST_PROXY"):
@@ -41,12 +57,32 @@ def config_problems(app) -> tuple[list[str], list[str]]:
         advice.append("MAIL_MODE is not smtp, so password-reset and order emails will not be delivered.")
     elif not c.get("MAIL_SERVER"):
         advice.append("MAIL_MODE=smtp but MAIL_SERVER is empty.")
+    if not c.get("SECURITY_CONTACT"):
+        advice.append("SECURITY_CONTACT is empty, so /.well-known/security.txt answers 404. Set it to an email address you read, "
+                      "for example SECURITY_CONTACT=security@your-domain.in.")
     if not (c.get("ADMIN_WHATSAPP_NUMBER") or c.get("WHATSAPP_NUMBER")):
         advice.append("ADMIN_WHATSAPP_NUMBER is empty. Customers cannot send their order to the shop on WhatsApp. "
                       "Set it with the country code, digits only, for example ADMIN_WHATSAPP_NUMBER=919876543210.")
+    manifest = getattr(app, "extensions", {}).get("asset_manifest")  # {} = the app started without a build; None = not a real app
+    if manifest is not None and not manifest:
+        advice.append("static/dist/manifest.json is missing, so pages load the large unminified CSS and JavaScript. Run "
+                      "`python tools/build_assets.py` in the build step (Render: Build command).")
     if not os.path.isabs(str(c.get("UPLOAD_DIR", ""))):
         advice.append("UPLOAD_DIR is relative. Use an absolute path on a disk that is backed up.")
+    if _inside_code(c.get("UPLOAD_DIR")):
+        fatal.append("UPLOAD_DIR is inside the application folder (code, templates or static files). Uploads must live outside it, "
+                     "for example UPLOAD_DIR=/var/data/uploads, so nothing uploaded can ever be served or run as code.")
     return fatal, advice
+
+
+def _inside_code(upload_dir) -> bool:
+    """True when the upload folder is the app package itself or below it (app/, app/static, app/templates ...)."""
+    from pathlib import Path
+    if not upload_dir:
+        return False
+    code = Path(__file__).resolve().parent
+    target = Path(str(upload_dir)).resolve()
+    return target == code or code in target.parents
 
 
 def example_accounts_advice() -> str | None:

@@ -1,14 +1,12 @@
 {# Standalone layout for sign in, create account and password recovery: no storefront header or footer. #}
 {% extends "base.html" %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/auth-page.css') }}?v=1">{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ asset_url('css/auth-page.css') }}">{% endblock %}
 {% block topbar %}{% endblock %}
 {% block main %}
 <main id="main" class="auth-page">
   <div class="auth-wrap">
-    <a class="auth-logo" href="{{ url_for('shop.home') }}" aria-label="RR FOODS home"><img src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="72" height="72" alt="RR FOODS"></a>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}<div class="alert alert--{{ category }}" role="status">{{ message }}</div>{% endfor %}
-    {% endwith %}
+    <a class="auth-logo" href="{{ url_for('shop.home') }}" aria-label="RR FOODS home"><img src="{{ url_for('static', filename='img/rr-foods-logo-144.webp') }}" width="72" height="72" alt="RR FOODS"></a>
+    {% from 'shared/_flash.html' import flashes %}{{ flashes() }}
     {% block content %}{% endblock %}
   </div>
 </main>

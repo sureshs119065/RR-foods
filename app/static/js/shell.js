@@ -82,7 +82,7 @@
   var toast = document.getElementById("toast"), tt;
   function say(text, bad) {
     if (!toast) return;
-    toast.textContent = text; toast.hidden = false; toast.classList.toggle("toast--error", !!bad);
+    toast.setAttribute("role", bad ? "alert" : "status"); toast.setAttribute("aria-live", bad ? "assertive" : "polite"); toast.textContent = text; toast.hidden = false; toast.classList.toggle("toast--error", !!bad);
     requestAnimationFrame(function () { toast.classList.add("toast--show"); });
     clearTimeout(tt); tt = setTimeout(function () { toast.classList.remove("toast--show"); }, bad ? 5000 : 2800);
   }

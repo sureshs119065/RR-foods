@@ -1,3 +1,12 @@
 # Daily PostgreSQL backup at 02:15 UTC. Set DATABASE_URL and BACKUP_DIR in cron environment.
 # Keep seven daily copies. BACKUP_DIR must be on persistent storage.
 15 2 * * * cd /opt/rr-foods && /bin/bash scripts/backup_postgres.sh >> /var/log/rr-foods-backup.log 2>&1
+
+# Delete guest (not signed-in) cart lines older than 14 days, daily at 03:10 UTC.
+10 3 * * * cd /opt/rr-foods && flask purge-guest-carts --days 14 >> /var/log/rr-foods-cron.log 2>&1
+
+# Reconcile low-stock / out-of-stock alerts every 30 minutes (this used to run inside web requests).
+*/30 * * * * cd /opt/rr-foods && flask sync-stock-notifications >> /var/log/rr-foods-cron.log 2>&1
+
+# Close checkout requests that were never sent on WhatsApp (they hold no stock), hourly.
+20 * * * * cd /opt/rr-foods && flask expire-order-requests --hours 48 >> /var/log/rr-foods-cron.log 2>&1

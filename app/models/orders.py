@@ -7,8 +7,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import JsonType, Money, TimestampMixin, db
 
 # Tracking timeline: placed -> confirmed -> packed -> shipped -> out_for_delivery -> delivered
+# "pending_whatsapp" is NOT an order yet: it is the checkout request waiting for the customer's WhatsApp message to reach the shop.
+# It takes no stock, uses no coupon, empties no cart and is invisible to the owner's queues and the sales numbers until the shop
+# confirms the message arrived (services.orders.confirm_whatsapp_received), which turns it into "placed".
+DRAFT_STATUS = "pending_whatsapp"
 ORDER_STATUSES = (
-    "placed", "confirmed", "rejected", "packed", "shipped", "out_for_delivery", "delivered",
+    "pending_whatsapp", "placed", "confirmed", "rejected", "packed", "shipped", "out_for_delivery", "delivered",
     "cancelled", "return_requested", "returned", "refunded",
 )
 PAYMENT_METHODS = ("cod", "online", "upi_manual")
@@ -21,12 +25,16 @@ class CartItem(TimestampMixin, db.Model):
     __tablename__ = "cart_items"
     __table_args__ = (
         CheckConstraint("quantity > 0", name="ck_cart_qty_pos"),
-        # one row per user + product + variant (variant may be empty)
+        # a line belongs to a signed-in user or to a guest browser session (never to nobody)
+        CheckConstraint("user_id IS NOT NULL OR session_id IS NOT NULL", name="ck_cart_owner_set"),
+        # one row per user + product + variant (variant may be empty); NULL user_id (guest rows) never collide here
         Index("uq_cart_user_product_variant", "user_id", "product_id", text("coalesce(variant_id, 0)"), text("coalesce(bundle_id, 0)"), unique=True),
+        Index("uq_cart_session_product_variant", "session_id", "product_id", text("coalesce(variant_id, 0)"), text("coalesce(bundle_id, 0)"), unique=True),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    session_id: Mapped[str | None] = mapped_column(String(64), index=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"))
     variant_id: Mapped[int | None] = mapped_column(ForeignKey("product_variants.id", ondelete="CASCADE"))
     bundle_id: Mapped[int | None] = mapped_column(ForeignKey("bundles.id", ondelete="CASCADE"))

@@ -9,10 +9,10 @@
     <p><a href="/login">Back to sign in</a></p>
   {% else %}
     <p class="muted">Enter your email and we will send you a link.</p>
-    {% if error %}<div class="alert alert--error" role="alert">{{ error }}</div>{% endif %}
+    {% if error %}<div class="alert alert--error" role="alert" id="forgot-err">{{ error }}</div>{% endif %}
     <form method="post" class="form" novalidate>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label class="field"><span>Email</span><input type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" required autofocus></label>
+      <label class="field"><span>Email</span><input type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" {% if error %}aria-invalid="true" aria-describedby="forgot-err"{% endif %} required autofocus></label>
       <button class="btn btn--block" type="submit">Send reset link</button>
     </form>
     <p class="muted"><a href="/login">Back to sign in</a></p>

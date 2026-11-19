@@ -127,6 +127,19 @@ def register_stock_alert_cli(app):
         click.echo(f"notified {notify_restocked()}")
 
 
+def register_order_request_cli(app):
+    @app.cli.command("expire-order-requests")
+    @click.option("--hours", default=48, show_default=True, help="Close requests never sent on WhatsApp after this many hours.")
+    def expire_order_requests_command(hours):
+        """Close checkout requests whose WhatsApp message never reached the shop. They hold no stock, so nothing is given back."""
+        from .extensions import db
+        from .services.orders import expire_stale_requests
+
+        n = expire_stale_requests(hours)
+        db.session.commit()
+        click.echo(f"closed {n}")
+
+
 def register_check_cli(app):
     @app.cli.command("check-config")
     def check_config_command():
@@ -272,3 +285,77 @@ def register_stock_notification_sync_cli(app):
         count = sync_stock_notifications()
         db.session.commit()
         print(f"Checked {count} products for stock notifications.")
+
+
+def register_guest_cart_cli(app):
+    @app.cli.command("purge-guest-carts")
+    @click.option("--days", default=14, show_default=True, type=click.IntRange(min=1), help="Delete guest cart lines older than this many days.")
+    def purge_guest_carts_command(days):
+        """Delete anonymous (not signed-in) cart lines untouched for N days. Run daily from cron."""
+        from .services.cart import purge_guest_carts
+
+        click.echo(f"deleted {purge_guest_carts(days)} guest cart line(s) older than {days} days")
+
+
+def register_image_cli(app):
+    @app.cli.command("optimize-images")
+    @click.option("--dry-run", is_flag=True, help="Only report what would change.")
+    @click.option("--static", "include_static", is_flag=True,
+                  help="Also the images bundled in app/static/img (run it in your checkout and commit the result).")
+    def optimize_images_command(dry_run, include_static):
+        """Bring images under 100 KB and add the 800 px (and, for bundled photos, 400 px) copies used in srcset.
+
+        Safe to repeat. Product photos in the upload folder get a missing `_m` copy; any image over 100 KB is re-encoded."""
+        from pathlib import Path
+
+        from PIL import Image, ImageOps
+
+        from . import imaging
+        from .uploads import upload_root
+
+        roots = [(upload_root(), False)]
+        if include_static:
+            roots.append((Path(app.static_folder) / "img", True))
+        saved = shrunk = made = 0
+        for root, is_static in roots:
+            for path in sorted(root.rglob("*")):
+                if not path.is_file() or path.suffix.lower() not in {".webp", ".jpg", ".jpeg"}:
+                    continue
+                before, after = imaging.optimize_file(path, dry_run=dry_run)
+                if after < before:
+                    shrunk += 1
+                    saved += before - after
+                    click.echo(f"  {path.relative_to(root)}: {before // 1024} KB -> {after // 1024} KB")
+                if imaging.is_variant(path) or path.parent.name != "products" or path.suffix.lower() != ".webp":
+                    continue
+                if dry_run:
+                    continue
+                with Image.open(path) as im:
+                    im.load()
+                    img = ImageOps.exif_transpose(im)
+                made += len(imaging.write_variants(img, path, overwrite=False, want_thumb=is_static))
+        click.echo(f"{'would shrink' if dry_run else 'shrunk'} {shrunk} image(s), saving {saved // 1024} KB; created {made} responsive copy(ies)")
+
+
+def register_check_images_cli(app):
+    @app.cli.command("check-images")
+    @click.option("--all", "include_inactive", is_flag=True, help="Also products that are switched off.")
+    @click.option("--strict", is_flag=True, help="Exit with status 1 when any product has no real photo (for CI or cron).")
+    def check_images_command(include_inactive, strict):
+        """List products that would show the placeholder because they have no real photo."""
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+
+        from .models import Product
+        from .placeholders import product_has_real_photo
+
+        stmt = select(Product).options(selectinload(Product.images)).order_by(Product.slug)
+        if not include_inactive:
+            stmt = stmt.where(Product.is_active.is_(True))
+        products = db.session.execute(stmt).scalars().all()
+        missing = [p for p in products if not product_has_real_photo(app, p)]
+        for p in missing:
+            click.echo(f"  {p.slug}  ({p.name})" + ("" if p.is_active else "  [inactive]"))
+        click.echo(f"{len(missing)} of {len(products)} product(s) have no real photo (they show the placeholder).")
+        if strict and missing:
+            raise SystemExit(1)

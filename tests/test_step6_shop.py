@@ -12,7 +12,7 @@ from app.models import (
 )
 from app.models.base import utcnow
 from app.services import header_banners
-from tests.helpers import checkout_post, checkout_token, make_user, post, sign_in, token
+from tests.helpers import checkout_post, checkout_token, confirm_requests, make_user, post, sign_in, token
 from tests.test_step2_models import make_category, make_product
 
 JSON = {"Accept": "application/json"}
@@ -295,14 +295,13 @@ def test_listing_filters_and_pagination_are_shareable_and_preserved(app, session
 
 
 # ================================================================ cart
-def test_guest_and_staff_cannot_use_the_cart(app, session, catalog):
+def test_guests_can_use_the_cart_but_staff_cannot(app, session, catalog):
     _, p = catalog
     g = app.test_client()
     r = g.post("/cart/add", data={"product_id": p.id, "csrf_token": token(g, "/login")}, headers=JSON)
-    assert r.status_code == 401 and r.get_json()["login"].startswith("/login?next=")
-    r = g.post("/cart/add", data={"product_id": p.id, "csrf_token": token(g, "/login"), "next": f"/product/{p.slug}"})
-    assert r.status_code == 302 and r.headers["Location"].startswith("/login")
-    assert g.get("/cart").status_code == 302
+    assert r.status_code == 200 and r.get_json()["count"] == 1  # guests may add (cookie cart)
+    assert g.get("/cart").status_code == 200
+    assert g.get("/checkout").headers["Location"].startswith("/login?next=/checkout")  # sign-in is needed at checkout
     for role in ("owner", "admin"):
         make_user(session, role)
         s = app.test_client()
@@ -464,7 +463,7 @@ def test_totals_math_and_delivery_zone_fee(cust, session, catalog):
 
 
 # ================================================================ checkout
-def test_checkout_places_order_and_everything_changes_together(cust, session, catalog):
+def test_checkout_only_records_a_request_and_the_shop_confirmation_places_the_order(cust, session, catalog):
     _, p = catalog
     cp = coupon(session, code="TEN", discount_value=10, per_user_limit=1)
     add(cust, p, 3)                                   # 3 x 80 = 240
@@ -474,9 +473,19 @@ def test_checkout_places_order_and_everything_changes_together(cust, session, ca
     session.expire_all()
     o = session.scalar(select(Order))
     assert r.headers["Location"] == f"/order-placed/{o.order_number}"
-    assert o.status == "placed" and o.payment_method == "upi_manual" and o.payment_status == "pending" and o.user_id == cust.user.id
+    # ---- step 1: the request. It is NOT an order: nothing is taken, used, cleared or announced.
+    assert o.status == "pending_whatsapp" and o.payment_method == "upi_manual" and o.payment_status == "pending" and o.user_id == cust.user.id
     assert (o.subtotal, o.discount_total, o.delivery_fee, o.total) == (Decimal("240.00"), Decimal("24.00"), Decimal("40.00"), Decimal("256.00"))
-    assert o.coupon_code == "TEN" and o.customer_notes == "Call me"
+    assert session.get(Product, p.id).stock_qty == 10 and session.scalar(select(InventoryLog)) is None
+    assert session.get(Coupon, cp.id).used_count == 0 and session.scalar(select(CouponUsage)) is None
+    assert session.scalar(select(func.count(CartItem.id))) == 1
+    assert session.scalar(select(Notification.title)) is None
+    assert session.scalar(select(AuditLog).where(AuditLog.action == "order.place")) is None
+    assert o.order_number in cust.get(r.headers["Location"]).get_data(as_text=True)
+    # ---- step 2: the shop confirms the WhatsApp message arrived
+    confirm_requests(session)
+    o = session.scalar(select(Order))
+    assert o.status == "placed" and o.coupon_code == "TEN" and o.customer_notes == "Call me"
     assert o.shipping_address["pincode"] == "641001" and o.shipping_address["full_name"] == "Asha Rao"
     it = o.items[0]
     assert (it.name, it.sku, it.quantity, it.unit_price, it.mrp, it.line_total) == ("Millet Soup Mix", "S1", 3, Decimal("80.00"), Decimal("100.00"), Decimal("240.00"))
@@ -485,11 +494,10 @@ def test_checkout_places_order_and_everything_changes_together(cust, session, ca
     assert (log.old_qty, log.new_qty) == (10, 7) and o.order_number in log.reason
     assert session.get(Coupon, cp.id).used_count == 1 and session.scalar(select(CouponUsage)).order_id == o.id
     assert session.scalar(select(func.count(CartItem.id))) == 0
-    assert [(h.from_status, h.to_status) for h in session.scalars(select(OrderStatusHistory))] == [(None, "placed")]
+    assert [(h.from_status, h.to_status) for h in session.scalars(select(OrderStatusHistory).order_by(OrderStatusHistory.id))] == [(None, "pending_whatsapp"), ("pending_whatsapp", "placed")]
     assert o.payments[0].amount == Decimal("256.00") and o.payments[0].provider == "upi_manual"
-    assert "placed" in session.scalar(select(Notification.title))
+    assert "received on WhatsApp" in session.scalar(select(Notification.title))
     assert session.scalar(select(AuditLog).where(AuditLog.action == "order.place"))
-    assert o.order_number in cust.get(r.headers["Location"]).get_data(as_text=True)
     # a coupon with per_user_limit 1 cannot be used a second time
     add(cust, p, 1)
     assert "already used" in post(cust, "/cart/coupon", {"code": "TEN"}, page="/cart", follow=True).get_data(as_text=True)
@@ -532,6 +540,7 @@ def test_last_item_cannot_be_sold_twice(app, cust, session, catalog):
     add(cust, p)
     add(other, p)
     checkout(cust, session, cust.user)
+    confirm_requests(session)                         # the first customer's WhatsApp message reached the shop: the last item is theirs
     r = checkout_post(other, {"address_id": address_id(session, second), "method": "upi_manual"}, page="/")
     session.expire_all()
     assert session.scalar(select(func.count(Order.id))) == 1 and session.get(Product, p.id).stock_qty == 0
@@ -569,7 +578,9 @@ def test_double_submit_creates_one_order(cust, session, catalog):
     tok = checkout_token(cust)                        # one page load, then the button is pressed twice
     checkout(cust, session, cust.user, checkout_token=tok)
     r = checkout_post(cust, {"address_id": address_id(session, cust.user), "method": "upi_manual", "checkout_token": tok}, page="/", follow=True)
-    assert session.scalar(select(func.count(Order.id))) == 1 and session.get(Product, p.id).stock_qty == 8
+    assert session.scalar(select(func.count(Order.id))) == 1 and session.get(Product, p.id).stock_qty == 10   # one request, nothing taken yet
+    confirm_requests(session)
+    assert session.get(Product, p.id).stock_qty == 8
     assert "already been submitted" in r.get_data(as_text=True)
 
 
@@ -582,7 +593,7 @@ def test_saved_for_later_items_stay_after_checkout(cust, session, catalog):
     qi = session.scalar(select(CartItem).where(CartItem.product_id == q.id))
     post(cust, f"/cart/{qi.id}/save", {"saved": "1"}, page="/cart")
     checkout(cust, session, cust.user)
-    session.expire_all()
+    confirm_requests(session)
     left = session.scalars(select(CartItem)).all()
     assert len(left) == 1 and left[0].product_id == q.id and left[0].saved_for_later
     assert session.get(Product, q.id).stock_qty == 10
@@ -622,6 +633,7 @@ def test_order_placed_page_opens_whatsapp_with_the_order(app, cust, session, cat
 def place(cust, session, p, qty=2):
     add(cust, p, qty)
     checkout(cust, session, cust.user)
+    confirm_requests(session)                         # the shop saw the WhatsApp message: now it is a real order
     return session.scalar(select(Order).order_by(Order.id.desc()))
 
 
@@ -631,7 +643,7 @@ def test_order_list_and_detail_are_private(app, cust, session, catalog):
     html = cust.get("/account/orders").get_data(as_text=True)
     assert o.order_number in html and "Millet Soup Mix" in html
     det = cust.get(f"/account/orders/{o.order_number}").get_data(as_text=True)
-    assert "Order placed" in det and "Confirmed" in det and "Cancel order" in det and "12 Lake Road" in det
+    assert "Order received" in det and "Confirmed" in det and "Cancel order" in det and "12 Lake Road" in det
     make_user(session, "user", "peek@x.com")
     other = app.test_client()
     other.post("/login", data={"email": "peek@x.com", "password": "Sup3rSecret!", "csrf_token": token(other, "/login")})
@@ -665,23 +677,23 @@ def test_customer_cancels_and_stock_and_coupon_come_back(app, cust, session, cat
     add(cust, p, 3)
     post(cust, "/cart/coupon", {"code": "TEN"}, page="/cart")
     checkout(cust, session, cust.user)
-    o = session.scalar(select(Order))
-    make_user(session, "owner")
+    o = confirm_requests(session)[0]
+    make_user(session, "owner", "second-owner@x.com")
     assert session.get(Product, p.id).stock_qty == 7 and session.get(Coupon, cp.id).used_count == 1
     r = post(cust, f"/account/orders/{o.order_number}/cancel", {}, page="/", follow=True)
     assert "cancelled" in r.get_data(as_text=True)
     session.expire_all()
     assert session.get(Order, o.id).status == "cancelled" and session.get(Product, p.id).stock_qty == 10
     assert session.get(Coupon, cp.id).used_count == 0 and session.scalar(select(CouponUsage)) is None
-    assert [h.to_status for h in session.scalars(select(OrderStatusHistory).order_by(OrderStatusHistory.id))] == ["placed", "cancelled"]
+    assert [h.to_status for h in session.scalars(select(OrderStatusHistory).order_by(OrderStatusHistory.id))] == ["pending_whatsapp", "placed", "cancelled"]
     assert session.scalar(select(Notification).where(Notification.kind == "order_cancelled"))      # the owner is told
     post(cust, f"/account/orders/{o.order_number}/cancel", {}, page="/")                            # again: nothing more happens
     session.expire_all()
     assert session.get(Product, p.id).stock_qty == 10 and len(session.scalars(select(InventoryLog)).all()) == 2
 
 
-@pytest.mark.parametrize("status", ["shipped", "delivered", "rejected", "cancelled"])
-def test_cannot_cancel_after_shipping_or_when_closed(cust, session, catalog, status):
+@pytest.mark.parametrize("status", ["confirmed", "packed", "shipped", "out_for_delivery", "delivered", "rejected", "cancelled"])
+def test_cannot_cancel_after_confirmation_or_when_closed(cust, session, catalog, status):
     _, p = catalog
     o = place(cust, session, p)
     o.status = status

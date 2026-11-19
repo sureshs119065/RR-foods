@@ -5,6 +5,7 @@
 <div class="container">
   <h1 class="pg-h">My wishlist <span class="muted">({{ products|length }})</span></h1>
   {% if products %}
+  <h2 class="sr-only">Saved products</h2>
   <div class="pgrid">
     {% for p in products %}
     <div class="wl">
@@ -15,6 +16,6 @@
     </div>
     {% endfor %}
   </div>
-  {% else %}<div class="empty"><h2>Your wishlist is empty</h2><p class="muted">Tap the heart on a product to save it for later.</p><a class="btn" href="{{ url_for('shop.listing') }}">Browse products</a></div>{% endif %}
+  {% else %}{{ s.empty_state('Your wishlist is empty', 'Tap the heart on a product to save it for later.', 'Browse products', url_for('shop.listing'), 'heart') }}{% endif %}
 </div>
 {% endblock %}

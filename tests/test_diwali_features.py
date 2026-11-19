@@ -40,7 +40,7 @@ def test_diwali_combo_is_rendered_from_database(app, session):
     html = response.get_data(as_text=True)
     assert response.status_code == 200
     # a combo that is linked to a bundle is shown as that bundle's card inside the unified "Combo bundles" section
-    assert "Combo bundles" in html
+    assert "Combo packs" in html
     assert "Test Diwali" in html
     assert "Test Laddu" in html
     assert "80" in html

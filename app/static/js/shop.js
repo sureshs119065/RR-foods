@@ -12,7 +12,7 @@
   var toast = $("#toast"), tt;
   function say(text, bad) {
     if (!toast) return;
-    toast.textContent = text; toast.hidden = false; toast.classList.toggle("toast--error", !!bad);
+    toast.setAttribute("role", bad ? "alert" : "status"); toast.setAttribute("aria-live", bad ? "assertive" : "polite"); toast.textContent = text; toast.hidden = false; toast.classList.toggle("toast--error", !!bad);
     requestAnimationFrame(function () { toast.classList.add("toast--show"); });
     clearTimeout(tt); tt = setTimeout(function () { toast.classList.remove("toast--show"); }, bad ? 5000 : 2800);
   }
@@ -26,12 +26,14 @@
       if (full && !img.dataset.fullTried) {
         img.dataset.fullTried = "1";
         if (new URL(full, document.baseURI).href !== img.src) {
+          img.removeAttribute("srcset"); img.removeAttribute("sizes");  /* a srcset would override src */
           img.src = full;
           return;
         }
       }
       if (fallback && !img.dataset.fallbackTried) {
         img.dataset.fallbackTried = "1";
+        img.removeAttribute("srcset"); img.removeAttribute("sizes");
         img.src = fallback;
         return;
       }
@@ -43,10 +45,28 @@
   /* ---------- overlays: one open at a time, Esc and outside tap close, focus returns ---------- */
   var backdrop = $("#backdrop"), openEl = null, opener = null;
   function lock(on) { root.classList.toggle("nolock", on); }
+  /* Step 3.5: closed off-canvas panels are inert (not tabbable, not read out); an open overlay traps Tab */
+  var FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])';
+  function focusables(box) { return $$(FOCUSABLE, box).filter(function (n) { return !n.closest("[hidden],[inert]") && (n.offsetWidth || n.offsetHeight || n.getClientRects().length); }); }
+  function trapTab(e, box) {
+    var f = focusables(box);
+    if (!f.length) { e.preventDefault(); box.setAttribute("tabindex", "-1"); box.focus(); return; }
+    var first = f[0], last = f[f.length - 1], a = document.activeElement;
+    if (!box.contains(a)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && a === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && a === last) { e.preventDefault(); first.focus(); }
+  }
+  function panelInert() {
+    var d = $("#drawer"), fs = $("#filter-form");
+    if (d && d !== openEl) d.inert = true;
+    if (fs && fs !== openEl) fs.inert = !matchMedia("(min-width:1024px)").matches;
+  }
+  panelInert();
   function open(el, from, withBackdrop) {
     if (openEl) close();
     openEl = el; opener = from || document.activeElement;
-    el.hidden = false; el.setAttribute("aria-hidden", "false");
+    el.inert = false; el.hidden = false; el.setAttribute("aria-hidden", "false");
+    if (el.id === "filter-form") { el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); }
     if (withBackdrop && backdrop) { backdrop.hidden = false; requestAnimationFrame(function () { backdrop.classList.add("is-on"); }); }
     requestAnimationFrame(function () { el.classList.add("is-open"); var f = $("input,a,button", el); if (el.id === "search-overlay") { var i = $("#so-input"); if (i) i.focus(); } else if (f) f.focus(); });
     lock(true);
@@ -56,10 +76,12 @@
     if (!openEl) return;
     var el = openEl; openEl = null;
     el.classList.remove("is-open"); el.setAttribute("aria-hidden", "true");
+    if (el.id === "filter-form") { el.removeAttribute("role"); el.removeAttribute("aria-modal"); }
     if (backdrop) { backdrop.classList.remove("is-on"); setTimeout(function () { if (!openEl) backdrop.hidden = true; }, reduce ? 0 : 280); }
     setTimeout(function () { if (el !== openEl && el.classList.contains("so")) el.hidden = true; }, reduce ? 0 : 280);
     lock(false);
     $$("[aria-controls=" + el.id + "]").forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
+    panelInert();
     if (opener && opener.focus) opener.focus();
   }
   var drawer = $("#drawer"), searchO = $("#search-overlay");
@@ -70,21 +92,16 @@
     var so = e.target.closest("[data-sheet-open]"); if (so) { var sh = $("#filter-form"); if (sh) open(sh, so, true); return; }
     if (e.target.closest("[data-sheet-close]") || e.target.id === "sheet-backdrop") close();
   });
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { close(); closeZoom(); hideSugg(); } });
-  window.addEventListener("resize", debounce(function () { if (openEl && openEl.id === "filter-form" && matchMedia("(min-width:1024px)").matches) { openEl.classList.remove("is-open"); openEl = null; if (backdrop) { backdrop.hidden = true; backdrop.classList.remove("is-on"); } lock(false); } }, 150));
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { close(); closeZoom(); hideSugg(); return; }
+    if (e.key === "Tab") { if (zoom && !zoom.hidden) trapTab(e, zoom); else if (openEl) trapTab(e, openEl); }
+  });
+  window.addEventListener("resize", debounce(function () { if (openEl && openEl.id === "filter-form" && matchMedia("(min-width:1024px)").matches) { openEl.classList.remove("is-open"); openEl = null; if (backdrop) { backdrop.hidden = true; backdrop.classList.remove("is-on"); } lock(false); } panelInert(); }, 150));
   function debounce(fn, ms) { var t; return function () { var a = arguments, c = this; clearTimeout(t); t = setTimeout(function () { fn.apply(c, a); }, ms); }; }
 
   /* ---------- header shrinks smoothly on scroll ---------- */
   var sh = $("#sh"), tick = false;
   window.addEventListener("scroll", function () { if (tick || !sh) return; tick = true; requestAnimationFrame(function () { sh.classList.toggle("is-compact", window.scrollY > 40); tick = false; }); }, { passive: true });
-
-  /* ---------- theme ---------- */
-  $$("[data-theme-toggle]").forEach(function (b) {
-    b.addEventListener("click", function () {
-      var dark = root.getAttribute("data-theme") === "dark" || (!root.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
-      var next = dark ? "light" : "dark"; root.setAttribute("data-theme", next); store(false, "nk-theme", next);
-    });
-  });
 
   /* ---------- confirm + one-click-only ---------- */
   document.addEventListener("click", function (e) { var c = e.target.closest("[data-confirm]"); if (c && !window.confirm(c.getAttribute("data-confirm"))) e.preventDefault(); });
@@ -117,7 +134,7 @@
     list.innerHTML = r.map(function (q) { return '<li><a href="/shop?q=' + encodeURIComponent(q) + '">' + esc(q) + "</a></li>"; }).join("");
   }
   var clr = $("#so-clear"); if (clr) clr.addEventListener("click", function () { store(false, RK, "[]"); renderRecent(); });
-  $$("form[role=search]").forEach(function (f) { f.addEventListener("submit", function () { var i = $("input[name=q]", f); if (i) remember(i.value); }); });
+  $$("form[role=search]").forEach(function (f) { f.addEventListener("submit", function (e) { var i = $("input[name=q]", f); if (i && !i.value.trim()) { e.preventDefault(); i.focus(); return; } if (i) remember(i.value); }); });
   function hl(name, q) {
     var i = q ? name.toLowerCase().indexOf(q.toLowerCase()) : -1;
     if (i < 0) return esc(name);
@@ -146,7 +163,12 @@
       var q = input.value.trim(); var my = ++seq;
       fetch("/api/suggest?q=" + encodeURIComponent(q), { headers: { Accept: "application/json" }, credentials: "same-origin" })
         .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (d) { if (!d || my !== seq) return; list.innerHTML = suggestHtml(d, q); list.hidden = false; })
+        .then(function (d) {
+          if (!d || my !== seq) return;
+          /* keep the list (and keyboard focus inside it) as it is when the same query is already shown: replacing it would drop focus to <body> */
+          if (list.dataset.q === q && list.contains(document.activeElement)) return;
+          list.innerHTML = suggestHtml(d, q); list.dataset.q = q; list.hidden = false;
+        })
         .catch(function () {});
     }
     input.addEventListener("input", debounce(load, 180));
@@ -191,6 +213,7 @@
         main.classList.remove("is-image-unavailable");
         main.dataset.fullTried = "";
         main.dataset.fallbackTried = "";
+        main.removeAttribute("srcset"); main.removeAttribute("sizes");  /* the first image's srcset must not win over the new src */
         main.src = t.getAttribute("data-src");
         main.setAttribute("data-product-full", t.getAttribute("data-full-src") || t.getAttribute("data-src"));
         main.alt = t.getAttribute("data-alt");
@@ -206,9 +229,10 @@
     }, { passive: true });
   }
   var zoom = $("#zoom"), zs = zoom && $(".zoom__scroll", zoom), zimg = $("#zoom-img");
-  function closeZoom() { if (zoom && !zoom.hidden) { zoom.hidden = true; lock(false); } }
+  var zoomOpener = null;
+  function closeZoom() { if (zoom && !zoom.hidden) { zoom.hidden = true; lock(false); if (zoomOpener && zoomOpener.focus) { try { zoomOpener.focus(); } catch (e) { /* gone */ } } zoomOpener = null; } }
   document.addEventListener("click", function (e) {
-    if (e.target.closest("[data-zoom]") && zoom) { var m = $("#gal-main"); zimg.src = m.src; zimg.alt = m.alt; zs.classList.remove("is-in"); zoom.hidden = false; lock(true); var x = $("[data-zoom-close]", zoom); if (x) x.focus(); return; }
+    if (e.target.closest("[data-zoom]") && zoom) { zoomOpener = e.target.closest("[data-zoom]"); var m = $("#gal-main"); zimg.src = m.src; zimg.alt = m.alt; zs.classList.remove("is-in"); zoom.hidden = false; lock(true); var x = $("[data-zoom-close]", zoom); if (x) x.focus(); return; }
     if (e.target.closest("[data-zoom-close]")) { closeZoom(); return; }
     if (e.target === zimg) zs.classList.toggle("is-in");
   });
@@ -221,7 +245,7 @@
       r.addEventListener("change", function () {
         var fbtVariant = $("[data-fbt-variant]"); if (fbtVariant) fbtVariant.value = r.value;
         var p = parseFloat(r.dataset.price), m = parseFloat(r.dataset.mrp), s = parseInt(r.dataset.stock, 10), low = parseInt(r.dataset.low, 10);
-        now.textContent = inr(p); var pct = m > p ? Math.floor((m - p) * 100 / m) : 0;
+        now.textContent = inr(p); var barPrice = $("#bar-price"); if (barPrice) barPrice.textContent = inr(p); var pct = m > p ? Math.floor((m - p) * 100 / m) : 0;
         mrp.textContent = inr(m); mrp.hidden = off.hidden = !pct; off.textContent = pct + "% off";
         note.innerHTML = s <= 0 ? '<span class="stock stock--out">Out of stock</span>' : (s <= low || s <= 5) ? '<span class="stock stock--low">Only ' + s + " left</span>" : '<span class="stock stock--ok">In stock</span>';
         var dis = s <= 0; $$("[data-add],[data-buy]", form).forEach(function (b) { b.disabled = dis; });
@@ -256,15 +280,27 @@
       pinInput.value = pinInput.value.replace(/\D/g, "").slice(0, 6);
       if (pinInput.value.length === 6) { try { localStorage.setItem("rr-foods-pincode", pinInput.value); } catch (e) {} }
     });
-    pin.addEventListener("submit", function (e) {
-      e.preventDefault(); var v = pinInput.value.trim(), msg = $("#pin-msg");
-      if (!/^\d{6}$/.test(v)) { msg.textContent = "Enter a 6 digit pincode."; msg.className = "pin__msg is-bad"; return; }
+    var pinMsg = $("#pin-msg");
+    function etaDate(days) {
+      var d = new Date(); d.setDate(d.getDate() + Math.max(1, days));
+      return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+    }
+    function checkPin(v, quiet) {
+      if (!/^\d{6}$/.test(v)) { if (!quiet) { pinMsg.textContent = "Enter a 6 digit pincode."; pinMsg.className = "pin__msg is-bad"; pinInput.setAttribute("aria-invalid", "true"); } return; }
+      pinInput.removeAttribute("aria-invalid");
       try { localStorage.setItem("rr-foods-pincode", v); } catch (e) {}
-      msg.textContent = "Checking…"; msg.className = "pin__msg";
+      pinMsg.textContent = ""; pinMsg.className = "pin__msg"; pinMsg.setAttribute("aria-busy", "true"); pinMsg.innerHTML = '<span class="skel skel--line skel--eta" aria-hidden="true"></span><span class="sr">Checking delivery…</span>';
       fetch("/api/pincode/" + v, { headers: { Accept: "application/json" } }).then(function (r) { return r.json(); })
-        .then(function (d) { msg.textContent = d.message; msg.className = "pin__msg " + (d.deliverable ? "is-ok" : "is-bad"); })
-        .catch(function () { msg.textContent = "Could not check right now."; msg.className = "pin__msg is-bad"; });
-    });
+        .then(function (d) {
+          var ok = !!d.deliverable;
+          pinMsg.removeAttribute("aria-busy");
+          pinMsg.textContent = ok ? "Delivery by " + etaDate(d.eta_days || 3) + (d.fee ? " · delivery fee ₹" + Number(d.fee).toLocaleString("en-IN") : " · free delivery") + (d.city ? " (" + d.city + ")" : "") : (d.message || "Could not check right now.");
+          pinMsg.className = "pin__msg " + (ok ? "is-ok" : "is-bad");
+        })
+        .catch(function () { pinMsg.removeAttribute("aria-busy"); pinMsg.textContent = "Could not check right now."; pinMsg.className = "pin__msg is-bad"; });
+    }
+    pin.addEventListener("submit", function (e) { e.preventDefault(); checkPin(pinInput.value.trim(), false); });
+    if (pinInput && /^\d{6}$/.test(pinInput.value)) checkPin(pinInput.value, true);  // a remembered pincode shows its ETA straight away
   }
 
   /* ---------- saved pincode on address forms + optional city/state lookup ---------- */
@@ -290,35 +326,46 @@
     if (addressPin.value.length === 6) addressPin.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
-  /* ---------- delivery slot selection and remembered checkout pincode ---------- */
+  /* ---------- remembered checkout pincode ---------- */
   var checkoutForm = $("[data-checkout]");
   if (checkoutForm) {
-    var dateSelect = $("[data-delivery-date]", checkoutForm), slotSelect = $("[data-delivery-slot]", checkoutForm);
-    function fetchSlots() {
-      if (!dateSelect || !slotSelect) return;
-      slotSelect.disabled = true; slotSelect.innerHTML = '<option value="">Checking availability…</option>';
-      fetch("/checkout/delivery-slots?date=" + encodeURIComponent(dateSelect.value), { headers: { Accept: "application/json" }, credentials: "same-origin" })
-        .then(function (r) { return r.json(); }).then(function (d) {
-          slotSelect.innerHTML = "";
-          (d.slots || []).forEach(function (slot) { var option = document.createElement("option"); option.value = slot; option.textContent = slot; slotSelect.appendChild(option); });
-          if (!(d.slots || []).length) { var empty = document.createElement("option"); empty.value = ""; empty.textContent = d.message || "No slots available"; slotSelect.appendChild(empty); }
-          slotSelect.disabled = !(d.slots || []).length;
-          slotSelect.dispatchEvent(new Event("change", { bubbles: true }));
-        }).catch(function () { slotSelect.innerHTML = '<option value="">Could not load slots</option>'; slotSelect.disabled = true; slotSelect.dispatchEvent(new Event("change", { bubbles: true })); });
-    }
-    if (dateSelect && slotSelect) dateSelect.addEventListener("change", fetchSlots);
     var lastAddressButton = $("[data-use-last-address]", checkoutForm);
     if (lastAddressButton) lastAddressButton.addEventListener("click", function () {
       var radio = checkoutForm.querySelector('input[name="address_id"][value="' + lastAddressButton.dataset.useLastAddress + '"]');
       if (radio) { radio.checked = true; radio.dispatchEvent(new Event("change", { bubbles: true })); }
     });
     var checkoutPin = $("[data-checkout-pincode]", checkoutForm);
-    try { var lastPin = localStorage.getItem("rr-foods-pincode"); if (checkoutPin && lastPin && /^\d{6}$/.test(lastPin)) checkoutPin.value = lastPin; } catch (e) {}
+    try { var lastPin = localStorage.getItem("rr-foods-pincode"); } catch (e) {}
     checkoutForm.querySelectorAll('input[name="address_id"]').forEach(function (radio) {
       radio.addEventListener("change", function () {
         try { localStorage.setItem("rr-foods-pincode", radio.dataset.pincode || ""); } catch (e) {}
-        if (checkoutPin) checkoutPin.value = radio.dataset.pincode || "";
+        if (checkoutPin) checkoutPin.textContent = radio.dataset.pincode || "—";
       });
+    });
+  }
+
+  /* ---------- checkout: inline error summary (role=alert, focused on failure) ---------- */
+  var coForm = $("[data-checkout]");
+  if (coForm) {
+    var summary = $("[data-error-summary]", coForm), list = $("#co-errors-list");
+    if (summary && !summary.hidden) summary.focus();  // server-side failure: land on the summary
+    coForm.addEventListener("submit", function (e) {
+      var problems = [];
+      var addr = $("input[name=address_id]:checked", coForm);
+      if (!addr) problems.push(["address_id", "Choose a delivery address."]);
+      else if (addr.dataset.ok !== "1") problems.push(["address_id", "We do not deliver to this pincode yet. Choose another address."]);
+      $$("[data-field-error]", coForm).forEach(function (n) { n.hidden = true; n.textContent = ""; });
+      $$("[aria-invalid]", coForm).forEach(function (n) { n.removeAttribute("aria-invalid"); });
+      if (!problems.length) { if (summary) summary.hidden = true; return; }
+      e.preventDefault(); coForm.removeAttribute("data-sent");
+      list.innerHTML = "";
+      problems.forEach(function (p) {
+        var li = document.createElement("li"), a = document.createElement("a");
+        a.href = "#field-" + p[0]; a.textContent = p[1]; li.appendChild(a); list.appendChild(li);
+        var msg = $("#err-" + p[0], coForm); if (msg) { msg.textContent = p[1]; msg.hidden = false; }
+        var fld = $("#field-" + p[0], coForm); if (fld) fld.setAttribute("aria-invalid", "true");
+      });
+      summary.hidden = false; summary.focus();
     });
   }
 
@@ -331,7 +378,6 @@
       var ok = r.dataset.ok === "1", d = $("#sum-delivery");
       if (d) d.textContent = !ok ? "Not deliverable" : money(r.dataset.delivery);
       var t = money(r.dataset.total); $("#sum-total").textContent = t; $("#bar-total").textContent = t;
-      var b = $("button[type=submit]", co); if (b) b.disabled = !ok || (slotSelect && (!slotSelect.value || slotSelect.disabled));
     };
     $$("input[name=address_id]", co).forEach(function (r) { r.addEventListener("change", update); }); update();
   }
@@ -346,7 +392,7 @@
   var csrf = (document.querySelector("meta[name=csrf-token]") || {}).content || "";
   var toast = document.getElementById("toast"), tt;
   function say(text, bad) {
-    if (!toast) return; toast.textContent = text; toast.hidden = false; toast.classList.toggle("toast--error", !!bad);
+    if (!toast) return; toast.setAttribute("role", bad ? "alert" : "status"); toast.setAttribute("aria-live", bad ? "assertive" : "polite"); toast.textContent = text; toast.hidden = false; toast.classList.toggle("toast--error", !!bad);
     requestAnimationFrame(function () { toast.classList.add("toast--show"); });
     clearTimeout(tt); tt = setTimeout(function () { toast.classList.remove("toast--show"); }, bad ? 5000 : 2500);
   }
@@ -492,7 +538,7 @@
   var csrf = (document.querySelector("meta[name=csrf-token]") || {}).content || "";
   var toast = document.getElementById("toast"), tt;
   function say(text, bad) {
-    if (!toast) return; toast.textContent = text; toast.hidden = false; toast.classList.toggle("toast--error", !!bad);
+    if (!toast) return; toast.setAttribute("role", bad ? "alert" : "status"); toast.setAttribute("aria-live", bad ? "assertive" : "polite"); toast.textContent = text; toast.hidden = false; toast.classList.toggle("toast--error", !!bad);
     requestAnimationFrame(function () { toast.classList.add("toast--show"); });
     clearTimeout(tt); tt = setTimeout(function () { toast.classList.remove("toast--show"); }, bad ? 5000 : 2500);
   }
@@ -525,7 +571,7 @@
   var csrf = (document.querySelector("meta[name=csrf-token]") || {}).content || "";
   var toast = document.getElementById("toast"), tt;
   function say(text, bad) {
-    if (!toast) return; toast.textContent = text; toast.hidden = false; toast.classList.toggle("toast--error", !!bad);
+    if (!toast) return; toast.setAttribute("role", bad ? "alert" : "status"); toast.setAttribute("aria-live", bad ? "assertive" : "polite"); toast.textContent = text; toast.hidden = false; toast.classList.toggle("toast--error", !!bad);
     requestAnimationFrame(function () { toast.classList.add("toast--show"); });
     clearTimeout(tt); tt = setTimeout(function () { toast.classList.remove("toast--show"); }, bad ? 5000 : 3500);
   }

@@ -3,7 +3,7 @@ from flask import abort, flash, g, jsonify, redirect, render_template, request, 
 from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload, selectinload
 
-from ..admin.helpers import clean, page_number, to_int
+from ..admin.helpers import clean, clean_multiline, page_number, to_int
 from ..auth.decorators import roles_required
 from ..auth.service import audit, safe_next
 from ..extensions import db, limiter
@@ -163,7 +163,7 @@ def review_save(slug):
         return redirect(back)
     errs: dict = {}
     rating = to_int(request.form.get("rating"), "rating", errs, min_=1, max_=5)
-    title, body = clean(request.form.get("title"), 150), (request.form.get("body") or "").strip()[:2000]
+    title, body = clean(request.form.get("title"), 150), clean_multiline(request.form.get("body"), 2000)
     if errs:
         flash("Choose a star rating from 1 to 5.", "error")
         return redirect(back)
@@ -241,7 +241,8 @@ def ask_question(slug):
     p = get_product(slug)
     if p is None:
         abort(404)
-    q = " ".join((request.form.get("question") or "").split())
+    from .. import validation as v
+    q = v.one_line(request.form.get("question"))
     if not 10 <= len(q) <= 500:
         flash("Write your question in 10 to 500 characters.", "error")
         return redirect(_back(slug, "qa"))

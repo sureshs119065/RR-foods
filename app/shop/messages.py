@@ -22,8 +22,9 @@ def messages():
 @limiter.limit("10 per hour", methods=["POST"])
 def message_new():
     if request.method == "POST":
-        subject = " ".join((request.form.get("subject") or "").split())[:160]
-        body = " ".join((request.form.get("body") or "").split())
+        from .. import validation as v
+        subject = v.one_line(request.form.get("subject"))[:160]
+        body = v.one_line(request.form.get("body"))
         if len(subject) < 3 or not 5 <= len(body) <= 4000:
             flash("Add a subject and a message between 5 and 4,000 characters.", "error")
         else:
@@ -41,7 +42,8 @@ def message_thread(thread_id):
     if thread is None:
         abort(404)
     if request.method == "POST":
-        body = " ".join((request.form.get("body") or "").split())
+        from .. import validation as v
+        body = v.one_line(request.form.get("body"))
         if not 1 <= len(body) <= 4000:
             flash("Write a message (up to 4,000 characters).", "error")
         else:

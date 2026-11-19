@@ -230,7 +230,6 @@ html[data-shop] .badge--offer, html[data-shop] .promo__badge { background: #B326
 .about-signoff { color: #183D2B; font-family: var(--font-display); font-weight: 750; }
 .about-cta { text-align: center; background: #F7F6F2; border-radius: 16px; padding: 2.5rem 1rem; margin: 1rem auto 3rem; }
 
-html[data-shop] [data-theme-toggle] { display: none !important; }
 
 /* RR FOODS usability polish: small screens, touch targets and readable forms. */
 html { scroll-behavior: smooth; }

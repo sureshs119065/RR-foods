@@ -67,7 +67,6 @@
           </div></div></div>
         </div>
 
-        <label class="opt opt--solo"><input type="checkbox" name="avail" value="1" {% if f.avail %}checked{% endif %}> Show only in-stock items</label>
       </div>
       <div class="sheet__foot">
         <a class="btn btn--ghost" href="{{ clear_url }}">Clear all</a>
@@ -75,7 +74,7 @@
       </div>
     </form>
 
-    <section class="results" aria-label="Products">
+    <section class="results" aria-label="Products" data-skel-container="listing">
       <div class="toolbar">
         <button class="btn btn--ghost" type="button" data-sheet-open aria-controls="filter-form">
           {{ s.icon('filter') }} Filters{% if f.active_count() %} ({{ f.active_count() }}){% endif %}
@@ -89,21 +88,29 @@
             {% endfor %}
           </select>
         </label>
+        <label class="switch"><input type="checkbox" role="switch" name="avail" value="1" form="filter-form" data-autosubmit {% if f.avail %}checked{% endif %}><span class="switch__track" aria-hidden="true"></span><span>In stock</span></label>
       </div>
+      {% if filter_chips %}
+      <div class="active-filters" role="group" aria-label="Active filters">
+        <ul class="chips2 chips2--wrap">
+          {% for c in filter_chips %}<li><span class="chip chip--active">{{ c.label }}<a class="chip__x" href="{{ c.url }}" aria-label="Remove filter: {{ c.label }}"><span aria-hidden="true">×</span></a></span></li>{% endfor %}
+          <li><a class="chip-clear" href="{{ clear_url }}">Clear all</a></li>
+        </ul>
+      </div>
+      {% endif %}
       {% if page.items %}
-        {{ s.grid(page.items) }}
+        {{ s.grid(page.items, 'Products') }}
         {{ s.pager(page, listing_endpoint, listing_args) }}
       {% else %}
-        <div class="empty">
-          <h2>No products match your filters</h2>
-          <p class="muted">Try changing your price range, rating or sorting options.</p>
-          <a class="btn" href="{{ clear_url }}">Clear all filters</a>
+        {% call s.empty_state('No products match your filters', 'Try changing your price range, rating or sorting options.', 'Clear all filters', clear_url, 'search') %}
           <p class="muted small empty__more">Or browse a category</p>
           <ul class="chips2">{% for c in nav_categories() %}<li><a class="chip" href="{{ url_for('shop.category_listing', slug=c.slug) }}">{{ c.name }}</a></li>{% endfor %}</ul>
           {% if wa_owner_number() %}<p><a class="btn btn--ghost" href="https://wa.me/{{ wa_owner_number() }}?text={{ ('Hi, I could not find ' ~ (request.args.get('q') or 'a product') ~ ' on your website. Do you have it?')|urlencode }}" target="_blank" rel="noopener">Can't find it? Ask us on WhatsApp</a></p>{% endif %}
-        </div>
+        {% endcall %}
       {% endif %}
     </section>
   </div>
 </div>
+{{ s.skeleton_templates() }}
+<script src="{{ asset_url('js/ui-states.js') }}" defer></script>
 {% endblock %}

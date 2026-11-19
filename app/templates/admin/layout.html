@@ -61,9 +61,7 @@
       <span class="hint">{{ current_user.name }}</span>
     </header>
     <main class="adm__main" id="main">
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% for category, message in messages %}<div class="alert alert--{{ category }}" role="status">{{ message }}</div>{% endfor %}
-      {% endwith %}
+      {% from 'shared/_flash.html' import flashes %}{{ flashes() }}
       {% block content %}{% endblock %}
     </main>
   </div>

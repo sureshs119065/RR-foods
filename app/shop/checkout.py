@@ -5,10 +5,10 @@ from sqlalchemy.orm import selectinload
 from ..auth.decorators import roles_required
 from ..extensions import db, limiter
 from ..models import Address, Order
+from ..models.orders import DRAFT_STATUS
 from ..services import cart as cart_svc
 from ..services import checkout as svc
 from ..services.cart import totals_for
-from ..services import delivery_slots
 from . import bp
 
 user_only = roles_required("user")
@@ -42,9 +42,14 @@ def checkout_page():
     checkout_token = session.get("checkout_token") or secrets.token_urlsafe(24)
     session["checkout_token"] = checkout_token
     last_address = max(addrs, key=lambda a: (a.updated_at or a.created_at, a.id), default=None)
-    slot_dates = delivery_slots.available_dates()
-    delivery_settings = delivery_slots.get_settings()
-    return render_template("shop/checkout.html", view=view, addrs=addrs, chosen=chosen, last_address=last_address, quotes=quotes, totals=totals, methods=svc.payment_methods(), checkout_token=checkout_token, slot_dates=slot_dates, delivery_settings=delivery_settings)
+    from flask import get_flashed_messages
+    errors = get_flashed_messages(category_filter=["error"])  # shown in the inline summary, not as a separate banner
+    field_errors = {}
+    for msg in errors:
+        low = msg.lower()
+        if "address" in low or "deliver to" in low:
+            field_errors.setdefault("address_id", msg)
+    return render_template("shop/checkout.html", errors=errors, field_errors=field_errors, view=view, addrs=addrs, chosen=chosen, last_address=last_address, quotes=quotes, totals=totals, methods=svc.payment_methods(), checkout_token=checkout_token)
 
 
 @bp.post("/checkout")
@@ -55,44 +60,36 @@ def checkout_place():
     if not submitted_token or submitted_token != session.get("checkout_token"):
         flash("This checkout has already been submitted or expired. Please review your order.", "info")
         return redirect(url_for("shop.orders"))
+    from .. import validation as v
+    note_errors: dict = {}
+    notes = v.multiline(request.form.get("notes"), "notes", note_errors, label="Order notes", max_=v.MAX["notes"])
+    if note_errors:
+        flash(note_errors["notes"], "error")
+        return redirect(url_for("shop.checkout_page", address=request.form.get("address_id")))
     try:
-        order = svc.place_order(g.user, int(request.form.get("address_id") or 0) if (request.form.get("address_id") or "").isdigit() else 0,
-                                request.form.get("method", ""), session.get("coupon"), request.form.get("notes"), request.form.get("delivery_date"), request.form.get("delivery_slot"), request.form.get("gift_message"), request.form.get("hide_prices") == "1")
+        order = svc.create_pending_order(g.user, int(request.form.get("address_id") or 0) if (request.form.get("address_id") or "").isdigit() else 0,
+                                request.form.get("method", ""), session.get("coupon"), notes, request.form.get("gift_message"), request.form.get("hide_prices") == "1")
         db.session.commit()
         session.pop("checkout_token", None)
     except svc.CheckoutError as e:
         db.session.rollback()
         flash(str(e), "error")
         return redirect(url_for("shop.checkout_page", address=request.form.get("address_id")))
-    session.pop("coupon", None)
+    # The cart and the coupon stay as they are: this is only a request until the shop receives the WhatsApp message.
     return redirect(url_for("shop.order_placed", order_number=order.order_number))
 
 
-# ---------------------------------------------------------------- order placed: send it to the owner on WhatsApp
+# ---------------------------------------------------------------- order request: send it to the shop on WhatsApp
 @bp.get("/order-placed/<order_number>")
 @user_only
 def order_placed(order_number):
-    """Shown right after checkout. The big button opens WhatsApp with the whole order already written."""
+    """Shown right after checkout. The order is NOT placed yet: the big button opens WhatsApp with the whole order already written,
+    and the order is placed only when the shop confirms that the message arrived."""
     order = db.session.scalar(select(Order).where(Order.order_number == order_number, Order.user_id == g.user.id).options(selectinload(Order.items)))
     if order is None:
         abort(404)
+    if order.status != DRAFT_STATUS:  # already confirmed by the shop (or closed): the tracking page is the right place
+        return redirect(url_for("shop.order_detail", order_number=order.order_number))
     from ..services.whatsapp import owner_link, order_message
     wa = owner_link(order)
     return render_template("shop/order_placed.html", order=order, wa=wa, wa_text=order_message(order))
-
-
-@bp.get("/checkout/delivery-slots")
-@user_only
-@limiter.limit("60 per minute")
-def checkout_delivery_slots():
-    from datetime import date
-    from flask import jsonify
-    raw = (request.args.get("date") or "").strip()
-    try:
-        day = date.fromisoformat(raw)
-    except ValueError:
-        return jsonify(ok=False, message="Choose a valid date.", slots=[]), 422
-    settings = delivery_slots.get_settings()
-    choices = {item["value"]: item for item in delivery_slots.available_dates(settings)}
-    item = choices.get(day.isoformat())
-    return jsonify(ok=True, slots=item["slots"] if item else [], message="" if item else "No delivery slots are available for this date.")

@@ -28,6 +28,8 @@ def refresh_rating(product_id: int) -> None:
     avg, n = db.session.execute(select(func.coalesce(func.avg(Review.rating), 0), func.count(Review.id))
                                 .where(Review.product_id == product_id, Review.status == "approved", Review.is_deleted.is_(False))).one()
     db.session.execute(update(Product).where(Product.id == product_id).values(avg_rating=round(float(avg), 2), review_count=n))
+    from . import home_cache
+    home_cache.mark_dirty(db.session)  # product cards on the home page show the rating; Core updates skip the ORM events
 
 
 def refresh_helpful(review_id: int) -> int:

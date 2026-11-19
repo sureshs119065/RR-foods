@@ -1,17 +1,97 @@
 """Cart lines, availability and the price breakdown. Prices always come from the database, never from the browser."""
+import secrets
 from dataclasses import dataclass, field
+from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import select
+from flask import g, session
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import joinedload, selectinload
 
 from ..extensions import db
 from ..models import CartItem, Coupon, DeliveryZone, Product, ProductVariant
+from ..models.base import utcnow
 from . import coupons
 from .storefront import active_variants, money_setting
 
 MAX_LINE_QTY = 10
+MAX_GUEST_LINES = 50          # a guest browser may hold at most this many lines (keeps anonymous rows bounded)
+GUEST_CART_DAYS = 14
+GUEST_SESSION_KEY = "gid"
 TWO = Decimal("0.01")
+
+
+# ---------------------------------------------------------------- who owns the cart
+@dataclass(frozen=True)
+class CartOwner:
+    """A signed-in customer (user_id) or an anonymous browser (session_id). Exactly one is set."""
+    user_id: int | None = None
+    session_id: str | None = None
+
+    @property
+    def is_guest(self) -> bool:
+        return self.user_id is None
+
+    def where(self):
+        return CartItem.user_id == self.user_id if self.user_id is not None else CartItem.session_id == self.session_id
+
+    def values(self) -> dict:
+        return {"user_id": self.user_id} if self.user_id is not None else {"session_id": self.session_id}
+
+
+def cart_owner(create: bool = False) -> CartOwner | None:
+    """Owner of the current request's cart. Signed-in customers own by user id; everyone else by a random id
+    kept in the session cookie. With create=False a visitor who has never added anything gets None (no cookie is set)."""
+    user = g.get("user")
+    if user is not None:
+        return CartOwner(user_id=user.id) if user.role == "user" else None
+    sid = session.get(GUEST_SESSION_KEY)
+    if not sid and create:
+        sid = secrets.token_urlsafe(24)
+        session[GUEST_SESSION_KEY] = sid
+        session.permanent = True
+    return CartOwner(session_id=sid) if sid else None
+
+
+def as_owner(owner) -> CartOwner:
+    return owner if isinstance(owner, CartOwner) else CartOwner(user_id=int(owner))
+
+
+def merge_guest_cart(user, guest_session_id: str | None) -> int:
+    """Move a guest cart into the customer's cart after sign-in or sign-up. Same product/option/bundle lines are
+    added together (capped at the per-line maximum and at stock); everything else is re-homed. Returns lines moved.
+    Does not commit: the caller commits."""
+    if not guest_session_id or user is None or user.role != "user":
+        return 0
+    guest_items = list(db.session.scalars(select(CartItem).where(CartItem.session_id == guest_session_id).order_by(CartItem.id)))
+    moved = 0
+    for gi in guest_items:
+        mine = db.session.scalar(select(CartItem).where(
+            CartItem.user_id == user.id, CartItem.product_id == gi.product_id,
+            CartItem.variant_id.is_(None) if gi.variant_id is None else CartItem.variant_id == gi.variant_id,
+            CartItem.bundle_id.is_(None) if gi.bundle_id is None else CartItem.bundle_id == gi.bundle_id))
+        if mine is None:
+            gi.user_id, gi.session_id = user.id, None
+        else:
+            stock = (gi.variant.stock_qty if gi.variant is not None else gi.product.stock_qty)
+            cap = min(MAX_LINE_QTY, stock) if stock > 0 else MAX_LINE_QTY
+            had = mine.quantity if not mine.saved_for_later else 0
+            mine.quantity = max(1, min(had + gi.quantity, cap))
+            mine.saved_for_later = mine.saved_for_later and gi.saved_for_later
+            if mine.unit_price_override is not None:
+                mine.line_total_override = mine.unit_price_override * mine.quantity
+            db.session.delete(gi)
+        moved += 1
+    db.session.flush()
+    return moved
+
+
+def purge_guest_carts(days: int = GUEST_CART_DAYS) -> int:
+    """Delete guest cart lines not touched for `days` days. Run daily from cron (`flask purge-guest-carts`)."""
+    cutoff = utcnow() - timedelta(days=days)
+    result = db.session.execute(delete(CartItem).where(CartItem.user_id.is_(None), CartItem.updated_at < cutoff))
+    db.session.commit()
+    return result.rowcount or 0
 
 
 def q2(v) -> Decimal:
@@ -68,16 +148,26 @@ def make_line(item: CartItem) -> Line:
     return Line(item=item, product=p, variant=v, unit_price=Decimal(price), mrp=Decimal(mrp), stock=stock, error=error, qty=item.quantity)
 
 
-def load_items(user_id: int, saved: bool) -> list[CartItem]:
+def load_items(owner, saved: bool) -> list[CartItem]:
+    owner = as_owner(owner)
     return list(db.session.scalars(
-        select(CartItem).where(CartItem.user_id == user_id, CartItem.saved_for_later.is_(saved))
+        select(CartItem).where(owner.where(), CartItem.saved_for_later.is_(saved))
         .options(joinedload(CartItem.product).selectinload(Product.images), joinedload(CartItem.product).selectinload(Product.variants), joinedload(CartItem.variant))
         .order_by(CartItem.created_at.desc(), CartItem.id.desc())).unique())
 
 
-def count_in_cart(user_id: int) -> int:
-    from sqlalchemy import func
-    return db.session.scalar(select(func.coalesce(func.sum(CartItem.quantity), 0)).where(CartItem.user_id == user_id, CartItem.saved_for_later.is_(False))) or 0
+def count_in_cart(owner) -> int:
+    if owner is None:
+        return 0
+    owner = as_owner(owner)
+    return db.session.scalar(select(func.coalesce(func.sum(CartItem.quantity), 0)).where(owner.where(), CartItem.saved_for_later.is_(False))) or 0
+
+
+def free_delivery_threshold() -> Decimal:
+    """Order value (after discounts) from which delivery is free. 0 = no free-delivery offer (the default).
+    Set with: flask set-setting free_delivery_above 499"""
+    v = money_setting("free_delivery_above", "0")
+    return v if v > 0 else Decimal(0)
 
 
 @dataclass
@@ -99,6 +189,9 @@ def totals_for(lines: list[Line], discount: Decimal, zone: DeliveryZone | None) 
     mrp_total = q2(sum((l.mrp * l.qty for l in lines), Decimal(0)))
     net = subtotal - discount
     delivery = None if zone is None else q2(Decimal(str(zone.delivery_fee or 0)))
+    free_from = free_delivery_threshold()
+    if delivery is not None and free_from > 0 and net >= free_from:
+        delivery = q2(Decimal(0))
     rate = money_setting("tax_percent", "0")  # prices already include tax; this only shows how much of the bill it is
     tax = q2(net * rate / (Decimal(100) + rate)) if rate > 0 else Decimal(0)
     total = q2(net + (delivery if delivery is not None else Decimal(0)))
@@ -113,6 +206,21 @@ class CartView:
     coupon_error: str | None
     totals: Totals
     problems: list[str] = field(default_factory=list)
+    free_from: Decimal = Decimal(0)
+
+    @property
+    def net(self) -> Decimal:
+        return self.totals.subtotal - self.totals.discount
+
+    @property
+    def free_remaining(self) -> Decimal:
+        return max(Decimal(0), self.free_from - self.net) if self.free_from > 0 else Decimal(0)
+
+    @property
+    def free_pct(self) -> int:
+        if self.free_from <= 0:
+            return 0
+        return int(min(Decimal(100), max(Decimal(0), self.net * 100 / self.free_from)))
 
     @property
     def count(self) -> int:
@@ -123,9 +231,15 @@ class CartView:
         return bool(self.lines) and not self.problems and not self.coupon_error
 
 
-def build(user_id: int, coupon_code: str | None = None, zone: DeliveryZone | None = None) -> CartView:
-    lines = [make_line(i) for i in load_items(user_id, False)]
-    saved = [make_line(i) for i in load_items(user_id, True)]
+def build(owner, coupon_code: str | None = None, zone: DeliveryZone | None = None) -> CartView:
+    """`owner` is a CartOwner, or a user id (kept so existing callers work). None builds an empty cart."""
+    if owner is None:
+        empty = Totals(q2(0), q2(0), Decimal(0), None, Decimal(0), q2(0))
+        return CartView([], [], None, None, empty, [], free_delivery_threshold())
+    owner = as_owner(owner)
+    user_id = owner.user_id
+    lines = [make_line(i) for i in load_items(owner, False)]
+    saved = [make_line(i) for i in load_items(owner, True)]
     subtotal = q2(sum((l.total for l in lines), Decimal(0)))
     coupon, err, discount = None, None, Decimal(0)
     if coupon_code and lines:
@@ -137,4 +251,4 @@ def build(user_id: int, coupon_code: str | None = None, zone: DeliveryZone | Non
         except coupons.CouponError as e:
             err, discount = str(e), Decimal(0)
     problems = [f"{l.product.name}: {l.error}" for l in lines if l.error]
-    return CartView(lines, saved, coupon, err, totals_for(lines, discount, zone), problems)
+    return CartView(lines, saved, coupon, err, totals_for(lines, discount, zone), problems, free_delivery_threshold())

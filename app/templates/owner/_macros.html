@@ -1,9 +1,9 @@
 {% macro inr(v) %}₹{{ '{:,.2f}'.format(v or 0) }}{% endmacro %}
 
 {% macro status_badge(status) %}
-{%- set cls = {'placed': 'badge--warn', 'confirmed': 'badge--ok', 'packed': 'badge--ok', 'shipped': 'badge--ok', 'out_for_delivery': 'badge--ok', 'delivered': 'badge--ok',
+{%- set cls = {'pending_whatsapp': 'badge--warn', 'placed': 'badge--warn', 'confirmed': 'badge--ok', 'packed': 'badge--ok', 'shipped': 'badge--ok', 'out_for_delivery': 'badge--ok', 'delivered': 'badge--ok',
                'rejected': 'badge--bad', 'cancelled': 'badge--bad', 'return_requested': 'badge--warn', 'returned': 'badge--bad', 'refunded': 'badge--bad'}.get(status, '') -%}
-<span class="badge {{ cls }}">{{ {'placed': 'New', 'confirmed': 'Confirmed', 'packed': 'Packed', 'shipped': 'Shipped', 'out_for_delivery': 'Out for delivery', 'delivered': 'Delivered', 'rejected': 'Rejected',
+<span class="badge {{ cls }}">{{ {'pending_whatsapp': 'Awaiting WhatsApp', 'placed': 'New', 'confirmed': 'Confirmed', 'packed': 'Packed', 'shipped': 'Shipped', 'out_for_delivery': 'Out for delivery', 'delivered': 'Delivered', 'rejected': 'Rejected',
   'cancelled': 'Cancelled', 'return_requested': 'Return requested', 'returned': 'Returned', 'refunded': 'Refunded'}.get(status, status) }}</span>
 {%- endmacro %}
 

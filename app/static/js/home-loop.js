@@ -13,18 +13,55 @@
     var items = track.children;
     if (items.length < 4) return;
 
-    if (reduce) return; /* keep as a plain swipeable row, clones stay hidden */
+    if (reduce) return; /* keep as a plain swipeable row: no clones are made */
+    if (track.scrollWidth <= box.clientWidth + 8) return; /* everything already fits: nothing to loop */
+
+    /* Seamless loop: the server sends each card once; the clones exist only while the row is looping, and are hidden from
+       assistive technology (aria-hidden), not focusable or clickable (inert), and carry no duplicate ids. */
+    Array.prototype.slice.call(track.children).forEach(function (li) {
+      var c = li.cloneNode(true);
+      c.setAttribute('aria-hidden', 'true');
+      c.setAttribute('inert', '');
+      c.inert = true;
+      if (c.hasAttribute('id')) c.removeAttribute('id');
+      Array.prototype.forEach.call(c.querySelectorAll('[id]'), function (n) { n.removeAttribute('id'); });
+      Array.prototype.forEach.call(c.querySelectorAll('[fetchpriority]'), function (n) { n.removeAttribute('fetchpriority'); n.setAttribute('loading', 'lazy'); });
+      track.appendChild(c);
+    });
     box.classList.add('is-looping');
 
-    var pos = 0, paused = false, resumeTimer = null, visible = true, last = 0;
+    var pos = 0, paused = false, resumeTimer = null, visible = true, last = 0, userPaused = false;
     var SPEED = 38; /* pixels per second */
 
     function half() { return track.scrollWidth / 2; }
     function pause() { paused = true; clearTimeout(resumeTimer); }
     function resume(delay) {
       clearTimeout(resumeTimer);
+      if (userPaused) return; /* the Pause button wins over hover/focus/touch resume */
       resumeTimer = setTimeout(function () { pos = box.scrollLeft; paused = false; }, delay || 0);
     }
+
+    /* WCAG 2.2.2: a real Pause/Play control for content that moves by itself */
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'rr-loop__pause';
+    btn.setAttribute('aria-pressed', 'false');
+    function paintBtn() {
+      btn.setAttribute('aria-pressed', userPaused ? 'true' : 'false');
+      btn.textContent = userPaused ? 'Play new arrivals' : 'Pause new arrivals';
+    }
+    btn.addEventListener('click', function () {
+      userPaused = !userPaused;
+      if (userPaused) pause(); else resume(0);
+      paintBtn();
+    });
+    paintBtn();
+    box.parentNode.insertBefore(btn, box);
+    /* keyboard: arrow keys scroll the row (it is a focusable region) and stop the motion */
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        pause(); box.scrollLeft += (e.key === 'ArrowRight' ? 1 : -1) * 200; pos = box.scrollLeft; e.preventDefault();
+      }
+    });
 
     box.addEventListener('mouseenter', pause);
     box.addEventListener('mouseleave', function () { resume(200); });

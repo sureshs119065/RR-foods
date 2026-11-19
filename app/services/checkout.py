@@ -1,7 +1,8 @@
-"""Placing an order. One transaction: lock the stock rows, re-check everything, take the stock, record the order.
+"""Checkout. It validates everything and records an order REQUEST (status "pending_whatsapp"), nothing more.
 
-Why the locks matter: two customers buying the last item at the same moment must not both succeed. Product and variant rows are
-locked in a fixed order (products by id, then variants by id) so two checkouts can never deadlock each other.
+An order only becomes real when the customer's WhatsApp message reaches the shop and the shop confirms it
+(services.orders.confirm_whatsapp_received). Until then no stock is taken, no coupon is used, the cart is untouched and the
+owner's queues and sales do not see it. So opening WhatsApp, or even closing the website, can never place an order by itself.
 """
 import secrets
 from datetime import datetime
@@ -14,10 +15,9 @@ from ..auth.service import audit
 from ..extensions import db
 from ..models import Address, CartItem, CouponUsage, DeliveryZone, Order, OrderItem, OrderStatusHistory, Payment, Product, ProductVariant
 from ..models.base import utcnow
+from ..models.orders import DRAFT_STATUS
 from . import coupons, inventory
 from .cart import MAX_LINE_QTY, q2, totals_for, Line
-from .notify import notify
-from . import delivery_slots
 
 
 class CheckoutError(Exception):
@@ -28,7 +28,7 @@ WHATSAPP_METHOD = "upi_manual"  # stored on the order; payment is settled with t
 
 
 def payment_methods() -> list[tuple[str, str, str]]:
-    return [(WHATSAPP_METHOD, "Order and pay on WhatsApp", "No payment now. Send your order on WhatsApp and the shop will confirm it and share payment details.")]
+    return [(WHATSAPP_METHOD, "Order and pay on WhatsApp", "No payment now. Send your order to the shop on WhatsApp. It is placed only once the shop receives your message and confirms it.")]
 
 
 def zone_for(pincode: str) -> DeliveryZone | None:
@@ -60,7 +60,12 @@ def _check_bundle_still_valid(item: CartItem, product: Product) -> None:
         raise CheckoutError(f"The bundle offer for “{product.name}” was updated. Remove it from your cart and add the bundle again to get the new price.")
 
 
-def place_order(user, address_id: int, method: str, coupon_code: str | None, note: str | None, delivery_date: str | None = None, delivery_slot: str | None = None, gift_message: str | None = None, hide_prices: bool = False) -> Order:
+def _signature(items) -> tuple:
+    return tuple(sorted((i["product_id"], i["variant_id"] or 0, i["quantity"]) for i in items))
+
+
+def create_pending_order(user, address_id: int, method: str, coupon_code: str | None, note: str | None, gift_message: str | None = None, hide_prices: bool = False) -> Order:
+    """Validate the cart and save it as an order request waiting for the WhatsApp message. Takes nothing from stock or coupons."""
     if method not in {m[0] for m in payment_methods()}:
         raise CheckoutError("Choose a payment method.")
     address = db.session.get(Address, address_id) if address_id else None
@@ -70,22 +75,14 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
     if zone is None or not zone.is_serviceable:
         raise CheckoutError(f"Sorry, we do not deliver to {address.pincode} yet. Choose another address.")
 
-    if not delivery_date and not delivery_slot:  # legacy clients without slot fields get the first server-validated available slot
-        delivery_date, delivery_slot = delivery_slots.first_available()
-    try:
-        chosen_delivery_date, chosen_delivery_slot = delivery_slots.validate_and_lock(delivery_date, delivery_slot)
-    except ValueError as exc:
-        raise CheckoutError(str(exc)) from exc
-
     items = list(db.session.scalars(select(CartItem).where(CartItem.user_id == user.id, CartItem.saved_for_later.is_(False)).order_by(CartItem.id)))
     if not items:
         raise CheckoutError("Your cart is empty. Your order may already have been placed. Check My orders.")
 
-    # lock every stock row we are about to read, in a fixed order
     pids = sorted({i.product_id for i in items})
     vids = sorted({i.variant_id for i in items if i.variant_id})
-    products = {p.id: p for p in db.session.scalars(select(Product).where(Product.id.in_(pids)).order_by(Product.id).with_for_update().execution_options(populate_existing=True))}
-    variants = {v.id: v for v in db.session.scalars(select(ProductVariant).where(ProductVariant.id.in_(vids)).order_by(ProductVariant.id).with_for_update().execution_options(populate_existing=True))} if vids else {}
+    products = {p.id: p for p in db.session.scalars(select(Product).where(Product.id.in_(pids)).order_by(Product.id))}
+    variants = {v.id: v for v in db.session.scalars(select(ProductVariant).where(ProductVariant.id.in_(vids)).order_by(ProductVariant.id))} if vids else {}
 
     lines: list[Line] = []
     for it in items:
@@ -102,7 +99,7 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
         name = p.name + (f" ({v.option_value})" if v else "")
         if it.quantity > MAX_LINE_QTY:
             raise CheckoutError(f"You can buy at most {MAX_LINE_QTY} of “{name}” in one order.")
-        if stock < it.quantity:  # the stock re-check at placement
+        if stock < it.quantity:  # checked again, with locks, when the shop confirms the WhatsApp message
             raise CheckoutError(f"“{name}” is {'out of stock' if stock <= 0 else f'down to {stock}'}. Update your cart and try again.")
         price, mrp = (v.price, v.mrp or v.price) if v else (it.unit_price_override if it.unit_price_override is not None else p.final_price, p.mrp)
         lines.append(Line(item=it, product=p, variant=v, unit_price=Decimal(price), mrp=Decimal(mrp), stock=stock, error=None, qty=it.quantity))
@@ -110,7 +107,7 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
     subtotal = q2(sum((l.total for l in lines), Decimal(0)))
     coupon, discount = None, Decimal(0)
     if coupon_code:
-        coupon = coupons.find(coupon_code, lock=True)
+        coupon = coupons.find(coupon_code)
         try:
             if coupon is None:
                 raise coupons.CouponError("That coupon code does not exist.")
@@ -119,11 +116,24 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
             raise CheckoutError(f"Coupon problem: {e}") from e
     t = totals_for(lines, discount, zone)
 
-    order = Order(order_number=new_order_number(), user_id=user.id, status="placed", shipping_address=snapshot(address),
+    # The same request sent twice (back button, second tap) is one request, not two. A changed cart replaces the old request.
+    open_requests = list(db.session.scalars(select(Order).where(Order.user_id == user.id, Order.status == DRAFT_STATUS).order_by(Order.id.desc()).with_for_update()))
+    wanted = _signature([{"product_id": l.product.id, "variant_id": l.variant.id if l.variant else None, "quantity": l.qty} for l in lines])
+    for old in open_requests:
+        same = _signature([{"product_id": i.product_id, "variant_id": i.variant_id, "quantity": i.quantity} for i in old.items]) == wanted \
+            and old.total == t.total and old.shipping_address == snapshot(address) and (old.coupon_code or None) == (coupon.code if coupon else None)
+        if same:
+            return old
+    for old in open_requests:
+        old.status = "cancelled"
+        old.updated_at = utcnow()
+        db.session.add(OrderStatusHistory(order_id=old.id, from_status=DRAFT_STATUS, to_status="cancelled", changed_by=user.id, note="Replaced by a newer checkout"))
+
+    order = Order(order_number=new_order_number(), user_id=user.id, status=DRAFT_STATUS, shipping_address=snapshot(address),
                   subtotal=t.subtotal, discount_total=t.discount, delivery_fee=t.delivery or Decimal(0), tax_total=t.tax_included, total=t.total,
                   coupon_id=coupon.id if coupon else None, coupon_code=coupon.code if coupon else None, payment_method=method,
                   payment_status="pending", customer_notes=(note or "").strip()[:500] or None,
-                  delivery_date=chosen_delivery_date, delivery_slot=chosen_delivery_slot, gift_message=(gift_message or "").strip()[:500] or None, hide_prices=bool(hide_prices))
+                  gift_message=(gift_message or "").strip()[:500] or None, hide_prices=bool(hide_prices))
     for l in lines:
         order.items.append(OrderItem(product_id=l.product.id, variant_id=l.variant.id if l.variant else None,
                                      name=l.product.name + (f" ({l.variant.option_value})" if l.variant else ""), sku=l.sku, pack_size=l.product.pack_size,
@@ -131,16 +141,9 @@ def place_order(user, address_id: int, method: str, coupon_code: str | None, not
     order.payments.append(Payment(provider="upi_manual", amount=t.total, status="pending"))
     db.session.add(order)
     db.session.flush()
-    db.session.add(OrderStatusHistory(order_id=order.id, from_status=None, to_status="placed", changed_by=user.id, note=None))
-
-    for l in lines:  # take the stock; the reason names the order so the owner's stock history explains itself
-        inventory.add_quantity(l.variant or l.product, -l.qty, f"order {order.order_number} placed", None)
-    if coupon:
-        coupon.used_count += 1
-        db.session.add(CouponUsage(coupon_id=coupon.id, user_id=user.id, order_id=order.id))
-    for it in items:
-        db.session.delete(it)
-
-    notify(user.id, "order_status", f"Order {order.order_number} placed", "Thanks! Send the order on WhatsApp so the shop can confirm it and share payment details.", link=f"/account/orders/{order.order_number}")
-    audit("order.place", entity_type="order", entity_id=order.id, actor_id=user.id, after={"order_number": order.order_number, "total": str(order.total), "method": method})
+    db.session.add(OrderStatusHistory(order_id=order.id, from_status=None, to_status=DRAFT_STATUS, changed_by=user.id, note="Waiting for the WhatsApp message"))
+    audit("order.request", entity_type="order", entity_id=order.id, actor_id=user.id, after={"order_number": order.order_number, "total": str(order.total), "method": method})
     return order
+
+
+place_order = create_pending_order  # old name, kept so existing callers keep working: it only records a request

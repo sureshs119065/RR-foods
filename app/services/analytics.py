@@ -69,7 +69,7 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
     total_sales = sum((Decimal(str(amount or 0)) for _, amount in order_rows), Decimal("0.00"))
     accepted_order_count = len(order_rows)
     total_order_count = db.session.scalar(
-        select(func.count(Order.id)).where(Order.created_at >= start_utc, Order.created_at < end_utc)
+        select(func.count(Order.id)).where(Order.created_at >= start_utc, Order.created_at < end_utc, Order.status != "pending_whatsapp")
     ) or 0
     average_order_value = total_sales / accepted_order_count if accepted_order_count else Decimal("0.00")
 

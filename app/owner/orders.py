@@ -19,6 +19,10 @@ def orders():
     # One consolidated queue: newest orders first, with search and payment filtering.
     q = select(Order).join(User, User.id == Order.user_id).options(joinedload(Order.user), selectinload(Order.items))
     unpaid = request.args.get("pay") == "pending"
+    # Checkout requests whose WhatsApp message the shop has not confirmed are not orders: they live on their own tab.
+    awaiting_tab = request.args.get("tab") == "awaiting"
+    q = q.where(Order.status == "pending_whatsapp") if awaiting_tab else q.where(Order.status != "pending_whatsapp")
+    awaiting_total = db.session.scalar(select(func.count(Order.id)).where(Order.status == "pending_whatsapp")) or 0
     if unpaid:
         q = q.where(Order.payment_status == "pending", Order.status.notin_(svc.NO_PAYMENT_CHANGE))
     term = (request.args.get("q") or "").strip().lower()
@@ -32,7 +36,7 @@ def orders():
     q = q.order_by(Order.created_at.desc(), Order.id.desc())
     page = db.paginate(q, page=page_number(), per_page=PER_PAGE, error_out=False)
     args = {k: v for k, v in request.args.items() if k != "page" and v}
-    return render_template("owner/orders.html", page=page, args=args, svc=svc, unpaid=unpaid,
+    return render_template("owner/orders.html", page=page, args=args, svc=svc, unpaid=unpaid, awaiting_tab=awaiting_tab, awaiting_total=awaiting_total,
                            next_url=request.full_path.rstrip("?"))
 
 
@@ -82,6 +86,36 @@ def order_status(order_id):
     return redirect(back)
 
 
+@bp.post("/orders/<int:order_id>/whatsapp-received")
+def order_whatsapp_received(order_id):
+    """The shop saw the customer's WhatsApp message: only now does the request become a real order (stock, coupon, cart)."""
+    back = safe_next(request.form.get("next"), url_for("owner.order_detail", order_id=order_id))
+    try:
+        order = svc.confirm_whatsapp_received(order_id, g.user)
+        db.session.commit()
+    except svc.OrderError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+        return redirect(back)
+    flash(f"Order {order.order_number} is now placed. Stock was updated and the customer has been told.", "success")
+    return redirect(url_for("owner.order_detail", order_id=order_id))
+
+
+@bp.post("/orders/<int:order_id>/discard-request")
+def order_discard_request(order_id):
+    """The WhatsApp message never arrived: close the request. Nothing was taken for it, so nothing is given back."""
+    back = safe_next(request.form.get("next"), url_for("owner.orders", tab="awaiting"))
+    try:
+        order = svc.discard_request(order_id, g.user)
+        db.session.commit()
+    except svc.OrderError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+        return redirect(back)
+    flash(f"Request {order.order_number} was closed. It never became an order.", "success")
+    return redirect(back)
+
+
 @bp.post("/orders/<int:order_id>/payment")
 def order_payment(order_id):
     """Paid / Not paid toggle. The money itself is received on WhatsApp; this only records it."""
@@ -108,7 +142,7 @@ def order_tracking(order_id):
     if order is None:
         abort(404)
     try:
-        tracking_svc.update_tracking(order, request.form.get("courier_name"), request.form.get("tracking_id"), request.form.get("tracking_url"), g.user)
+        tracking_svc.update_tracking(order, request.form.get("courier_name"), request.form.get("tracking_id"), request.form.get("tracking_url"), g.user, request.form.get("expected_delivery"))
         db.session.commit()
     except ValueError as exc:
         db.session.rollback()
@@ -121,7 +155,7 @@ def order_tracking(order_id):
 @bp.get("/orders/<int:order_id>/packing-slip")
 def packing_slip(order_id):
     order = db.session.scalar(select(Order).where(Order.id == order_id).options(selectinload(Order.items)))
-    if order is None:
+    if order is None or order.status == "pending_whatsapp":  # an unconfirmed request is not packed
         abort(404)
     return render_template("owner/packing_slip.html", order=order)
 

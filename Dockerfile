@@ -4,10 +4,12 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 FLASK_APP=wsgi.py FLASK_ENV=production
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt gunicorn
+COPY requirements.txt requirements.loc[k] ./
+# step 5.7: exact pins when requirements.lock is committed, otherwise the ranges in requirements.txt
+RUN pip install --no-cache-dir -r "$( [ -f requirements.lock ] && echo requirements.lock || echo requirements.txt )" gunicorn
 
 COPY . .
+RUN python tools/build_assets.py   # hashed, minified CSS/JS into app/static/dist (served with a 1-year immutable cache)
 RUN useradd --system --create-home nk && mkdir -p /data/uploads && chown -R nk:nk /data /app
 USER nk
 ENV UPLOAD_DIR=/data/uploads

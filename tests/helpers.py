@@ -60,3 +60,19 @@ def png_bytes(size=(800, 600), color=(200, 30, 30), fmt="PNG"):
 
 def img(name="a.png", **kw):
     return (png_bytes(**kw), name)
+
+
+def confirm_requests(session):
+    """Play the shop's side of the WhatsApp step: confirm every checkout request whose message "arrived". Returns the orders."""
+    from sqlalchemy import select
+
+    from app.models import Order
+    from app.services import orders as order_svc
+
+    owner = session.scalar(select(User).where(User.role == "owner")) or make_user(session, "owner", "auto-owner@x.com")
+    done = []
+    for o in session.scalars(select(Order).where(Order.status == "pending_whatsapp").order_by(Order.id)).all():
+        done.append(order_svc.confirm_whatsapp_received(o.id, owner))
+    session.commit()
+    session.expire_all()
+    return done

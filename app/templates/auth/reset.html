@@ -12,8 +12,8 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       {% for name, label in [("new", "New password"), ("confirm", "Confirm new password")] %}
       <label class="field {% if errors.get(name) %}field--error{% endif %}"><span>{{ label }}</span>
-        <input type="password" name="{{ name }}" autocomplete="new-password" {% if errors.get(name) %}aria-invalid="true"{% endif %} required>
-        {% if errors.get(name) %}<small class="error">{{ errors[name] }}</small>{% endif %}</label>
+        <input type="password" name="{{ name }}" autocomplete="new-password" {% if errors.get(name) %}aria-invalid="true" aria-describedby="{{ name }}-err"{% endif %} required>
+        {% if errors.get(name) %}<small class="error" id="{{ name }}-err">{{ errors[name] }}</small>{% endif %}</label>
       {% endfor %}
       <button class="btn btn--block" type="submit">Save password</button>
     </form>

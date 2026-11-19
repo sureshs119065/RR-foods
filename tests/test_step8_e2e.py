@@ -4,6 +4,8 @@ Sign up > address > search > cart > coupon > checkout > owner confirms, packs, s
 > return > owner accepts and restocks > refund. Then the admin's paper trail, notifications and email.
 """
 import re
+
+import pytest
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -11,7 +13,7 @@ from sqlalchemy import func, select
 from app.models import (
     Address, AuditLog, Coupon, CouponUsage, DeliveryZone, InventoryLog, Notification, Order, OrderStatusHistory, Product, Review,
 )
-from tests.helpers import PW, checkout_post, checkout_token, make_user, post, sign_in, token
+from tests.helpers import PW, checkout_post, checkout_token, confirm_requests, make_user, post, sign_in, token
 from tests.test_step2_models import make_category, make_product
 
 
@@ -67,9 +69,14 @@ def test_full_shop_journey(app, session):
     session.expire_all()
     order = session.scalar(select(Order).where(Order.order_number == number))
     oid = order.id
-    assert (order.status, order.subtotal, order.payment_method) == ("placed", Decimal("300.00"), "upi_manual")
+    assert (order.status, order.subtotal, order.payment_method) == ("pending_whatsapp", Decimal("300.00"), "upi_manual")
     assert order.total == Decimal("310.00")
-    assert session.get(Product, pid).stock_qty == 7                       # stock left the shelf at once
+    assert session.get(Product, pid).stock_qty == 10                      # only a request so far: nothing left the shelf
+    assert number not in owner.get("/owner/orders").get_data(as_text=True)  # and the owner's order queue does not show it
+    confirm_requests(session)                                             # the shop got the WhatsApp message
+    order = session.scalar(select(Order).where(Order.order_number == number))
+    assert order.status == "placed"
+    assert session.get(Product, pid).stock_qty == 7                       # now the stock left the shelf
     assert session.scalar(select(func.count(CouponUsage.id))) == 1
     assert "empty" in cust.get("/cart").get_data(as_text=True).lower()
     assert number in cust.get("/account/orders").get_data(as_text=True)
@@ -92,7 +99,7 @@ def test_full_shop_journey(app, session):
     assert move("delivered", "shipped") == "delivered"
     assert session.get(Order, oid).payment_status == "pending"            # WhatsApp orders are marked paid by the owner, not by delivery
     page = cust.get(f"/account/orders/{number}").get_data(as_text=True)
-    assert all(word in page for word in ("Placed", "Confirmed", "Packed", "Shipped", "Delivered"))
+    assert all(word in page for word in ("Order received", "Confirmed", "Packed", "Shipped", "Delivered"))
 
     # ---- notifications and queued email
     assert cust.get("/notifications").status_code == 200
@@ -116,7 +123,9 @@ def test_full_shop_journey(app, session):
     # ---- return accepted with restock, then refunded
     post(cust, f"/account/orders/{number}/return", {"reason": "Damaged or leaking"}, page="/account")
     session.expire_all()
-    assert session.get(Order, oid).status == "return_requested"
+    assert session.get(Order, oid).status == "delivered"      # customers cannot raise returns any more
+    session.get(Order, oid).status = "return_requested"       # an older request still goes through the owner flow
+    session.commit()
     assert move("returned", "return_requested", restock="1") == "returned"
     assert session.get(Product, pid).stock_qty == 10                      # all three are back on the shelf
     assert move("refunded", "returned") == "refunded"
@@ -124,14 +133,15 @@ def test_full_shop_journey(app, session):
     # ---- the paper trail
     statuses = [h.to_status for h in session.scalars(
         select(OrderStatusHistory).where(OrderStatusHistory.order_id == oid).order_by(OrderStatusHistory.id))]
-    assert statuses[0] == "placed" and statuses[-1] == "refunded" and "delivered" in statuses
+    assert statuses[:2] == ["pending_whatsapp", "placed"] and statuses[-1] == "refunded" and "delivered" in statuses
     assert number in " ".join(r or "" for r in session.scalars(select(InventoryLog.reason).where(InventoryLog.product_id == pid)))
     assert session.scalar(select(func.count(AuditLog.id))) >= 5
     assert admin.get("/admin/audit").status_code == 200
 
 
 def test_two_customers_race_for_the_last_item(app, session):
-    """Two checkouts for one remaining unit: exactly one order is created and stock never goes negative."""
+    """Two customers request the last unit. Both requests are only requests; the shop can confirm exactly one of them."""
+    from app.services import orders as order_svc
     cat = make_category(session, "Snacks")
     p = make_product(session, category=cat, sku="R-1", slug="last-one", name="Last One", stock_qty=1,
                      final_price=Decimal("50"), mrp=Decimal("60"))
@@ -148,28 +158,36 @@ def test_two_customers_race_for_the_last_item(app, session):
         session.commit()
         assert post(c, "/cart/add", {"product_id": pid, "qty": 1}, page="/account").status_code in (200, 302)  # both carts fill while 1 is left
         buyers.append((c, u.id))
-    wins = 0
     for c, uid in buyers:
         aid = session.scalar(select(Address.id).where(Address.user_id == uid))
-        loc = checkout_post(c, {"address_id": aid, "method": "upi_manual"}, page="/account").headers.get("Location", "")
-        wins += "/order-placed/NK" in loc
+        assert "/order-placed/NK" in checkout_post(c, {"address_id": aid, "method": "upi_manual"}, page="/account").headers.get("Location", "")
     session.expire_all()
-    assert wins == 1
-    assert session.scalar(select(func.count(Order.id))) == 1
+    assert session.get(Product, pid).stock_qty == 1                       # requests hold nothing
+    owner = session.scalar(select(User).where(User.role == "owner")) or make_user(session, "owner", "race-owner@x.com")
+    first, second = session.scalars(select(Order).order_by(Order.id)).all()
+    order_svc.confirm_whatsapp_received(first.id, owner)
+    session.commit()
+    with pytest.raises(order_svc.OrderError, match="out of stock"):
+        order_svc.confirm_whatsapp_received(second.id, owner)
+    session.rollback()
+    session.expire_all()
+    assert session.get(Order, first.id).status == "placed" and session.get(Order, second.id).status == "pending_whatsapp"
     assert session.get(Product, pid).stock_qty == 0
 
 
-def test_truly_simultaneous_checkouts_for_the_last_item(app, session):
-    """Two checkouts fired at the same instant from separate threads (separate DB connections), repeated 6 times.
-    Every round exactly one order may be created, and stock may never go below zero."""
+def test_truly_simultaneous_confirmations_for_the_last_item(app, session):
+    """The shop confirming two requests for the last unit at the same instant (two threads, two DB connections), 6 rounds.
+    Every round exactly one may become an order, and stock may never go below zero."""
     import threading
 
     from app.models import User
+    from app.services import orders as order_svc
 
     cat = make_category(session, "Snacks")
     session.add(DeliveryZone(pincode="641001", is_serviceable=True, eta_days=2, delivery_fee=0))
     session.commit()
     cat_id = cat.id
+    owner_id = (session.scalar(select(User).where(User.role == "owner")) or make_user(session, "owner", "race-owner@x.com")).id
     users = []
     for i in (1, 2):
         c = _login(app, session, f"racer{i}@x.com")
@@ -184,28 +202,40 @@ def test_truly_simultaneous_checkouts_for_the_last_item(app, session):
                          stock_qty=1, final_price=Decimal("50"), mrp=Decimal("60"))
         session.commit()
         pid = p.id
-        jobs = []
         for c, uid in users:
             assert post(c, "/cart/add", {"product_id": pid, "qty": 1}, page="/account").status_code in (200, 302)
             aid = session.scalar(select(Address.id).where(Address.user_id == uid))
-            jobs.append((c, aid, token(c, "/account"), checkout_token(c)))
+            assert "/order-placed/NK" in checkout_post(c, {"address_id": aid, "method": "upi_manual"}, page="/account").headers.get("Location", "")
+        from app.models import OrderItem
+        order_ids = list(session.scalars(select(Order.id).join(OrderItem, OrderItem.order_id == Order.id).where(OrderItem.product_id == pid, Order.status == "pending_whatsapp")))
+        assert len(order_ids) == 2
         gate, results = threading.Barrier(2), []
 
-        def go(c, aid, tok, ctok):
-            gate.wait()
-            r = c.post("/checkout", data={"address_id": aid, "method": "upi_manual", "csrf_token": tok, "checkout_token": ctok})
-            results.append(r.headers.get("Location", ""))
+        def go(order_id):
+            with app.app_context():
+                from app.extensions import db
+                actor = db.session.get(User, owner_id)
+                gate.wait()
+                try:
+                    order_svc.confirm_whatsapp_received(order_id, actor)
+                    db.session.commit()
+                    results.append("ok")
+                except order_svc.OrderError:
+                    db.session.rollback()
+                    results.append("refused")
+                finally:
+                    db.session.remove()
 
-        threads = [threading.Thread(target=go, args=j) for j in jobs]
+        threads = [threading.Thread(target=go, args=(oid,)) for oid in order_ids]
         [t.start() for t in threads]
         [t.join(30) for t in threads]
         session.expire_all()
-        from app.models import OrderItem
-        sold = session.scalar(select(func.count(OrderItem.id)).where(OrderItem.product_id == pid))
-        assert sold == 1, f"round {rnd}: {sold} orders for 1 unit"
+        assert sorted(results) == ["ok", "refused"], f"round {rnd}: {results}"
         assert session.get(Product, pid).stock_qty == 0, f"round {rnd}: stock {session.get(Product, pid).stock_qty}"
-        assert sum("/order-placed/NK" in loc for loc in results) == 1, f"round {rnd}: {results}"
-        # clear leftover cart lines of the loser so the next round starts clean
+        # close the loser's request and clear the carts so the next round starts clean
+        for oid in order_ids:
+            if session.get(Order, oid).status == "pending_whatsapp":
+                order_svc.discard_request(oid, session.get(User, owner_id))
         from app.models import CartItem
         session.execute(CartItem.__table__.delete())
         session.commit()

@@ -11,7 +11,7 @@
   <button class="print" type="button" data-print>Print packing slip</button>
   <h1>RR FOODS · Packing slip</h1>
   <p><b>Order {{ order.order_number }}</b> · {{ order.created_at|local_display }}</p>
-  {% if order.delivery_date %}<p><b>Delivery:</b> {{ order.delivery_date.strftime('%A, %d %B %Y') }} · {{ order.delivery_slot or '' }}</p>{% endif %}
+  {% if order.delivery_date and order.status not in ('cancelled','rejected') %}<p><b>Expected delivery:</b> {{ order.delivery_date.strftime('%A, %d %B %Y') }}</p>{% endif %}
   <section class="box">
     <b>{{ (order.shipping_address or {}).get('full_name','') }}</b><br>
     {{ (order.shipping_address or {}).get('phone','') }}<br>

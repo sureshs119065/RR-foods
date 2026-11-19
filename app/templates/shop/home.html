@@ -1,18 +1,19 @@
 {% extends "shop/layout.html" %}
 {% block title %}RR FOODS | Healthy, home-style food delivered{% endblock %}
 {% block head_extra %}
-  <meta name="description" content="Shop healthy mixes, snacks, sweets and breakfast essentials from RR FOODS. Fresh stock, fast delivery, easy returns.">
+  <meta name="description" content="Shop healthy mixes, snacks, sweets and breakfast essentials from RR FOODS. Fresh stock and fast delivery.">
   <link rel="canonical" href="{{ url_for('shop.home', _external=True) }}">
   <link rel="stylesheet" href="{{ url_for('shop.banner_colors') }}?v={{ carousel.banners|map(attribute='id')|join('-') }}{{ carousel.banners|map(attribute='bg_color')|join('')|replace('#', '') }}{{ carousel.banners|map(attribute='text_color')|join('')|replace('#', '') }}">
   <script type="application/ld+json">{{ [{"@context": "https://schema.org", "@type": "Organization", "name": "RR FOODS", "url": request.host_url.rstrip('/'), "logo": url_for('static', filename='img/rr-foods-brand-logo.png', _external=True)},
     {"@context": "https://schema.org", "@type": "WebSite", "name": "RR FOODS", "url": request.host_url.rstrip('/')}]|tojson }}</script>
-  <script src="{{ url_for('static', filename='js/header-carousel.js') }}" defer></script>
+  <script src="{{ asset_url('js/header-carousel.js') }}" defer></script>
   {% if carousel.banners and (carousel.banners[0].mobile_image or carousel.banners[0].desktop_image) %}<link rel="preload" as="image" href="{{ carousel.banners[0].mobile_image or carousel.banners[0].desktop_image }}" fetchpriority="high" media="(max-width: 767px)">{% endif %}
 {% endblock %}
 {% block content %}
-{% from "shop/_offer_placeholders.html" import combo_banner, offer_banner %}
-<script src="{{ url_for('static', filename='js/home-loop.js') }}" defer></script>
+{{ img_priority_spent() }}{# home: the banner/offer cards are the LCP and the product rows sit below the fold, so product images load lazily and do not compete with the critical CSS #}
+<script src="{{ asset_url('js/home-loop.js') }}" defer></script>
 {% include "partials/header_carousel.html" %}
+{% if carousel and carousel.banners %}<h1 class="sr-only">RR FOODS: healthy, home-style millet foods</h1>{% endif %}
 {% if not (carousel and carousel.banners) %}
 <section class="hero" aria-labelledby="hero-t">
   <div class="hero__in container">
@@ -31,7 +32,7 @@
     {% for reel in home_reels %}
     <article class="reel-card">
       <button class="reel-play" type="button" data-reel-open data-video="{{ reel.video_url }}" aria-label="Play {{ reel.title }}">
-        {% if reel.thumbnail_url %}<img src="{{ reel.thumbnail_url }}" alt="" loading="lazy" decoding="async">{% endif %}
+        {% if reel.thumbnail_url %}<img src="{{ reel.thumbnail_url }}" alt="" loading="lazy" decoding="async" width="360" height="640">{% endif %}
         <video class="reel-preview" muted playsinline loop preload="none" data-reel-preview="{{ reel.video_url }}" {% if reel.thumbnail_url %}poster="{{ reel.thumbnail_url }}"{% endif %}></video>
         <span class="reel-play-icon" aria-hidden="true">▶</span>
       </button>
@@ -42,20 +43,26 @@
   </div>
 </section>
 <dialog class="reel-dialog" id="reel-dialog" aria-label="Reel video viewer"><button type="button" data-reel-close class="reel-close" aria-label="Close video">×</button><video controls playsinline autoplay muted></video></dialog>
-<script src="{{ url_for('static', filename='js/reels.js') }}" defer></script>
+<script src="{{ asset_url('js/reels.js') }}" defer></script>
 {% endif %}
 
 
 
 <div class="container home-shelves-shell">
+  {% set live_combos = rows.bundles|rejectattr('upcoming')|list %}
+  {% if live_combos or rows.offers %}
   <section class="sec rr-offers-section" aria-labelledby="offers-heading">
     <div class="sec__row">
       <div><h2 id="offers-heading" class="sec__h">Offers &amp; Combo</h2><p class="sec__sub">Deals and value packs from RR FOODS.</p></div>
       <div class="sec__tools"><a href="{{ url_for('shop.offers') }}">Explore all offers →</a></div>
     </div>
-    {# Offers & combo products are intentionally not listed on the home page: both spaces show "Coming soon" banners. #}
-    <div class="op-grid">{{ combo_banner() }}{{ offer_banner() }}</div>
+    {# Details live on /offers; the home page only points there, and only when something real is on offer. #}
+    <div class="op-grid">
+      {% if live_combos %}<a class="op op--combo" href="{{ url_for('shop.offers') }}#combo-bundles"><span class="op__body"><strong class="op__title">{{ live_combos|length }} combo pack{{ '' if live_combos|length == 1 else 's' }} available</strong><span class="op__text">Value packs of RR FOODS favourites.</span><span class="op__cta">See combo packs <span aria-hidden="true">→</span></span></span></a>{% endif %}
+      {% if rows.offers %}<a class="op op--offer" href="{{ url_for('shop.offers') }}#product-offers"><span class="op__body"><strong class="op__title">{{ rows.offers|length }} product{{ '' if rows.offers|length == 1 else 's' }} on offer</strong><span class="op__text">Discounted products, in stock now.</span><span class="op__cta">See offers <span aria-hidden="true">→</span></span></span></a>{% endif %}
+    </div>
   </section>
+  {% endif %}
 
   {% if rows.categories %}
   <section class="sec rr-categories-section" id="categories" aria-labelledby="cats-h">
@@ -87,10 +94,9 @@
   {% if rows.new %}
   <section class="sec rr-featured-section rr-new-arrivals" aria-labelledby="new-h">
     <div class="sec__row"><div><h2 id="new-h" class="sec__h">New Arrivals</h2></div><div class="sec__tools"><a href="{{ url_for('shop.listing', sort='newest') }}">View all →</a></div></div>
-    <div class="rr-loop" data-loop aria-label="New arrivals, scrolls automatically. Hover or touch to pause.">
+    <div class="rr-loop" data-loop role="region" aria-label="New arrivals product row" tabindex="0">
       <ul class="rr-loop__track" id="new-track">
-        {% for p in rows.new[:8] %}{{ s.rcard(p) }}{% endfor %}
-        {% for p in rows.new[:8] %}{{ s.rcard(p, true) }}{% endfor %}
+        {% for p in rows.new[:6] %}{{ s.rcard(p) }}{% endfor %}
       </ul>
     </div>
   </section>
@@ -113,36 +119,32 @@
 
 
 
-<section class="home-bottom container" aria-label="More from RR FOODS">
+<section class="home-bottom container{{ ' home-bottom--no-recent' if not recent }}{{ ' home-bottom--no-reviews' if not featured_reviews }}" aria-label="More from RR FOODS">
+  {% if recent %}
   <section class="home-bottom__recent" aria-labelledby="home-recent-heading">
     <header class="rv__head">
       <span class="rv__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
       <div class="rv__titles"><h2 id="home-recent-heading">Recently viewed</h2><p>Pick up where you left off.</p></div>
       <a class="rv__all" href="{{ url_for('shop.listing') }}">Browse all →</a>
     </header>
-    {% if recent %}
     <ul class="rv__list">{% for item in recent[:6] %}{{ s.rcard(item) }}{% endfor %}</ul>
-    {% else %}
-    <div class="rv__empty">
-      <span class="rv__empty-art" aria-hidden="true">{{ s.icon('leaf') }}</span>
-      <div><b>Nothing viewed yet</b><p>Products you open will show up here so you can get back to them quickly.</p></div>
-      <a class="rv__empty-btn" href="{{ url_for('shop.listing') }}">Start browsing</a>
-    </div>
-    {% endif %}
   </section>
+  {% endif %}
   <section class="home-bottom__story" aria-labelledby="home-story-heading">
     <div class="home-bottom__story-copy"><h2 id="home-story-heading">Our Story</h2><p>From our farm to your home – fresh, natural and full of goodness.</p><a href="{{ url_for('shop.about') }}">Read the RR FOODS story <span aria-hidden="true">→</span></a></div>
   </section>
+  {% if featured_reviews %}
   <section class="home-bottom__reviews sec" aria-labelledby="home-reviews-heading">
     <div class="sec__row"><h2 id="home-reviews-heading" class="sec__h"><span aria-hidden="true">★</span> Customer Reviews</h2><a href="{{ url_for('shop.listing') }}">View all →</a></div>
-    {% if featured_reviews %}<div class="home-bottom__review-track">
+    <div class="home-bottom__review-track">
       {% for review, product_name, customer_name in featured_reviews[:3] %}
       <article class="home-bottom__review"><div class="home-bottom__review-avatar" aria-hidden="true">{{ (customer_name[:1] if customer_name else 'C')|upper }}</div><div class="home-bottom__review-content">
         <div class="home-bottom__stars" aria-label="{{ review.rating }} out of 5 stars">{% for n in range(review.rating) %}★{% endfor %}</div>
         <p>“{{ review.body or review.title or ('Loved ' ~ product_name) }}”</p><div class="home-bottom__review-meta"><b>{{ customer_name.split()[0] if customer_name else 'Customer' }}</b>{% if review.is_verified_purchase %}<span>✓ Verified purchase</span>{% endif %}</div>
       </div></article>{% endfor %}
-    </div>{% else %}<p class="home-bottom__empty">Customer feedback will appear here as verified reviews are approved.</p>{% endif %}
+    </div>
   </section>
+  {% endif %}
   <section class="home-bottom__shortcuts" aria-labelledby="home-shortcuts-heading">
     <div class="home-bottom__shortcuts-head">
       <div><span class="home-bottom__shortcuts-eyebrow">MAKE SHOPPING EASIER</span><h2 id="home-shortcuts-heading">Your shopping shortcuts</h2>

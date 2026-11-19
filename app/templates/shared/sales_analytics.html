@@ -75,6 +75,6 @@
     <article class="sa-chart-card"><h3>Orders by pincode</h3>{% for item in sales_analytics.orders_by_pincode %}<p>{{ item.label }} · ₹{{ '%.2f'|format(item.value) }}</p>{% else %}<p>No pincode data.</p>{% endfor %}</article>
     <article class="sa-chart-card"><h3>Coupon performance</h3>{% for item in sales_analytics.coupon_performance %}<p>{{ item.code }} · {{ item.orders }} orders · ₹{{ '%.2f'|format(item.discount) }} discount</p>{% else %}<p>No coupon usage.</p>{% endfor %}</article>
   </div>
-  <p class="sa-footnote">Sales include orders in Confirmed, Packed, Shipped, Out for delivery and Delivered status. Placed, rejected, cancelled, returned and refunded orders are excluded. Product/category charts use saved order-item line totals.</p>
+  <p class="sa-footnote">Sales include orders in Confirmed, Packed, Shipped, Out for delivery and Delivered status. Awaiting confirmation, rejected, cancelled, returned and refunded orders are excluded. Product/category charts use saved order-item line totals.</p>
   <script type="application/json" id="sa-data">{{ sales_analytics|tojson }}</script>
 </section>

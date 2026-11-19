@@ -17,7 +17,7 @@ MAX_BANNERS_TOTAL = 50
 # One-click starting points. The admin still edits the text, colours and dates.
 TEMPLATES = {
     "festival": dict(title="Festival Sale", subtitle="Special festival offers on sweets and snacks", badge_text="FESTIVAL", button_text="Shop festival offers",
-                     bg_color="#7a1f3d", link_type="category", countdown_enabled=True),
+                     bg_color="#7a1f3d", link_type="url", link_target="/offers", countdown_enabled=True),
     "today": dict(title="Today's Special", subtitle="Fresh picks chosen for today", badge_text="TODAY", button_text="See today's special",
                   bg_color="#1b5e3b", link_type="url"),
     "flash": dict(title="Flash Sale", subtitle="Ends soon", badge_text="FLASH SALE", button_text="Grab the deal",
@@ -109,7 +109,7 @@ def _images(banner: HeaderBanner, errors: dict) -> tuple[list[str], list[str]]:
         upload = request.files.get(field)
         if upload and upload.filename:
             try:
-                url, _ = save_image(upload, "banners", max_side=max_side, thumb_side=None)
+                url, _ = save_image(upload, "banners", max_side=max_side, thumb_side=None, budget=None)
             except UploadError as exc:
                 errors[field] = f"{label}: {exc}"
                 delete_files(*saved)

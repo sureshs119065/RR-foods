@@ -7,7 +7,7 @@
   <div class="hc__viewport" tabindex="0" aria-label="Offers, use left and right arrow keys">
     <ul class="hc__track" aria-live="off">
       {% for b in carousel.banners %}
-      <li class="hc__slide hb-{{ b.id }}" role="group" aria-roledescription="slide" aria-label="{{ loop.index }} of {{ loop.length }}" data-ends="{{ b.ends_at or '' }}">
+      <li class="hc__slide hb-{{ b.id }}" data-ends="{{ b.ends_at or '' }}">
         {% if b.desktop_image or b.mobile_image %}
         <picture class="hc__pic">
           {% if b.desktop_image %}<source media="(min-width: 768px)" srcset="{{ b.desktop_image }}">{% endif %}

@@ -78,7 +78,7 @@ def stock_alert_update(product_id):
 def orders():
     status = request.args.get("status", "")
     term = (request.args.get("q") or "").strip()
-    q = select(Order).options(joinedload(Order.user))
+    q = select(Order).options(joinedload(Order.user)).where(Order.status != "pending_whatsapp")  # unconfirmed WhatsApp requests are not orders yet
     if status:
         q = q.where(Order.status == status)
     if term:

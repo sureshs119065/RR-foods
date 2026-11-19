@@ -2,6 +2,8 @@ name: pytest
 on:
   push:
   pull_request:
+  schedule:
+    - cron: "17 3 * * 1"   # weekly: new advisories appear without any code change
 permissions:
   contents: read
 jobs:
@@ -24,7 +26,7 @@ jobs:
       TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/rr_foods_test
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/rr_foods_test
       SECRET_KEY: ci-test-secret
-      FLASK_ENV: testing
+      FLASK_ENV: development   # create_app() refuses anything but production/development (tests themselves use TestConfig)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,6 +34,28 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements.txt
+      - run: pip install -r "$( [ -f requirements.lock ] && echo requirements.lock || echo requirements.txt )"   # step 5.7
       - run: flask db upgrade
       - run: pytest -q
+
+  # Step 5.7: dependency audit. Fails on ANY known vulnerability that is not listed (with reason + expiry) in security/audit-ignore.txt.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt pip-audit
+      - name: Exact pins (direct and indirect) of what was just installed
+        run: |
+          python tools/pin_requirements.py
+          python tools/pin_requirements.py --check
+      - name: pip-audit on the exact pins
+        run: python tools/audit_deps.py -r requirements.lock
+      - uses: actions/upload-artifact@v4
+        with:
+          name: requirements.lock
+          path: requirements.lock

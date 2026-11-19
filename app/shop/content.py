@@ -3,7 +3,9 @@ from urllib.parse import quote_plus
 from decimal import Decimal, ROUND_HALF_UP
 from flask import abort, current_app, flash, g, redirect, render_template, request, url_for
 from sqlalchemy import select
-from ..extensions import db
+from .. import ratelimits as limits
+from .. import validation as v
+from ..extensions import db, limiter
 from ..models import Bundle, CartItem, Product, RecipeVideo
 from ..services.storefront import active_variants
 from . import bp
@@ -22,10 +24,10 @@ def about():
 
 @bp.get("/recipes")
 def recipes():
-    q = request.args.get("q", "").strip()[:100]
-    category = request.args.get("category", "").strip()[:100]
+    q = v.search_query(request.args.get("q"), 100)
+    category = v.search_query(request.args.get("category"), 100)
     stmt = select(RecipeVideo).where(RecipeVideo.is_published.is_(True))
-    if q: stmt = stmt.where(RecipeVideo.title.ilike(f"%{q}%"))
+    if q: stmt = stmt.where(RecipeVideo.title.icontains(q, autoescape=True))
     if category: stmt = stmt.where(RecipeVideo.category == category)
     items = db.session.scalars(stmt.order_by(RecipeVideo.published_at.desc(), RecipeVideo.id.desc())).all()
     categories = db.session.scalars(select(RecipeVideo.category).where(RecipeVideo.is_published.is_(True), RecipeVideo.category.is_not(None)).distinct()).all()
@@ -118,16 +120,18 @@ def add_recipe_ingredients(recipe_id):
     recipe = db.session.get(RecipeVideo, recipe_id)
     if not recipe or not recipe.is_published: abort(404)
     from .cart import _add_one
+    from ..services.cart import CartOwner
     added = 0
     for pid in recipe.linked_product_ids or []:
         product = db.session.get(Product, int(pid))
         if product and product.is_active and not product.is_deleted:
-            _, ok = _add_one(g.user, product.id, None, 1)
+            _, ok = _add_one(CartOwner(user_id=g.user.id), product.id, None, 1)
             added += int(ok)
     flash(f"Added {added} linked ingredient product(s) to your cart." if added else "No linked products could be added.", "success" if added else "error")
     return redirect(url_for("shop.cart"))
 
 @bp.route("/help", methods=["GET", "POST"])
+@limiter.limit(limits.limit("contact"), methods=["POST"])
 def help_page():
     """Public contact page with a validated WhatsApp/email message handoff."""
     from ..services import whatsapp as wa
@@ -136,14 +140,20 @@ def help_page():
     support_email = (current_app.config.get("SUPPORT_EMAIL") or "").strip()
 
     if request.method == "POST":
-        name = " ".join((request.form.get("name") or "").split())[:100]
-        email = " ".join((request.form.get("email") or "").split())[:160]
-        phone = " ".join((request.form.get("phone") or "").split())[:30]
-        subject = " ".join((request.form.get("subject") or "").split())[:140]
-        message = (request.form.get("message") or "").strip()[:4000]
+        from ..auth.passwords import valid_email
+        errs: dict = {}
+        name = v.person_name(request.form.get("name"), "name", errs, label="Your name", max_=100)
+        raw_email = request.form.get("email")
+        email = v.email_address(raw_email, "email", errs, valid_email) if v.one_line(raw_email) else ""
+        phone = v.phone(request.form.get("phone"), "phone", errs, required=False)
+        subject = v.text_line(request.form.get("subject"), "subject", errs, label="A subject", max_=140)
+        message = v.multiline(request.form.get("message"), "message", errs, label="Your message", min_=10, max_=v.MAX["message"], required=True)
 
-        if len(name) < 2 or not subject or len(message) < 10:
-            flash("Please enter your name, a subject and a message of at least 10 characters.", "error")
+        if errs:
+            if {"name", "subject", "message"} & set(errs):
+                flash("Please check your name, subject and message (the message needs at least 10 characters). " + " ".join(errs.values()), "error")
+            else:
+                flash(" ".join(errs.values()), "error")
         elif not whatsapp_number and not support_email:
             flash("Contact messaging is not configured yet. Please contact the store team through your account.", "error")
         else:

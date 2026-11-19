@@ -164,12 +164,12 @@ def seed_header_banners() -> int:
     now = utcnow()
     samples = [
         dict(title="Diwali Mega Sale", subtitle="Festival offers on sweets and snacks", badge_text="FESTIVAL",
-             bg_color="#7a1f3d", button_text="Shop festival offers", link_type="category", link_target="sweets",
+             bg_color="#7a1f3d", button_text="Shop festival offers", link_type="url", link_target="/offers",
              start_at=now - timedelta(days=1), end_at=now + timedelta(days=12), countdown_enabled=True),
         dict(title="Today's Special", subtitle="Freshly packed breakfast mixes", badge_text="TODAY",
              bg_color="#1b5e3b", button_text="See today's special", link_type="category", link_target="breakfast"),
         dict(title="Flash Sale", subtitle="Ends soon. Prices drop for a few hours", badge_text="FLASH SALE",
-             bg_color="#b4234f", button_text="Grab the deal", link_type="url", link_target="/shop?sort=price-asc",
+             bg_color="#b4234f", button_text="Grab the deal", link_type="url", link_target="/offers",
              start_at=now - timedelta(hours=1), end_at=now + timedelta(hours=6), countdown_enabled=True),
         dict(title="Extra 10% off with coupon", subtitle="Use code WELCOME10 on orders above 299", badge_text="COUPON",
              bg_color="#0f3d27", button_text="Copy offer", link_type="coupon", link_target="WELCOME10"),

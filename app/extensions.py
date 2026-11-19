@@ -7,4 +7,5 @@ from flask_wtf.csrf import CSRFProtect
 db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()  # every POST/PUT/PATCH/DELETE must carry a valid CSRF token
-limiter = Limiter(get_remote_address, default_limits=[], storage_uri="memory://")
+# No storage_uri here on purpose: a constructor value beats RATELIMIT_STORAGE_URI, which silently kept Redis switched off.
+limiter = Limiter(get_remote_address, default_limits=[])

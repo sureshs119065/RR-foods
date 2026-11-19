@@ -35,6 +35,18 @@
 
 {% macro off_pct(mrp, price) -%}{% if mrp and mrp > price %}{{ (((mrp - price) * 100) / mrp)|round(0, 'floor')|int }}{% else %}0{% endif %}{%- endmacro %}
 
+{# Product image for cards and rows. The first 4 images of a page are high priority and never lazy (LCP); the rest are lazy.
+   Always has width/height (no layout shift); srcset offers the 400 px and 800 px copies when they exist. #}
+{% macro pimg(im, p, fallback_img, clone=false, alt=none) -%}
+{%- set hi = (not clone) and img_priority() -%}
+{%- set sizes = "(max-width: 600px) 46vw, (max-width: 1100px) 31vw, 280px" -%}
+{%- if im -%}{%- set ss = img_srcset(im.url, im.thumb_url) -%}
+<img src="{{ im.thumb_url or im.url }}"{% if ss %} srcset="{{ ss }}" sizes="{{ sizes }}"{% endif %} data-product-image data-product-full="{{ im.url or '' }}" data-product-fallback="{{ fallback_img or '' }}" alt="{{ alt if alt is not none else (im.alt or p.name) }}" {% if hi %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async" width="400" height="400">
+{%- elif fallback_img -%}{%- set ss = img_srcset(fallback_img) -%}
+<img src="{{ fallback_img }}"{% if ss %} srcset="{{ ss }}" sizes="{{ sizes }}"{% endif %} data-product-image data-product-fallback="" alt="{{ alt if alt is not none else p.name }}" {% if hi %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async" width="400" height="400">
+{%- else -%}<span class="pc__ph" aria-hidden="true"></span>{%- endif -%}
+{%- endmacro %}
+
 {% macro card(p) %}
 {% set im = p.primary_image %}{% set fallback_img = product_image_fallback(p) %}{% set pct = off_pct(p.mrp, p.final_price)|int %}{% set left = available_qty(p) %}
 <article class="pc{{ ' pc--out' if left <= 0 else '' }}">
@@ -42,7 +54,7 @@
     <button class="wish {{ 'is-on' if in_wishlist(p.id) else '' }}" type="submit" aria-pressed="{{ 'true' if in_wishlist(p.id) else 'false' }}" aria-label="{{ 'Remove ' ~ p.name ~ ' from wishlist' if in_wishlist(p.id) else 'Save ' ~ p.name ~ ' to wishlist' }}">♥</button></form>
   <a class="pc__link" href="{{ url_for('shop.product', slug=p.slug) }}">
     <span class="pc__img">
-      {% if im %}<img src="{{ im.thumb_url or im.url }}" data-product-image data-product-full="{{ im.url or '' }}" data-product-fallback="{{ fallback_img or '' }}" alt="{{ im.alt or p.name }}" loading="lazy" decoding="async" width="400" height="400">{% elif fallback_img %}<img src="{{ fallback_img }}" data-product-image data-product-fallback="" alt="{{ p.name }}" loading="lazy" decoding="async" width="400" height="400">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}
+      {{ pimg(im, p, fallback_img) }}
       {% if left <= 0 %}<span class="tag tag--out">Out of stock</span>{% endif %}
     </span>
     <span class="pc__body">
@@ -62,7 +74,7 @@
 </article>
 {% endmacro %}
 
-{% macro grid(products) %}<div class="pgrid">{% for p in products %}{{ card(p) }}{% endfor %}</div>{% endmacro %}
+{% macro grid(products, label='') %}{% if label %}<h2 class="sr-only">{{ label }}</h2>{% endif %}<div class="pgrid">{% for p in products %}{{ card(p) }}{% endfor %}</div>{% endmacro %}
 
 {% macro crumbs(items) %}
 <nav class="crumbs" aria-label="Breadcrumb"><ol>
@@ -92,7 +104,7 @@
 <li class="rc"{% if clone %} aria-hidden="true" inert{% endif %}>
   <form class="rc__wish" method="post" action="{{ url_for('shop.wishlist_toggle') }}" data-wish>{{ csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}"><button class="wish {{ 'is-on' if in_wishlist(p.id) else '' }}" type="submit" aria-pressed="{{ 'true' if in_wishlist(p.id) else 'false' }}" aria-label="{{ 'Remove ' ~ p.name ~ ' from wishlist' if in_wishlist(p.id) else 'Save ' ~ p.name ~ ' to wishlist' }}">♥</button></form>
   <a class="rc__img" href="{{ url_for('shop.product', slug=p.slug) }}" tabindex="-1" aria-hidden="true">
-    {% if im %}<img src="{{ im.thumb_url or im.url }}" data-product-image data-product-full="{{ im.url or '' }}" data-product-fallback="{{ fallback_img or '' }}" alt="{{ p.name }}" loading="lazy" decoding="async" width="400" height="400">{% elif fallback_img %}<img src="{{ fallback_img }}" data-product-image data-product-fallback="" alt="{{ p.name }}" loading="lazy" decoding="async" width="400" height="400">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}
+    {{ pimg(im, p, fallback_img, clone, alt=p.name) }}
     {% if left <= 0 %}<span class="tag tag--out">Out of stock</span>{% endif %}
   </a>
   <div class="rc__body">
@@ -110,3 +122,47 @@
 {% endmacro %}
 
 {% macro row_arrows(target) %}<span class="rowarrows"><button class="rowarrow" type="button" data-row-prev="{{ target }}" aria-label="Scroll back">{{ icon('left') }}</button><button class="rowarrow" type="button" data-row-next="{{ target }}" aria-label="Scroll forward">{{ icon('right') }}</button></span>{% endmacro %}
+
+{# ---- shared states (styles: .empty, .skel in storefront.css; behaviour: static/js/ui-states.js) ---- #}
+{% macro empty_state(title, text='', action_label='', action_url='', icon_name='cart', inline=false) %}
+<div class="empty{% if inline %} empty--inline{% endif %}">
+  <span class="empty__art" aria-hidden="true">{{ icon(icon_name) }}</span>
+  <h2>{{ title }}</h2>
+  {% if text %}<p class="muted">{{ text }}</p>{% endif %}
+  {% if action_label and action_url %}<div class="empty__act"><a class="btn" href="{{ action_url }}">{{ action_label }}</a></div>{% endif %}
+  {% if caller %}{{ caller() }}{% endif %}
+</div>
+{% endmacro %}
+
+{# Something went wrong (load failed, action refused). role="alert" so it is announced at once. #}
+{% macro error_state(title, text='', retry_url='', retry_label='Try again') %}
+<div class="empty empty--error" role="alert">
+  <span class="empty__art" aria-hidden="true">{{ icon('close') }}</span>
+  <h2>{{ title }}</h2>
+  {% if text %}<p class="muted">{{ text }}</p>{% endif %}
+  {% if retry_url %}<div class="empty__act"><a class="btn" href="{{ retry_url }}">{{ retry_label }}</a></div>{% endif %}
+</div>
+{% endmacro %}
+
+{# Skeletons are inert placeholders: hidden from assistive tech, announced once through the aria-busy container. #}
+{% macro skeleton_grid(n=8) %}
+<div class="skel-grid" aria-hidden="true">{% for _ in range(n) %}<div class="skel-card"><span class="skel skel--img"></span><span class="skel skel--line"></span><span class="skel skel--line"></span><span class="skel skel--btn"></span></div>{% endfor %}</div>
+{% endmacro %}
+
+{% macro skeleton_product() %}
+<div class="skel-product" aria-hidden="true">
+  <span class="skel skel--img"></span>
+  <div><span class="skel skel--title"></span><span class="skel skel--line"></span><span class="skel skel--line"></span><span class="skel skel--line"></span><span class="skel skel--btn"></span></div>
+</div>
+{% endmacro %}
+
+{% macro skeleton_cart(n=3) %}
+<ul class="skel-cart" aria-hidden="true">{% for _ in range(n) %}<li class="skel-card skel-card--row"><span class="skel skel--thumb"></span><div><span class="skel skel--line"></span><span class="skel skel--line"></span></div></li>{% endfor %}</ul>
+{% endmacro %}
+
+{# <template> holders the script clones into a container while a page action is loading. #}
+{% macro skeleton_templates() %}
+<template id="skel-listing">{{ skeleton_grid(8) }}</template>
+<template id="skel-product">{{ skeleton_product() }}</template>
+<template id="skel-cart">{{ skeleton_cart(3) }}</template>
+{% endmacro %}

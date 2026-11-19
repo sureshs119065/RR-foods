@@ -24,7 +24,7 @@ def _related_ids(product_id: int, limit: int):
     rows = db.session.execute(select(b.product_id, func.count(func.distinct(b.order_id)).label("orders"))
         .join(a, and_(a.order_id == b.order_id, a.product_id == product_id, b.product_id != product_id))
         .join(Order, Order.id == a.order_id)
-        .where(Order.status.not_in(("rejected", "cancelled", "returned", "refunded")), b.product_id.is_not(None))
+        .where(Order.status.not_in(("pending_whatsapp", "rejected", "cancelled", "returned", "refunded")), b.product_id.is_not(None))
         .group_by(b.product_id).order_by(func.count(func.distinct(b.order_id)).desc(), b.product_id).limit(30)).all()
     ids = [int(row[0]) for row in rows]
     with _LOCK:

@@ -1,0 +1,6 @@
+{# Flash messages: errors are announced at once (role="alert"), everything else politely (role="status"). #}
+{% macro flashes() %}
+{%- for category, message in get_flashed_messages(with_categories=true) -%}
+<div class="alert alert--{{ category }}" role="{{ 'alert' if category in ('error', 'danger') else 'status' }}">{{ message }}</div>
+{%- endfor -%}
+{% endmacro %}

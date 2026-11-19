@@ -33,7 +33,6 @@
         {{ nav_item('owner.dashboard', 'Dashboard', 'home', 'owner.dashboard') }}
         {{ nav_item('owner.orders', 'Orders', 'cart', 'owner.order', pending_count) }}
         {{ nav_item('owner.inventory', 'Inventory', 'box', 'owner.inventory') }}
-        {{ nav_item('owner.delivery_settings', 'Delivery slots', 'clock', 'owner.delivery_settings') }}
         <li><a href="{{ url_for('owner.inventory', stock='attention') }}" {% if here == 'owner.inventory' and request.args.get('stock') == 'attention' %}aria-current="page"{% endif %}>{{ m.icon('alert-triangle') }}<span class="label">Stock alerts</span>{% if low_stock_count %}<span class="nav__count" aria-label="{{ low_stock_count }} low-stock products">{{ low_stock_count if low_stock_count < 100 else '99+' }}</span>{% endif %}</a></li>
         {{ nav_item('owner.stock_history', 'Stock history', 'clock', 'owner.stock_history') }}
         {{ nav_item('owner.questions', 'Questions', 'log', 'owner.question') }}
@@ -55,9 +54,7 @@
       <span class="hint hide-sm">{{ current_user.name }}</span>
     </header>
     <main class="adm__main" id="main">
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% for category, message in messages %}<div class="alert alert--{{ category }}" role="status">{{ message }}</div>{% endfor %}
-      {% endwith %}
+      {% from 'shared/_flash.html' import flashes %}{{ flashes() }}
       {% block content %}{% endblock %}
     </main>
   </div>

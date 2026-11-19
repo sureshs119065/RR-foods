@@ -29,12 +29,14 @@ def unique_slug(model, base: str, exclude_id: int | None = None) -> str:
 
 
 def clean(value: str | None, limit: int | None = None) -> str:
-    text = " ".join((value or "").split())
+    from ..validation import one_line
+    text = one_line(value)
     return text[:limit] if limit else text
 
 
 def clean_multiline(value: str | None, limit: int) -> str:
-    return "\n".join(line.rstrip() for line in (value or "").replace("\r\n", "\n").split("\n")).strip()[:limit]
+    from ..validation import strip_controls
+    return "\n".join(line.rstrip() for line in strip_controls(value).replace("\r\n", "\n").split("\n")).strip()[:limit]
 
 
 def to_decimal(value: str | None, field: str, errors: dict, *, min_=None, max_=None, required=True, default=None):

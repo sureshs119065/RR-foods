@@ -12,12 +12,14 @@ from ..models.base import utcnow
 from ..services import invoice as invoice_svc
 from ..services import orders as order_svc
 from ..services import reviews as rv_svc
+from ..services import tracking as tracking_svc
 from . import bp
+from ..services.cart import CartOwner
 from .cart import _add_one
 
 user_only = roles_required("user")
 MAX_ADDRESSES = 10
-STEPS = (("placed", "Order placed"), ("confirmed", "Confirmed"), ("packed", "Packed"), ("shipped", "Shipped"), ("out_for_delivery", "Out for delivery"), ("delivered", "Delivered"))
+STEPS = (("placed", "Order received"), ("confirmed", "Confirmed"), ("packed", "Packed"), ("shipped", "Shipped"), ("out_for_delivery", "Out for delivery"), ("delivered", "Delivered"))
 STEP_OF = {}
 
 
@@ -65,8 +67,7 @@ def order_detail(order_number):
     return render_template("shop/order.html", order=order, steps=STEPS, when=when, current=current, labels=order_svc.LABELS,
                            reviewable=reviewable, review_products=products, my_reviews=my_reviews, moderation=rv_svc.moderation_on(),
                            can_cancel=order.status in order_svc.CANCELLABLE,
-                           can_return=order.status == "delivered" and utcnow() <= order_svc.return_deadline(order), return_deadline=order_svc.return_deadline(order),
-                           return_reasons=order_svc.RETURN_REASONS, can_invoice=order.status not in invoice_svc.NOT_INVOICEABLE,
+                           can_return=False, can_invoice=order.status not in invoice_svc.NOT_INVOICEABLE,
                            return_note=next((h.note for h in reversed(history) if h.to_status == "return_requested"), None), closed_note=next((h.note for h in reversed(history) if h.to_status in ("rejected", "cancelled")), None))
 
 
@@ -78,7 +79,8 @@ def order_status_json(order_number):
     order = db.session.scalar(select(Order).where(Order.order_number == order_number, Order.user_id == g.user.id))
     if order is None:
         abort(404)
-    resp = jsonify(status=order.status, label=order_svc.LABELS.get(order.status, order.status), updated=order.updated_at.isoformat() if order.updated_at else None, courier_name=order.courier_name, tracking_id=order.tracking_id, tracking_url=order.tracking_url, delivery_date=order.delivery_date.isoformat() if order.delivery_date else None, delivery_slot=order.delivery_slot)
+    closed = order.status in tracking_svc.NO_SHIPMENT
+    resp = jsonify(status=order.status, label=order_svc.LABELS.get(order.status, order.status), updated=order.updated_at.isoformat() if order.updated_at else None, courier_name=None if closed else order.courier_name, tracking_id=None if closed else order.tracking_id, tracking_url=None if closed else order.tracking_url, delivery_date=None if closed or not order.delivery_date else order.delivery_date.isoformat(), delivery_slot=None if closed else order.delivery_slot)
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -102,14 +104,8 @@ def order_cancel(order_number):
 @user_only
 def order_return(order_number):
     order = _mine(order_number)
-    try:
-        order_svc.request_return(order.id, g.user, request.form.get("reason", ""), request.form.get("note"))
-        db.session.commit()
-    except order_svc.OrderError as e:
-        db.session.rollback()
-        flash(str(e), "error")
-    else:
-        flash("Return requested. The shop will review it and tell you the decision.", "success")
+    # Returns are not offered at the moment, so customers cannot raise one.
+    flash("Returns are not available at the moment. Please contact the shop on WhatsApp if there is a problem with your order.", "info")
     return redirect(url_for("shop.order_detail", order_number=order_number))
 
 
@@ -134,7 +130,7 @@ def order_reorder(order_number):
         if not it.product_id:
             skipped.append(it.name)
             continue
-        msg, ok = _add_one(g.user, it.product_id, it.variant_id, it.quantity)
+        msg, ok = _add_one(CartOwner(user_id=g.user.id), it.product_id, it.variant_id, it.quantity)
         added += ok
         if not ok:
             skipped.append(it.name)
@@ -147,24 +143,24 @@ def order_reorder(order_number):
 
 # ---------------------------------------------------------------- addresses
 def parse_address(form) -> tuple[dict, dict]:
-    d = {"label": clean(form.get("label"), 40) or "Home", "full_name": clean(form.get("full_name"), 120), "phone": re.sub(r"\D", "", form.get("phone") or ""),
-         "line1": clean(form.get("line1"), 200), "line2": clean(form.get("line2"), 200) or None, "city": clean(form.get("city"), 80),
-         "state": clean(form.get("state"), 80), "pincode": re.sub(r"\s", "", form.get("pincode") or "")}
-    if len(d["phone"]) == 12 and d["phone"].startswith("91"):
-        d["phone"] = d["phone"][2:]
-    e = {}
-    if len(d["full_name"]) < 2:
+    from .. import validation as v
+    e: dict = {}
+    d = {"label": v.text_line(form.get("label"), "label", e, label="The label", max_=v.MAX["label"], required=False) or "Home",
+         "full_name": v.person_name(form.get("full_name"), "full_name", e, label="The receiver's name"),
+         "phone": v.phone(form.get("phone"), "phone", e),
+         "line1": v.text_line(form.get("line1"), "line1", e, label="House number and street", min_=3, max_=v.MAX["line"]),
+         "line2": v.text_line(form.get("line2"), "line2", e, label="Address line 2", max_=v.MAX["line"], required=False) or None,
+         "city": v.person_name(form.get("city"), "city", e, label="The city", max_=v.MAX["city"]),
+         "state": v.person_name(form.get("state"), "state", e, label="The state", max_=v.MAX["state"]),
+         "pincode": v.pincode(form.get("pincode"), "pincode", e)}
+    # keep the wording the page has always used for the common mistakes
+    if "full_name" in e and not d["full_name"]:
         e["full_name"] = "Enter the name of the person receiving the order."
-    if not re.fullmatch(r"[6-9]\d{9}", d["phone"]):
-        e["phone"] = "Enter a 10 digit mobile number."
-    if len(d["line1"]) < 3:
+    if "line1" in e and len(d["line1"]) < 3 and "<" not in d["line1"]:
         e["line1"] = "Enter house number and street."
-    if len(d["city"]) < 2:
-        e["city"] = "Enter the city."
-    if len(d["state"]) < 2:
-        e["state"] = "Enter the state."
-    if not re.fullmatch(r"\d{6}", d["pincode"]):
-        e["pincode"] = "Enter a 6 digit pincode."
+    for key, word in (("city", "city"), ("state", "state")):
+        if key in e and not d[key]:
+            e[key] = f"Enter the {word}."
     return d, e
 
 

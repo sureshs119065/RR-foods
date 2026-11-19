@@ -14,7 +14,7 @@
       <form method="post" action="{{ url_for('shop.address_delete', address_id=a.id) }}">{{ s.csrf() }}<button class="btn btn--danger" type="submit" data-confirm="Delete this address?">Delete</button></form>
     </div>
   </article>
-  {% else %}<div class="empty"><h2>No saved addresses</h2><p class="muted">Add one to check out faster.</p></div>{% endfor %}
+  {% else %}{{ s.empty_state('No saved addresses', 'Add one to check out faster.', icon_name='home') }}{% endfor %}
   {% if rows|length < limit %}<a class="btn" href="{{ url_for('shop.address_form') }}">+ Add address</a>{% endif %}
 </div>
 {% endblock %}

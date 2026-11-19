@@ -10,7 +10,7 @@ Never expose the Flask development server to the internet.
 flask check-config
 ```
 
-`[FIX]` items must be resolved: with `FLASK_ENV=production` the site refuses to start if `SECRET_KEY` is weak, the database still has the example password, cookies are not Secure, or debug is on. `[ADVICE]` items work but should be fixed soon (for example an empty `ADMIN_WHATSAPP_NUMBER`). Monitoring URLs: `/healthz` (process up), `/readyz` (database answers, 503 if not), `/health` (JSON database check and version).
+The site also refuses to start when `SECRET_KEY` is unset or `FLASK_ENV` is not `production`/`development`. `[FIX]` items must be resolved: with `FLASK_ENV=production` the site refuses to start if `SECRET_KEY` is weak, the database still has the example password, cookies are not Secure, or debug is on. `[ADVICE]` items work but should be fixed soon (for example an empty `ADMIN_WHATSAPP_NUMBER`). Monitoring URLs: `/healthz` (process up), `/readyz` (database answers, 503 if not), `/health` (JSON database check and version).
 
 Payments: there is no gateway. Customers pay the owner on WhatsApp and the owner marks the order Paid. Set `ADMIN_WHATSAPP_NUMBER`.
 
@@ -19,10 +19,10 @@ Payments: there is no gateway. Customers pay the owner on WhatsApp and the owner
 1. Push the project to GitHub (`.env` is gitignored).
 2. Render → New → PostgreSQL. Copy the **Internal Database URL** (the app accepts `postgresql://` as is).
 3. Render → New → Web Service → your repo, Python runtime:
-   - Build command: `pip install -r requirements.txt`
+   - Build command: `pip install -r requirements.txt && python tools/build_assets.py` (hashed, minified CSS/JS; without it the site still works but serves the large unminified files)
    - Start command: `flask db upgrade && gunicorn -c gunicorn.conf.py wsgi:app` (gunicorn binds to Render's `PORT` automatically)
    - Health check path: `/readyz`
-4. Environment variables: `PYTHON_VERSION=3.12.3`, `FLASK_APP=wsgi.py`, `FLASK_ENV=production`, `SECRET_KEY` (`python -c "import secrets; print(secrets.token_urlsafe(48))"`), `DATABASE_URL`, `TRUST_PROXY=1`, `SITE_URL=https://<your-service>.onrender.com`, `ADMIN_WHATSAPP_NUMBER=91XXXXXXXXXX`, `SHOP_TIMEZONE=Asia/Kolkata`, `UPLOAD_DIR=/var/data/uploads`.
+4. Environment variables: `PYTHON_VERSION=3.12.3`, `FLASK_APP=wsgi.py`, `FLASK_ENV=production`, `SECRET_KEY` (`python -c "import secrets; print(secrets.token_urlsafe(48))"`), `DATABASE_URL`, `TRUST_PROXY=1`, `RATELIMIT_STORAGE_URI` (the internal URL of a Render Key Value instance; required, the site will not start without it), `SITE_URL=https://<your-service>.onrender.com`, `ADMIN_WHATSAPP_NUMBER=91XXXXXXXXXX`, `SHOP_TIMEZONE=Asia/Kolkata`, `UPLOAD_DIR=/var/data/uploads`.
 5. Attach a **Disk** (paid instance) mounted at `/var/data`, or admin-uploaded images are lost on every deploy. Images bundled with the code (`app/static/img/products/`) survive on any plan.
 6. Create an admin from the Shell: `flask create-user you@example.com "Your Name" --role admin --password 'StrongPassword'`. Do not run `flask seed` on a live shop.
 7. Load the catalogue once: `flask import-rr-foods --yes`. Imported stock is 0; set real stock in Owner → Inventory before selling. Products without a bundled image get theirs via Admin → Products → Edit → Images.

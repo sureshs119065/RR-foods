@@ -24,8 +24,8 @@ def dashboard():
         "users": count(select(func.count(User.id)).where(User.role == "user", User.is_deleted.is_(False))),
     }
     stats["pending_orders"] = count(select(func.count(Order.id)).where(Order.status == "placed"))
-    stats["total_orders"] = count(select(func.count(Order.id)))
-    recent_orders = db.session.scalars(select(Order).options().order_by(Order.created_at.desc(), Order.id.desc()).limit(5)).all()
+    stats["total_orders"] = count(select(func.count(Order.id)).where(Order.status != "pending_whatsapp"))
+    recent_orders = db.session.scalars(select(Order).options().where(Order.status != "pending_whatsapp").order_by(Order.created_at.desc(), Order.id.desc()).limit(5)).all()
     low_items = db.session.scalars(select(Product).where(live, Product.stock_qty <= Product.low_stock_threshold).order_by(Product.stock_qty.asc()).limit(5)).all()
     import json
     from pathlib import Path

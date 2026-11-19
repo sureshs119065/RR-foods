@@ -1,11 +1,13 @@
 import re
 from decimal import Decimal
-from datetime import timezone
+from datetime import timedelta, timezone
 
-from flask import abort, jsonify, make_response, redirect, render_template, request, url_for
+from flask import abort, current_app, jsonify, make_response, redirect, render_template, request, url_for
 from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
+from .. import ratelimits as limits
+from .. import validation as v
 from ..extensions import db, limiter
 from flask import g
 from ..models import Category, Coupon, DeliveryZone, Product, ProductQuestion, Review, ReviewVote, User
@@ -65,6 +67,55 @@ def banner_colors():
     return resp
 
 
+def _money(d: Decimal) -> str:
+    d = Decimal(d)
+    return f"₹{d:,.0f}" if d == d.to_integral_value() else f"₹{d:,.2f}"
+
+
+def filter_chips(f: Filters, endpoint: str, cat, query_args: dict) -> list[dict]:
+    """One removable chip per active filter. Each chip's url is the current listing without that one filter
+    (page number dropped), so removing works without JavaScript and the result is shareable."""
+    args = {k: v for k, v in query_args.items() if k != "slug"}
+
+    def without(*keys, brand=None, **extra):
+        out = {}
+        for k, vals in args.items():
+            if k in keys:
+                continue
+            if k == "brand" and brand is not None:
+                vals = [v for v in vals if v != brand]
+                if not vals:
+                    continue
+            out[k] = vals
+        out.update(extra)
+        if endpoint == "shop.category_listing" and cat is not None:
+            return url_for(endpoint, slug=cat.slug, **out)
+        return url_for(endpoint, **out)
+
+    chips = []
+    if f.q:
+        # "relevance" only exists while searching, so leave it out of the URL once the search is removed
+        keep_sort = args.get("sort") and args["sort"] != ["relevance"]
+        chips.append({"label": f"Search: {f.q}", "url": without("q", *(() if keep_sort else ("sort",)))})
+    for b in f.brands:
+        chips.append({"label": b, "url": without(brand=b)})
+    if f.min_price is not None or f.max_price is not None:
+        if f.min_price is not None and f.max_price is not None:
+            label = f"{_money(f.min_price)} – {_money(f.max_price)}"
+        elif f.min_price is not None:
+            label = f"Over {_money(f.min_price)}"
+        else:
+            label = f"Under {_money(f.max_price)}"
+        chips.append({"label": label, "url": without("min_price", "max_price")})
+    if f.rating:
+        chips.append({"label": f"{f.rating}★ & up", "url": without("rating")})
+    if f.discount:
+        chips.append({"label": f"{f.discount}% off or more", "url": without("discount")})
+    if f.avail:
+        chips.append({"label": "In stock", "url": without("avail")})
+    return chips
+
+
 def _render_listing(*, slug=None, bestseller_only=False):
     f = Filters.from_args(request.args)
     if slug:
@@ -120,6 +171,7 @@ def _render_listing(*, slug=None, bestseller_only=False):
                    else url_for(endpoint, category=cat.slug, **clear_args) if cat
                    else url_for(endpoint, **clear_args)),
         index_ok=clean and f.page == 1, subcats=subcats,
+        filter_chips=filter_chips(f, endpoint, cat, query_args),
         bestseller_only=bestseller_only,
     )
 
@@ -127,6 +179,12 @@ def _render_listing(*, slug=None, bestseller_only=False):
 @bp.get("/shop")
 @limiter.limit("120 per minute")
 def listing():
+    # An empty search (no text, no other filter) must not take the customer anywhere: send them back to the page they were on.
+    if "q" in request.args and not request.args.get("q", "").strip() and set(request.args) == {"q"}:
+        from urllib.parse import urlsplit
+        ref = urlsplit(request.referrer or "")
+        same_site = ref.netloc == request.host and ref.path and ref.path != request.path
+        return redirect(ref.path + (f"?{ref.query}" if ref.query else "") if same_site else url_for("shop.home"))
     return _render_listing()
 
 
@@ -170,8 +228,6 @@ def product(slug):
     variants = active_variants(p)
     alert_on = bool(shopper and stock_alerts.has_alert(g.user.id, p.id))
     together = [item for item in storefront.bought_together(p) if not active_variants(item)]
-    from ..services.delivery_slots import get_settings as get_delivery_settings
-    delivery_settings = get_delivery_settings()
     from ..models import Bundle
     bundles = db.session.scalars(select(Bundle).where(Bundle.is_active.is_(True))).all()
     product_bundles = [b for b in bundles if any(int(x.get("product_id", 0)) == p.id for x in (b.product_quantities or []))]
@@ -179,7 +235,7 @@ def product(slug):
     catalogue_content = catalogue_for_product(p)
     return render_template("shop/product.html", p=p, variants=variants, stock=available_qty(p), offers=offers, coupons=coupons, reviews=reviews,
                            questions=questions, crumbs=crumbs, together=together, together_ids=[t.id for t in together if not active_variants(t)],
-                           similar=storefront.you_may_like(p), shopper=shopper, can_review=can_review, my_review=my_review, voted=voted, rating_dist=rating_dist, alert_on=alert_on, now=now, product_bundles=product_bundles, delivery_settings=delivery_settings,
+                           similar=storefront.you_may_like(p), shopper=shopper, can_review=can_review, my_review=my_review, voted=voted, rating_dist=rating_dist, alert_on=alert_on, now=now, product_bundles=product_bundles,
                            catalogue_content=catalogue_content)
 
 
@@ -283,7 +339,7 @@ def offers():
     now = utcnow()
     coupons = db.session.scalars(select(Coupon).where(Coupon.is_active.is_(True), (Coupon.expires_at.is_(None)) | (Coupon.expires_at > now)).order_by(Coupon.id)).all()
     return render_template("shop/offers.html", coupons=coupons,
-        highlight=(request.args.get("coupon") or "").upper()[:40],
+        highlight=(lambda c: c if v.COUPON_RE.fullmatch(c) else "")("".join(v.strip_controls(request.args.get("coupon")).upper().split())[:40]),
         bundle_cards=storefront.bundle_cards(), deal_products=storefront.deal_products())
 
 
@@ -291,15 +347,15 @@ def offers():
 @bp.get("/api/suggest")
 @limiter.limit("90 per minute")
 def api_suggest():
-    resp = jsonify(storefront.suggest(request.args.get("q", "")))
+    resp = jsonify(storefront.suggest(v.search_query(request.args.get("q"), 60)))
     resp.headers["Cache-Control"] = "public, max-age=30"
     return resp
 
 
 @bp.get("/api/pincode/<pin>")
-@limiter.limit("60 per minute")
+@limiter.limit(limits.limit("pincode"))
 def api_pincode(pin):
-    if not re.fullmatch(r"\d{6}", pin):
+    if not v.is_pincode(pin):
         return jsonify(ok=False, message="Enter a 6 digit pincode."), 422
     from ..services.delivery import zone_for, is_tamil_nadu_pincode
     zone = zone_for(pin)
@@ -326,6 +382,36 @@ def robots():
     resp = make_response(body)
     resp.mimetype = "text/plain"
     return resp
+
+
+@bp.get("/.well-known/security.txt")
+def security_txt():
+    """RFC 9116 contact file for people who find a vulnerability. Shown only when SECURITY_CONTACT is configured,
+    so the site never publishes a made-up address. Expires is rolling (now + 180 days) unless SECURITY_TXT_EXPIRES pins it."""
+    contact = (current_app.config.get("SECURITY_CONTACT") or "").strip()
+    if not contact or any(c in contact for c in "\r\n "):
+        abort(404)
+    if "@" in contact and not contact.lower().startswith(("mailto:", "https://", "tel:")):
+        contact = "mailto:" + contact
+    if not contact.lower().startswith(("mailto:", "https://", "tel:")):
+        abort(404)
+    expires = (current_app.config.get("SECURITY_TXT_EXPIRES") or "").strip()
+    if not expires:
+        expires = (utcnow().astimezone(timezone.utc) + timedelta(days=180)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    canonical = current_app.config["SITE_URL"] + "/.well-known/security.txt"
+    body = (f"Contact: {contact}\nExpires: {expires}\nPreferred-Languages: en, ta\nCanonical: {canonical}\n"
+            "Policy: Please report privately and give us reasonable time to fix before sharing details. "
+            "Do not access other customers' data or disrupt the shop.\n")
+    resp = make_response(body)
+    resp.mimetype = "text/plain"
+    resp.charset = "utf-8"
+    resp.headers["Cache-Control"] = "public, max-age=3600"
+    return resp
+
+
+@bp.get("/security.txt")
+def security_txt_legacy():
+    return redirect(url_for("shop.security_txt"), 301)
 
 
 @bp.get("/sitemap.xml")

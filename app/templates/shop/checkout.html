@@ -9,12 +9,16 @@
     {{ s.csrf() }}
     <input type="hidden" name="checkout_token" value="{{ checkout_token }}">
     <div>
+      <div class="alert alert--error" id="co-errors" role="alert" tabindex="-1" data-error-summary {% if not errors %}hidden{% endif %}>
+        <b>Please fix the following before placing your order:</b>
+        <ul id="co-errors-list">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      </div>
       <section class="panel2" aria-labelledby="addr-h">
         <h2 id="addr-h" class="h3">1. Delivery address</h2>
         {% if addrs %}
-          <label class="field"><span>Last checked pincode</span><input type="text" inputmode="numeric" autocomplete="postal-code" maxlength="6" data-checkout-pincode value="{{ chosen.pincode if chosen else '' }}" readonly aria-readonly="true"></label>
+          <p class="muted">Delivering to pincode: <b data-checkout-pincode>{{ chosen.pincode if chosen else '—' }}</b></p>
           {% if last_address %}<button class="btn btn--ghost" type="button" data-use-last-address="{{ last_address.id }}">Use my last address · {{ last_address.label }}</button>{% endif %}
-          <ul class="radios">
+          <ul class="radios" id="field-address_id" role="radiogroup" aria-label="Delivery address" aria-describedby="err-address_id" {% if field_errors.address_id %}aria-invalid="true"{% endif %}>
             {% for a in addrs %}{% set q = quotes[a.id] %}
             <li><label class="radio {% if not q.ok %}radio--bad{% endif %}">
               <input type="radio" name="address_id" value="{{ a.id }}" required {% if chosen and chosen.id == a.id %}checked{% endif %} {% if not q.ok %}aria-describedby="na-{{ a.id }}"{% endif %}
@@ -25,36 +29,22 @@
             {% endfor %}
           </ul>
         {% else %}<p class="notice">Add a delivery address to continue.</p>{% endif %}
+        <p class="cl__err" id="err-address_id" data-field-error {% if not field_errors.address_id %}hidden{% endif %}>{{ field_errors.address_id or '' }}</p>
         <a class="btn btn--ghost" href="{{ url_for('shop.address_form', next='/checkout') }}">+ Add a new address</a>
       </section>
 
-      <section class="panel2" aria-labelledby="slot-h">
-        <h2 id="slot-h" class="h3">2. Choose delivery date and time</h2>
-        <p class="muted small">Order before {{ delivery_settings.cutoff_time }} for next-day delivery, subject to available slots.</p>
-        {% if slot_dates %}
-          <label class="field"><span>Delivery date</span><select name="delivery_date" data-delivery-date required>
-            {% for item in slot_dates %}<option value="{{ item.value }}">{{ item.label }}</option>{% endfor %}
-          </select></label>
-          <label class="field"><span>Delivery slot</span><select name="delivery_slot" data-delivery-slot required>
-            {% for slot in slot_dates[0].slots %}<option value="{{ slot }}">{{ slot }}</option>{% endfor %}
-          </select></label>
-        {% else %}
-          <p class="alert alert--error" role="alert">No delivery slots are currently available. Please contact the shop before placing your order.</p>
-        {% endif %}
-      </section>
-
       <section class="panel2" aria-labelledby="pay-h">
-        <h2 id="pay-h" class="h3">3. Payment</h2>
+        <h2 id="pay-h" class="h3">2. Payment</h2>
         {% for key, label, hint in methods %}
         <input type="hidden" name="method" value="{{ key }}">
         <p class="notice"><b>{{ label }}</b><br><span class="muted small">{{ hint }}</span></p>
         {% endfor %}
-        <ol class="wa-steps muted small"><li>Place the order here.</li><li>WhatsApp opens with your order details ready. Press Send to contact the shop.</li><li>The shop shares payment details and confirms your order.</li></ol>
+        <ol class="wa-steps muted small"><li>Place your order request here.</li><li>Tap the WhatsApp button on the next page and press Send. Nothing is sent automatically.</li><li>Your order is confirmed only after the shop accepts it and shares payment details.</li></ol>
         <label class="field"><span>Note for the shop (optional)</span><textarea name="notes" rows="2" maxlength="500" placeholder="For example: call before delivery"></textarea></label>
       </section>
 
       <section class="panel2" aria-labelledby="items-h">
-        <h2 id="items-h" class="h3">4. Review items</h2>
+        <h2 id="items-h" class="h3">3. Review items</h2>
         <ul class="mini">
           {% for l in view.lines %}<li><span>{{ l.product.name }}{% if l.label %} <span class="muted">({{ l.label }})</span>{% endif %} × {{ l.qty }}</span><b>{{ s.inr(l.total) }}</b></li>{% endfor %}
         </ul>
@@ -75,9 +65,9 @@
       </dl>
       <div class="stickybar">
         <div class="stickybar__t"><span class="muted small">Total</span><b id="bar-total">{{ s.inr(t.total) }}</b></div>
-        <button class="btn" type="submit" {% if not addrs or not slot_dates %}disabled{% endif %}>Place order</button>
+        <button class="btn" type="submit" {% if not addrs %}disabled{% endif %}>Place order</button>
       </div>
-      <p class="muted small">Stock is checked again when you place the order.</p>
+      <p class="muted small">Stock is checked again when you place the order. Your delivery date depends on the courier and is shared once your order is packed and handed over.</p>
     </aside>
   <fieldset class="panel"><legend>Gift options (optional)</legend><label class="field"><span>Gift message</span><textarea name="gift_message" maxlength="500" rows="3"></textarea></label><label class="field"><input type="checkbox" name="hide_prices" value="1"> Hide prices on the invoice</label></fieldset>
 </form>

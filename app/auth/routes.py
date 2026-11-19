@@ -1,5 +1,7 @@
 from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
 
+from .. import ratelimits as limits
+from .. import validation as v
 from ..extensions import db, limiter
 from ..models import User
 from ..models.base import utcnow
@@ -12,8 +14,9 @@ bp = Blueprint("auth", __name__)
 
 
 def _rate_limit():
+    """Sign-in limit: per minute (LOGIN_RATE_LIMIT) plus an hourly cap, per IP."""
     from flask import current_app
-    return current_app.config["LOGIN_RATE_LIMIT"]
+    return f'{current_app.config["LOGIN_RATE_LIMIT"]};{limits.limit("login_hourly")()}'
 
 
 def _login(portal: str):
@@ -23,10 +26,12 @@ def _login(portal: str):
     email = ""
     error = None
     if request.method == "POST":
-        email = normalize_email(request.form.get("email", ""))
+        email = normalize_email(v.strip_controls(request.form.get("email", "")))
         password = request.form.get("password", "")
         if not email or not password:
             error = "Enter your email and password."
+        elif len(email) > v.MAX["email"] or len(password) > v.MAX["password"]:
+            error = "Incorrect email or password."   # never hash a megabyte-long "password"
         else:
             user, error = authenticate(portal, email, password)
             if user:
@@ -71,7 +76,7 @@ def logout():
 
 
 @bp.route("/register", methods=["GET", "POST"])
-@limiter.limit(_rate_limit, methods=["POST"])
+@limiter.limit(limits.limit("register"), methods=["POST"])
 def register():
     if g.user is not None:
         return redirect(PORTALS[g.user.role]["home"])
@@ -79,19 +84,21 @@ def register():
     errors: dict[str, str] = {}
     if request.method == "POST":
         # Only these fields are read. A "role" field in the request is ignored, so nobody can sign up as admin.
-        name = " ".join(request.form.get("name", "").split())
-        email = normalize_email(request.form.get("email", ""))
-        phone_raw = request.form.get("phone", "")
+        name = v.one_line(request.form.get("name", ""))
+        email = normalize_email(v.strip_controls(request.form.get("email", "")))
+        phone_raw = v.strip_controls(request.form.get("phone", ""))[:v.MAX["phone_raw"]]
         password = request.form.get("password", "")
         confirm = request.form.get("confirm", "")
         form = {"name": name, "email": email, "phone": phone_raw}
 
-        if len(name) < 2 or len(name) > 120:
+        v.person_name(name, "name", errors, label="Your name")
+        if "name" in errors and not 2 <= len(name) <= v.MAX["name"]:
             errors["name"] = "Enter your name (2 to 120 characters)."
-        if not valid_email(email):
+        if not valid_email(email) or len(email) > v.MAX["email"]:
             errors["email"] = "Enter a valid email address."
-        phone = normalize_phone(phone_raw)
-        if phone == "":
+        phone_errors: dict = {}
+        phone = v.phone(phone_raw, "phone", phone_errors, required=False) or None
+        if phone_errors:
             errors["phone"] = "Enter a 10 digit mobile number, or leave it empty."
         problems = password_problems(password, email, name)
         if problems:
@@ -123,7 +130,7 @@ def account():
     from sqlalchemy import func, select
     from sqlalchemy.orm import selectinload
     from ..models import Address, Notification, Order, WishlistItem
-    total_orders = db.session.scalar(select(func.count(Order.id)).where(Order.user_id == g.user.id)) or 0
+    total_orders = db.session.scalar(select(func.count(Order.id)).where(Order.user_id == g.user.id, Order.status != "pending_whatsapp")) or 0
     active_orders = db.session.scalar(select(func.count(Order.id)).where(Order.user_id == g.user.id,
         Order.status.in_(("placed", "confirmed", "packed", "shipped", "out_for_delivery")))) or 0
     wishlist_count = db.session.scalar(select(func.count(WishlistItem.id)).where(WishlistItem.user_id == g.user.id)) or 0
@@ -152,7 +159,7 @@ def _change_password(template: str, done_url: str):
         current = request.form.get("current", "")
         new = request.form.get("new", "")
         confirm = request.form.get("confirm", "")
-        if not verify_password(g.user.password_hash, current):
+        if len(current) > v.MAX["password"] or not verify_password(g.user.password_hash, current):
             errors["current"] = "Your current password is not correct."
         problems = password_problems(new, g.user.email, g.user.name)
         if problems:

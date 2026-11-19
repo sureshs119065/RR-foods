@@ -15,18 +15,23 @@ What a move does, all in ONE database transaction (the caller commits):
   5. sends the customer an in-app notification;
   6. writes an audit log entry.
 
-Contract with checkout (Step 6): stock is taken off the shelf when the order is placed, and a coupon use row is written then.
-Rejecting gives both back.
+Contract with checkout: checkout only records a REQUEST (status "pending_whatsapp"). Nothing is taken for it. The customer
+must send the order on WhatsApp, and when the shop sees that message it presses "Message received" (confirm_whatsapp_received).
+Only then does the request become a real order ("placed"): stock is taken off the shelf, a coupon use row is written and the
+customer's cart lines are cleared. Rejecting such an order gives stock and coupon back. A request that is never confirmed is
+discarded or expires (expire_stale_requests) and leaves no trace in stock, coupons, sales or the owner's queues.
 """
 from sqlalchemy import select, update
 
 from ..auth.service import audit
 from ..extensions import db
-from ..models import Order, OrderItem, OrderStatusHistory, Product, User
+from ..models import CartItem, Coupon, CouponUsage, Order, OrderItem, OrderStatusHistory, Product, User
 from ..models.base import utcnow
+from ..models.orders import DRAFT_STATUS
 from .coupons import release as release_coupon
-from .inventory import restore_order_stock
+from .inventory import StockError, restore_order_stock, take_order_stock
 from .notify import notify
+from .tracking import clear_shipment
 
 TRANSITIONS: dict[str, tuple[str, ...]] = {
     "placed": ("confirmed", "rejected"),
@@ -42,7 +47,8 @@ TRANSITIONS: dict[str, tuple[str, ...]] = {
 REVENUE_STATUSES = ("confirmed", "packed", "shipped", "out_for_delivery", "delivered")
 
 LABELS = {
-    "placed": "Placed", "confirmed": "Confirmed", "rejected": "Rejected", "packed": "Packed", "shipped": "Shipped",
+    DRAFT_STATUS: "Waiting for your WhatsApp message",
+    "placed": "Awaiting confirmation", "confirmed": "Confirmed", "rejected": "Rejected", "packed": "Packed", "shipped": "Shipped",
     "out_for_delivery": "Out for delivery", "delivered": "Delivered", "cancelled": "Cancelled", "return_requested": "Return requested", "returned": "Returned",
     "refunded": "Refunded",
 }
@@ -106,6 +112,7 @@ def change_status(order_id: int, to: str, actor, reason: str | None = None, expe
     if to == "confirmed" and mark_paid and order.payment_status == "pending":
         _set_paid(order, True)  # the owner has already received the money on WhatsApp
     if to == "rejected":
+        clear_shipment(order)  # never shipped: no courier, tracking or delivery date
         order.rejection_reason = reason or None
         restore_order_stock(order, f"order {order.order_number} rejected", actor.id)
         release_coupon(order)
@@ -134,7 +141,7 @@ def change_status(order_id: int, to: str, actor, reason: str | None = None, expe
     return order
 
 
-NO_PAYMENT_CHANGE = ("rejected", "cancelled", "refunded")
+NO_PAYMENT_CHANGE = (DRAFT_STATUS, "rejected", "cancelled", "refunded")
 
 
 def set_payment(order_id: int, paid: bool, actor) -> tuple[Order, bool]:
@@ -187,29 +194,108 @@ def _notify_customer(order: Order, to: str, reason: str) -> None:
            link=f"/account/orders/{order.order_number}")
 
 
-CANCELLABLE = ("placed", "confirmed", "packed")  # a customer may cancel until the parcel is shipped
+CANCELLABLE = (DRAFT_STATUS, "placed")  # a customer may cancel only until the shop confirms the order; after that only the shop can close it
 
 
 def cancel_by_customer(order_id: int, user) -> Order:
-    """Customer cancels their own order before it ships. Same safety rules as a rejection (lock, history, stock back, coupon back)."""
+    """Customer cancels their own order before it ships. Same safety rules as a rejection (lock, history, stock back, coupon back).
+
+    A request that was never confirmed by the shop (pending_whatsapp) holds no stock and no coupon, so there is nothing to give back
+    and the owner is not bothered with it."""
     order = lock_order(order_id)
     if order is None or order.user_id != user.id:
         raise OrderError("We could not find that order.")
     if order.status not in CANCELLABLE:
-        raise OrderError("This order has already shipped or is closed, so it can no longer be cancelled.")
+        raise OrderError("The shop has already confirmed this order, so it can no longer be cancelled here. Please contact the shop on WhatsApp." if order.status in ("confirmed", "packed", "shipped", "out_for_delivery", "delivered")
+                         else "This order is closed, so it can no longer be cancelled.")
     current = order.status
+    request_only = current == DRAFT_STATUS
     order.status = "cancelled"
     order.updated_at = utcnow()
-    db.session.add(OrderStatusHistory(order_id=order.id, from_status=current, to_status="cancelled", changed_by=user.id, note="Cancelled by customer"))
-    restore_order_stock(order, f"order {order.order_number} cancelled by customer", None)
-    release_coupon(order)
-    audit("order.cancelled_by_customer", entity_type="order", entity_id=order.id, actor_id=user.id,
+    clear_shipment(order)  # a cancelled order shows no courier, tracking or delivery date
+    db.session.add(OrderStatusHistory(order_id=order.id, from_status=current, to_status="cancelled", changed_by=user.id,
+                                      note="Cancelled by customer before it was sent on WhatsApp" if request_only else "Cancelled by customer"))
+    if not request_only:
+        restore_order_stock(order, f"order {order.order_number} cancelled by customer", None)
+        release_coupon(order)
+    audit("order.request_cancelled_by_customer" if request_only else "order.cancelled_by_customer", entity_type="order", entity_id=order.id, actor_id=user.id,
           before={"status": current}, after={"status": "cancelled", "order_number": order.order_number})
+    if request_only:
+        return order
     for owner_id in db.session.scalars(select(User.id).where(User.role == "owner", User.is_deleted.is_(False), User.is_blocked.is_(False))):
         notify(owner_id, "order_cancelled", f"Order {order.order_number} was cancelled by the customer",
                "The items are back in stock." + (" It was paid online: refund the customer." if order.payment_status == "paid" else ""),
                link=f"/owner/orders/{order.id}")
     return order
+
+
+# ---------------------------------------------------------------- the WhatsApp step: request -> real order
+REQUEST_LIFETIME_HOURS = 48  # a request nobody sent on WhatsApp is closed after this long
+
+
+def confirm_whatsapp_received(order_id: int, actor) -> Order:
+    """The shop has the customer's WhatsApp message: the request becomes a real order ("placed").
+
+    One transaction (the caller commits): lock the order, take the stock (refused if the shelf cannot cover it), record the coupon
+    use, clear the customer's cart lines for these items, write history and audit, tell the customer."""
+    order = lock_order(order_id)
+    if order is None:
+        raise OrderError("That order no longer exists.")
+    if order.status != DRAFT_STATUS:
+        raise StaleOrder(f"This order is now “{LABELS.get(order.status, order.status)}”, so nothing was changed. Reload to see the latest.")
+    try:
+        take_order_stock(order, f"order {order.order_number} confirmed on WhatsApp", actor.id)
+    except StockError as e:
+        raise OrderError(f"Not placed: {e} Reject the request or update the stock first.") from e
+    if order.coupon_id:
+        coupon = db.session.get(Coupon, order.coupon_id, with_for_update=True)
+        if coupon:
+            coupon.used_count += 1
+            db.session.add(CouponUsage(coupon_id=coupon.id, user_id=order.user_id, order_id=order.id))
+    pairs = {(i.product_id, i.variant_id) for i in order.items if i.product_id}
+    for cart_line in db.session.scalars(select(CartItem).where(CartItem.user_id == order.user_id, CartItem.saved_for_later.is_(False))):
+        if (cart_line.product_id, cart_line.variant_id) in pairs:
+            db.session.delete(cart_line)
+    order.status = "placed"
+    order.updated_at = utcnow()
+    db.session.add(OrderStatusHistory(order_id=order.id, from_status=DRAFT_STATUS, to_status="placed", changed_by=actor.id,
+                                      note="WhatsApp message received by the shop"))
+    notify(order.user_id, "order_status", f"Order {order.order_number} received on WhatsApp",
+           "The shop has your order message. It is confirmed once the shop accepts it and shares the payment details.",
+           link=f"/account/orders/{order.order_number}")
+    audit("order.place", entity_type="order", entity_id=order.id, actor_id=actor.id,
+          before={"status": DRAFT_STATUS}, after={"order_number": order.order_number, "total": str(order.total), "method": order.payment_method, "status": "placed"})
+    return order
+
+
+def discard_request(order_id: int, actor, note: str = "Discarded by the shop: the WhatsApp message never arrived") -> Order:
+    """The shop closes a request whose message it never got. Nothing was taken for it, so nothing is given back."""
+    order = lock_order(order_id)
+    if order is None:
+        raise OrderError("That order no longer exists.")
+    if order.status != DRAFT_STATUS:
+        raise StaleOrder(f"This order is now “{LABELS.get(order.status, order.status)}”, so nothing was changed. Reload to see the latest.")
+    _close_request(order, actor.id if actor else None, note)
+    return order
+
+
+def _close_request(order: Order, actor_id: int | None, note: str) -> None:
+    order.status = "cancelled"
+    order.updated_at = utcnow()
+    clear_shipment(order)
+    db.session.add(OrderStatusHistory(order_id=order.id, from_status=DRAFT_STATUS, to_status="cancelled", changed_by=actor_id, note=note))
+    audit("order.request_closed", entity_type="order", entity_id=order.id, actor_id=actor_id,
+          before={"status": DRAFT_STATUS}, after={"status": "cancelled", "order_number": order.order_number, "reason": note})
+
+
+def expire_stale_requests(hours: int = REQUEST_LIFETIME_HOURS) -> int:
+    """Close requests that were never sent on WhatsApp. Returns how many. The caller commits."""
+    from datetime import timedelta
+    cutoff = utcnow() - timedelta(hours=max(1, hours))
+    stale = db.session.scalars(select(Order).where(Order.status == DRAFT_STATUS, Order.created_at < cutoff).with_for_update().execution_options(populate_existing=True)).all()
+    for order in stale:
+        _close_request(order, None, f"Closed automatically: no WhatsApp message within {hours} hours")
+    return len(stale)
 
 
 RETURN_REASONS = ("Damaged or leaking", "Wrong item received", "Quality not as expected", "Item expired or near expiry", "Ordered by mistake", "Other")

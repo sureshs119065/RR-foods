@@ -56,17 +56,43 @@ def create_app(config_object=None):
     if app.config.get("TRUST_PROXY"):
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
-    from .prodcheck import config_problems, is_production
+    from .prodcheck import config_problems, is_production, startup_errors
     import sys
+    if not app.config.get("TESTING") and "check-config" not in sys.argv:
+        errors = startup_errors(app)
+        if errors:
+            raise RuntimeError("Refusing to start:\n  - " + "\n  - ".join(errors) + "\nSee .env.production.example.")
     if is_production(app) and "check-config" not in sys.argv:   # `flask check-config` must still run to list the problems
         fatal, _ = config_problems(app)
         if fatal:
             raise RuntimeError("Refusing to start in production with unsafe settings:\n  - " + "\n  - ".join(fatal)
                                + "\nFix these in .env (see .env.production.example), or run `flask check-config` for the full list.")
 
+    from flask.sessions import SecureCookieSessionInterface
+
+    class _SessionInterface(SecureCookieSessionInterface):
+        """Static files never set or refresh the session cookie. Without this, a signed-in customer's permanent session was
+        re-sent as Set-Cookie on every CSS/JS/image/font response, which shared caches refuse to reuse."""
+        def should_set_cookie(self, app, session):
+            return request.endpoint != "static" and super().should_set_cookie(app, session)
+
+    app.session_interface = _SessionInterface()
+
     db.init_app(app)
     from . import models  # noqa: F401  (registers every table with Alembic)
     migrate.init_app(app, db)
+    from .services import home_cache
+    home_cache.init_app(app)  # empties the home-page cache when a product or category change is committed
+    @app.before_request
+    def _cap_customer_uploads():
+        """Step 5.5: only /admin and /owner may send big uploads (videos, several product photos). Everywhere else the whole
+        request is capped (16 MB: three 5 MB review photos plus form fields), and Werkzeug answers 413 before reading it.
+        Registered before csrf.init_app(): the CSRF check reads the form, so the cap must already be in place."""
+        if not request.path.startswith(("/admin", "/owner")):
+            cap = app.config.get("CUSTOMER_MAX_CONTENT_LENGTH")
+            if cap and (app.config.get("MAX_CONTENT_LENGTH") or cap) > cap:
+                request.max_content_length = cap
+
     csrf.init_app(app)
     limiter.init_app(app)
 
@@ -74,6 +100,23 @@ def create_app(config_object=None):
     def _assign_request_id():
         supplied = request.headers.get("X-Request-ID", "")
         g.request_id = supplied[:64] if supplied and re.fullmatch(r"[A-Za-z0-9._-]{1,64}", supplied) else uuid.uuid4().hex
+
+    @app.before_request
+    def _reject_nul_bytes():
+        """PostgreSQL text cannot hold a NUL byte, so one in a URL, query string, form field or JSON body used to end in a 500.
+        Refuse it up front with a 400 (step 5.4). The CSP report route cleans its own body."""
+        if request.endpoint == "csp.csp_report":
+            return None
+        bad = "\x00" in request.path or any("\x00" in str(x) for x in (request.view_args or {}).values())
+        bad = bad or any("\x00" in k or "\x00" in x for k, x in request.args.items(multi=True))
+        if not bad and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+            bad = any("\x00" in k or "\x00" in x for k, x in request.form.items(multi=True))
+            if not bad and request.is_json and (request.content_length or 0) <= 262144:
+                raw = request.get_data(cache=True)
+                bad = b"\x00" in raw or b"\\u0000" in raw
+        if bad:
+            from flask import abort
+            abort(400)
 
     @app.after_request
     def _request_id_header(resp):
@@ -94,37 +137,36 @@ def create_app(config_object=None):
     app.register_blueprint(media_bp)
     from .api import bp as api_bp
     app.register_blueprint(api_bp)
+    from .csp import bp as csp_bp
+    app.register_blueprint(csp_bp)
 
-    from .cli import register_check_cli, register_cli, register_mail_cli, register_settings_cli, register_stock_alert_cli
+    from .cli import register_check_cli, register_cli, register_mail_cli, register_order_request_cli, register_settings_cli, register_stock_alert_cli
     register_cli(app)
     register_settings_cli(app)
     register_mail_cli(app)
     register_stock_alert_cli(app)
+    register_order_request_cli(app)
     from .cli import register_stock_notification_sync_cli
     register_stock_notification_sync_cli(app)
     register_check_cli(app)
+    from .cli import register_guest_cart_cli
+    register_guest_cart_cli(app)
+    from .cli import register_image_cli
+    register_image_cli(app)
+    from .cli import register_check_images_cli
+    register_check_images_cli(app)
 
-    # Lightweight backfill on first request and at most hourly per worker.
-    # For reliable scheduling on Render, also run `flask sync-stock-notifications`
-    # from a Render Cron Job every 15-60 minutes.
-    from datetime import datetime, timedelta, timezone
-    _last_stock_sync = [None]
-    @app.before_request
-    def _periodic_stock_notification_sync():
-        now = datetime.now(timezone.utc)
-        if _last_stock_sync[0] and now - _last_stock_sync[0] < timedelta(minutes=30):
-            return
-        _last_stock_sync[0] = now
-        try:
-            from .services.inventory import sync_stock_notifications
-            sync_stock_notifications()
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
-            app.logger.exception("Stock notification reconciliation failed")
+    # Stock-alert reconciliation is NOT done per request any more (step 4.2): a GET must never write to the database.
+    # It runs from cron: `flask sync-stock-notifications` every 30 minutes (see deploy/crontab.txt and deploy/DEPLOY.md).
 
     @app.before_request
     def _load_user():
+        if request.endpoint == "static":
+            # Step 4: CSS/JS/images/fonts hold nothing personal. Loading the user here cost a SELECT per asset for signed-in
+            # customers, refreshed the session cookie (Set-Cookie on every file) and added `Vary: Cookie`, which stops shared
+            # caches from reusing the "public, immutable" files.
+            g.user = None
+            return
         load_current_user()
 
     from .admin.helpers import ago, local_display, local_input
@@ -141,35 +183,13 @@ def create_app(config_object=None):
     app.jinja_env.globals["wa_customer_link"] = wa.customer_link    # owner -> customer: status message already written
 
     def product_image_fallback(product):
-        """Return a bundled product photo when an admin-uploaded product image is absent or broken."""
+        """Photo for a product with no usable uploaded image: the bundled file named exactly like its slug, else one neutral
+        placeholder drawing (step 2.4). Never a photo of a different product."""
         if not product:
             return None
-        slug = re.sub(r"[^a-z0-9-]+", "-", (getattr(product, "slug", "") or "").lower()).strip("-")
-        image_root = Path(app.static_folder) / "img" / "products"
-        candidates = []
-        if slug:
-            candidates.extend([f"{slug}.webp", f"{slug}.png", f"{slug}.jpg"])
-        name = f"{getattr(product, 'name', '')} {getattr(getattr(product, 'category', None), 'name', '')}".lower()
-        if "millet-soup-mix" in slug or ("millet soup mix" in name and "moringa" not in name):
-            candidates.append("soup-base-mix.webp")
-        keyword_map = [
-            (("soup",), ["moringa-soup-mix.webp", "soup-base-mix.webp"]),
-            (("noodle",), ["multi-millet-noodles.webp", "foxtail-millet-noodles.webp"]),
-            (("semiya", "vermicelli"), ["multi-millet-semiya.webp", "little-millet-semiya.webp"]),
-            (("pasta", "macaroni"), ["beetroot-pasta.webp", "multi-millet-pasta.webp"]),
-            (("podi", "idli"), ["tirunelveli-idli-podi.webp", "inippu-ellu-idli-podi.webp"]),
-            (("flour", "atta", "ragi", "grain", "dal", "millet"), ["multi-millet-chapati-mix.webp", "multi-millet-muesli.webp"]),
-            (("seed", "nut", "chana", "laddu", "snack", "dry fruit", "muesli"), ["multi-millet-muesli.webp", "multi-millet-chapati-mix.webp"]),
-        ]
-        for words, files in keyword_map:
-            if any(word in name for word in words):
-                candidates.extend(files)
-                break
-        candidates.extend(["multi-millet-muesli.webp", "soup-base-mix.webp"])
-        for filename in candidates:
-            if (image_root / filename).is_file():
-                return url_for("static", filename=f"img/products/{filename}")
-        return None
+        from .placeholders import PLACEHOLDER, bundled_photo
+        filename = bundled_photo(app.static_folder, getattr(product, "slug", ""))
+        return url_for("static", filename=f"img/products/{filename}" if filename else PLACEHOLDER)
 
     def product_image_src(image, product=None, thumbnail=False):
         """Resolve a product image URL against the configured upload store without losing CDN URLs."""
@@ -215,6 +235,9 @@ def create_app(config_object=None):
     app.jinja_env.globals["product_image_fallback"] = product_image_fallback
     app.jinja_env.globals["product_image_src"] = product_image_src
 
+    from .assets import init_assets
+    init_assets(app)  # registered before _security_headers, so its hook runs after it and wins for /static/
+
     @app.context_processor
     def _inject():
         return {"current_user": g.get("user"), "current_language": (g.get("user").preferred_language if g.get("user") else request.cookies.get("language", "en"))}
@@ -226,11 +249,19 @@ def create_app(config_object=None):
         resp.headers.setdefault("Cross-Origin-Resource-Policy", "same-site")
         resp.headers.setdefault("X-Frame-Options", "DENY")
         resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        resp.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
+        # Step 5.3 review: nothing on the site uses these features, so they are off for the page and for the YouTube frame.
+        # Left alone on purpose: accelerometer, gyroscope, autoplay, encrypted-media, picture-in-picture, clipboard-write and
+        # web-share, which the embedded recipe video asks for in its allow="" attribute, and fullscreen.
+        resp.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), "
+                                "bluetooth=(), hid=(), midi=(), magnetometer=(), display-capture=(), xr-spatial-tracking=(), "
+                                "browsing-topics=(), interest-cohort=()")
         resp.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
-        if request.is_secure and not app.config.get("TESTING"):  # only meaningful (and only valid) over HTTPS
-            resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-        csp = "default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data: https:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; frame-ancestors 'none'; form-action 'self'"
+        hsts = app.config.get("HSTS_SECONDS", 31536000)
+        # Production is HTTPS-only, and behind a proxy without TRUST_PROXY request.is_secure is False, so do not depend on it there.
+        if hsts and ((request.is_secure and not app.config.get("TESTING")) or is_production(app)):
+            resp.headers.setdefault("Strict-Transport-Security", f"max-age={hsts}; includeSubDomains")
+        csp = "default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data: https:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; frame-ancestors 'none'; form-action 'self'; report-uri /csp-report; report-to csp-endpoint"
+        resp.headers.setdefault("Reporting-Endpoints", 'csp-endpoint="/csp-report"')
         if request.is_secure:
             csp += "; upgrade-insecure-requests"
         resp.headers.setdefault("Content-Security-Policy", csp)
@@ -248,6 +279,7 @@ def create_app(config_object=None):
 
     app.register_error_handler(403, _error(403, "Not allowed", "Your account does not have access to this page."))
     app.register_error_handler(404, _error(404, "Page not found", "That page does not exist or has moved."))
+    app.register_error_handler(413, _error(413, "File too large", "That upload is too big. Use smaller images (5 MB each) and try again."))
     app.register_error_handler(429, _error(429, "Too many attempts", "Please wait a minute and try again."))
     app.register_error_handler(500, _error(500, "Something went wrong", "We could not finish that. Please try again."))
     from flask_wtf.csrf import CSRFError

@@ -5,17 +5,17 @@
 <section class="card narrow">
   <h1>{{ cfg.label }} sign in</h1>
   {% if portal != 'user' %}<p class="muted">Staff area. Customers sign in <a href="/login">here</a>.</p>{% endif %}
-  {% if error %}<div class="alert alert--error" role="alert">{{ error }}</div>{% endif %}
+  {% if error %}<div class="alert alert--error" role="alert" id="login-err">{{ error }}</div>{% endif %}
   <form method="post" class="form" novalidate>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="next" value="{{ next }}">
     <label class="field">
       <span>Email</span>
-      <input type="email" name="email" value="{{ email }}" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required {% if not email %}autofocus{% endif %}>
+      <input type="email" name="email" value="{{ email }}" autocomplete="username" inputmode="email" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} autocapitalize="none" spellcheck="false" required {% if not email %}autofocus{% endif %}>
     </label>
     <label class="field">
       <span>Password</span>
-      <input type="password" name="password" autocomplete="current-password" required {% if email %}autofocus{% endif %}>
+      <input type="password" name="password" autocomplete="current-password" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} required {% if email %}autofocus{% endif %}>
     </label>
     <button class="btn btn--block" type="submit">Sign in</button>
   </form>

@@ -2,6 +2,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from .ratelimits import configured as _rate_limits
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -13,8 +15,12 @@ def _db_url(url: str) -> str:
     return url
 
 
+IS_PRODUCTION = os.environ.get("FLASK_ENV") == "production"
+
+
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
+    # No default on purpose: create_app() refuses to start without one (tests use TestConfig.SECRET_KEY).
+    SECRET_KEY = os.environ.get("SECRET_KEY") or None
     SQLALCHEMY_DATABASE_URI = _db_url(os.environ.get(
         "DATABASE_URL", "postgresql+psycopg://nk_user:nk_password@localhost:5432/nk"
     ))
@@ -22,9 +28,13 @@ class Config:
     UPLOAD_DIR = str(BASE_DIR / os.environ.get("UPLOAD_DIR", "uploads"))
     # per-request cap (several images at once). Each single image is limited to 5 MB in app/uploads.py
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_UPLOAD_MB", "60")) * 1024 * 1024
+    # step 5.5: customers (review photos) get a smaller whole-request cap than admin/owner uploads
+    CUSTOMER_MAX_CONTENT_LENGTH = int(os.environ.get("CUSTOMER_MAX_UPLOAD_MB", "16")) * 1024 * 1024
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "1" if os.environ.get("FLASK_ENV") == "production" else "0") == "1"
+    # Production always gets Secure cookies (the env var cannot switch it off there); elsewhere it is opt-in.
+    SESSION_COOKIE_SECURE = IS_PRODUCTION or os.environ.get("SESSION_COOKIE_SECURE", "0") == "1"
+    HSTS_SECONDS = int(os.environ.get("HSTS_SECONDS", "31536000"))  # sent on every response in production (0 = off)
     JSON_SORT_KEYS = False
     SHOP_TIMEZONE = os.environ.get("SHOP_TIMEZONE", "Asia/Kolkata")  # times typed in the admin panel are in this zone
 
@@ -35,7 +45,11 @@ class Config:
     LOCKOUT_MINUTES = 15
     LOGIN_RATE_LIMIT = os.environ.get("LOGIN_RATE_LIMIT", "10 per minute")
     RATELIMIT_ENABLED = True
-    RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")  # use redis:// in production
+    RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")  # production needs redis:// (see prodcheck)
+    ALLOW_MEMORY_RATELIMIT = os.environ.get("ALLOW_MEMORY_RATELIMIT") == "1"  # explicit opt-out of the Redis requirement
+    RATELIMIT_IN_MEMORY_FALLBACK_ENABLED = True   # if Redis is down, fall back to per-worker counting instead of erroring
+    RATELIMIT_HEADERS_ENABLED = True              # Retry-After on 429
+    RATE_LIMITS = _rate_limits()                  # every other limit, see app/ratelimits.py
     # WhatsApp-first ordering (no API, no cost): the order is sent to this number as a ready-written WhatsApp message and the
     # owner settles payment with the customer on WhatsApp. Digits only, with country code, e.g. 919876543210.
     ADMIN_WHATSAPP_NUMBER = os.environ.get("ADMIN_WHATSAPP_NUMBER", "")
@@ -51,6 +65,8 @@ class Config:
     MAIL_FROM = os.environ.get("MAIL_FROM", "RR FOODS <no-reply@example.com>")
     WHATSAPP_NUMBER = os.environ.get("WHATSAPP_NUMBER", "")
     SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "")
+    SECURITY_CONTACT = os.environ.get("SECURITY_CONTACT", "")   # step 5.7: published in /.well-known/security.txt (email, mailto: or https URL)
+    SECURITY_TXT_EXPIRES = os.environ.get("SECURITY_TXT_EXPIRES", "")   # optional fixed ISO date; default is rolling now+180 days
     SITE_URL = os.environ.get("SITE_URL", "http://localhost:5000").rstrip("/")  # used for links inside emails
     # scrolling bar above the header. Separate messages with "|". Leave empty to hide the bar. Only list things that are true.
     ANNOUNCEMENTS = [a.strip() for a in os.environ.get("ANNOUNCEMENTS", "").split("|") if a.strip()]
@@ -62,6 +78,7 @@ class Config:
     LOG_BACKUP_COUNT = int(os.environ.get("LOG_BACKUP_COUNT", "5"))
     LOGIN_IP_LOCKOUT_ENABLED = os.environ.get("LOGIN_IP_LOCKOUT_ENABLED", "1") == "1"
     LOGIN_IP_MAX_FAILED = int(os.environ.get("LOGIN_IP_MAX_FAILED", "12"))
+    HOME_CACHE_SECONDS = int(os.environ.get("HOME_CACHE_SECONDS", "60"))  # per-worker cache of home categories / new arrivals; 0 = off
     VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
     VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
     VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_CLAIMS_EMAIL", "mailto:admin@example.com")  # set when running behind nginx/a load balancer
@@ -72,7 +89,10 @@ class TestConfig(Config):
     UPLOAD_DIR = "/tmp/nk-test-uploads"
     SECRET_KEY = "test-secret"
     MAIL_MODE = "console"
+    HOME_CACHE_SECONDS = 0  # off so tests see their own writes; tests/test_step4_home_cache.py turns it on
     LOGIN_RATE_LIMIT = "1000 per minute"  # high so normal tests never trip it; one test lowers it
+    RATE_LIMITS = {**Config.RATE_LIMITS, "login_hourly": "100000 per hour", "register": "1000 per minute", "password_reset_email": "1000 per hour",
+                   "contact": "1000 per minute"}   # forgot-password (5/min) and the rest keep their real values so the old test still covers them
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "TEST_DATABASE_URL", "postgresql+psycopg://postgres@localhost:5432/nk_test"
     )

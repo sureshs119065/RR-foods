@@ -144,3 +144,22 @@ def restore_order_stock(order, reason: str, actor_id: int | None) -> int:
         add_quantity(row, item.quantity, reason, actor_id)
         restored += 1
     return restored
+
+
+def take_order_stock(order, reason: str, actor_id: int | None) -> int:
+    """Take the quantities of an order off the shelf, the moment the shop confirms the order really exists.
+
+    Same locking order as restore_order_stock (products, then variants, by id). Raises StockError naming the item when the shelf
+    cannot cover it, and nothing is taken: the caller rolls the transaction back.
+    """
+    taken = 0
+    for item in sorted((i for i in order.items if i.product_id is not None), key=lambda i: (i.product_id, i.variant_id or 0)):
+        row = lock_variant(item.variant_id) if item.variant_id else lock_product(item.product_id)
+        if row is None or not row.is_active:
+            raise StockError(f"“{item.name}” is no longer available.")
+        if row.stock_qty < item.quantity:
+            left = max(0, row.stock_qty)
+            raise StockError(f"“{item.name}” is {'out of stock' if left == 0 else f'down to {left}'}, but the order needs {item.quantity}.")
+        add_quantity(row, -item.quantity, reason, actor_id)
+        taken += 1
+    return taken

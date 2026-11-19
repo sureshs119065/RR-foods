@@ -3,7 +3,7 @@
 {% block robots %}noindex,nofollow{% endblock %}
 {% macro line(l, saved=False) %}
 <li class="cl {% if l.error %}cl--bad{% endif %}">
-  <a class="cl__img" href="{{ url_for('shop.product', slug=l.product.slug) }}">{% if l.image %}<img src="{{ l.image.thumb_url or l.image.url }}" alt="" loading="lazy" width="96" height="96">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}</a>
+  <a class="cl__img" href="{{ url_for('shop.product', slug=l.product.slug) }}" tabindex="-1" aria-hidden="true">{% if l.image %}<img src="{{ l.image.thumb_url or l.image.url }}" alt="" loading="lazy" decoding="async" width="96" height="96">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}</a>
   <div class="cl__main">
     <a class="cl__name" href="{{ url_for('shop.product', slug=l.product.slug) }}">{{ l.product.name }}</a>
     {% if l.label %}<span class="muted small">{{ l.label }}</span>{% endif %}
@@ -30,14 +30,22 @@
 {% block content %}
 <div class="container">
   <h1 class="pg-h">Your cart {% if view.count %}<span class="muted">({{ view.count }} item{{ '' if view.count == 1 else 's' }})</span>{% endif %}</h1>
-  {% if view.lines %}<p class="muted small">Order before {{ delivery_settings.cutoff_time }} for next-day delivery, subject to available slots.</p>{% endif %}
   {% if not view.lines and not view.saved %}
-    <div class="empty"><h2>Your cart is empty</h2><p class="muted">Add something tasty and it will wait for you here.</p><a class="btn" href="{{ url_for('shop.listing') }}">Start shopping</a></div>
+    <div class="empty" data-empty-cart>
+      <span class="empty__art" aria-hidden="true">{{ s.icon('cart') }}</span>
+      <h2>Your cart is empty</h2>
+      <p class="muted">Add something tasty and it will wait for you here.</p>
+      <div class="empty__act">
+        <a class="btn" href="{{ url_for('shop.listing') }}">Start shopping</a>
+        <a class="btn btn--ghost" href="{{ url_for('shop.home') }}#categories">Browse categories</a>
+      </div>
+      {% if not current_user %}<p class="muted small">Already have an account? <a href="{{ url_for('auth.login', next='/cart') }}">Sign in</a> to see items you saved earlier.</p>{% endif %}
+    </div>
   {% else %}
   <div class="cartlay">
-    <div>
+    <div data-skel-container="cart">
       {% if view.problems %}<div class="alert alert--error" role="alert"><b>Fix these before checkout:</b><ul>{% for p in view.problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
-      {% if view.lines %}<ul class="cl-list">{% for l in view.lines %}{{ line(l) }}{% endfor %}</ul>{% else %}<p class="muted">Nothing in your cart right now.</p>{% endif %}
+      {% if view.lines %}<ul class="cl-list">{% for l in view.lines %}{{ line(l) }}{% endfor %}</ul>{% else %}<div class="empty empty--inline"><h2 class="h3">Nothing in your cart right now</h2><p class="muted">Move something back from “Saved for later”, or <a href="{{ url_for('shop.listing') }}">keep shopping</a>.</p></div>{% endif %}
       {% if view.saved %}
         <h2 class="sec__h">Saved for later ({{ view.saved|length }})</h2>
         <ul class="cl-list">{% for l in view.saved %}{{ line(l, True) }}{% endfor %}</ul>
@@ -46,6 +54,20 @@
 
     {% if view.lines %}
     <aside class="sum" aria-label="Order summary">
+      {% if view.free_from > 0 %}
+      <div class="fdbar" data-free-delivery>
+        <p class="fdbar__t" id="fd-t">{% if view.free_remaining > 0 %}Add <b>{{ s.inr(view.free_remaining) }}</b> more for <b>free delivery</b>{% else %}<b>You have free delivery</b> on this order{% endif %}</p>
+        <progress class="fdbar__bar" max="100" value="{{ view.free_pct }}" aria-labelledby="fd-t">{{ view.free_pct }}%</progress>
+      </div>
+      {% endif %}
+      <form class="coupon" method="post" action="{{ url_for('shop.cart_coupon') }}">
+        {{ s.csrf() }}
+        <label for="code">Coupon code</label>
+        <div class="coupon__row"><input id="code" name="code" type="text" autocomplete="off" autocapitalize="characters" maxlength="40" value="{{ view.coupon.code if view.coupon else '' }}" placeholder="Enter code"><button class="btn btn--ghost" type="submit">Apply</button></div>
+      </form>
+      {% if view.coupon_error %}<p class="cl__err" role="alert">{{ view.coupon_error }}</p>{% endif %}
+      {% if view.coupon %}<form method="post" action="{{ url_for('shop.cart_coupon_remove') }}">{{ s.csrf() }}<button class="linkish" type="submit">Remove coupon</button></form>{% endif %}
+
       <div class="acc" data-open data-sum>
         <button class="acc__h" type="button" aria-expanded="true">Price details</button>
         <div class="acc__p"><div class="acc__i"><div class="acc__b">
@@ -62,18 +84,11 @@
         </div></div></div>
       </div>
 
-      <form class="coupon" method="post" action="{{ url_for('shop.cart_coupon') }}">
-        {{ s.csrf() }}
-        <label for="code">Coupon code</label>
-        <div class="coupon__row"><input id="code" name="code" type="text" autocomplete="off" autocapitalize="characters" maxlength="40" value="{{ view.coupon.code if view.coupon else '' }}" placeholder="Enter code"><button class="btn btn--ghost" type="submit">Apply</button></div>
-      </form>
-      {% if view.coupon_error %}<p class="cl__err" role="alert">{{ view.coupon_error }}</p>{% endif %}
-      {% if view.coupon %}<form method="post" action="{{ url_for('shop.cart_coupon_remove') }}">{{ s.csrf() }}<button class="linkish" type="submit">Remove coupon</button></form>{% endif %}
-
       <div class="stickybar" id="cartbar">
         <div class="stickybar__t"><span class="muted small">Total</span><b>{{ s.inr(view.totals.total) }}</b></div>
         {% if view.can_checkout %}<a class="btn" href="{{ url_for('shop.checkout_page') }}">Checkout</a>{% else %}<button class="btn" type="button" disabled>Checkout</button>{% endif %}
       </div>
+      {% if not current_user %}<p class="muted small cart-guest-note">You will sign in or create an account at checkout. Your cart is kept.</p>{% endif %}
     </aside>
     {% endif %}
 
@@ -100,4 +115,6 @@
   </div>
   {% endif %}
 </div>
+{{ s.skeleton_templates() }}
+<script src="{{ asset_url('js/ui-states.js') }}" defer></script>
 {% endblock %}

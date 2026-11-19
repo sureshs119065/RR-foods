@@ -143,17 +143,25 @@ def authenticate(portal: str, email: str, password: str) -> tuple[User | None, s
         user.password_hash = hash_password(password)
     user.failed_login_count = 0
     user.locked_until = None
+    _clear_lockout("account", email)   # step 5.7: a right password starts the per-account counter again (was never reset)
     user.last_login_at = utcnow()
     return user, None
 
 
 def login_user(user: User) -> None:
+    guest_cart_id = session.get("gid")  # the anonymous cart this browser built before signing in
+    guest_coupon = session.get("coupon")
     session.clear()  # new session on every sign-in (prevents session fixation)
+    if guest_cart_id and user.role == "user" and guest_coupon:
+        session["coupon"] = guest_coupon  # a code applied while browsing as a guest survives sign-in
     session["uid"] = user.id
     session["tok"] = session_token(user)
     session["seen"] = utcnow().timestamp()
     session.permanent = user.role == "user"  # staff sessions end when the browser closes
     audit("auth.login", entity_id=user.id, actor_id=user.id)
+    if guest_cart_id:
+        from ..services.cart import merge_guest_cart  # covers sign-in and sign-up (register logs the new user in)
+        merge_guest_cart(user, guest_cart_id)
     db.session.commit()
 
 

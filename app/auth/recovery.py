@@ -7,6 +7,7 @@ from flask import current_app, flash, g, redirect, render_template, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import func, select
 
+from .. import ratelimits as limits
 from ..extensions import db, limiter
 from ..models import User
 from ..security import hash_password
@@ -39,7 +40,8 @@ def user_from_token(token: str) -> User | None:
 
 
 @bp.route("/forgot", methods=["GET", "POST"])
-@limiter.limit("5 per minute", methods=["POST"])
+@limiter.limit(limits.limit("password_reset_request"), methods=["POST"])
+@limiter.limit(limits.limit("password_reset_email"), methods=["POST"], key_func=limits.email_key)
 def forgot():
     if g.user is not None:
         return redirect("/account")
@@ -62,7 +64,7 @@ def forgot():
 
 
 @bp.route("/reset/<token>", methods=["GET", "POST"])
-@limiter.limit("10 per minute", methods=["POST"])
+@limiter.limit(limits.limit("password_reset"), methods=["POST"])
 def reset(token):
     user = user_from_token(token)
     if user is None:

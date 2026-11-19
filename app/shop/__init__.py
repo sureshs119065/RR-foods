@@ -11,15 +11,14 @@ bp = Blueprint("shop", __name__)
 def _shop_helpers():
     """Callables, so pages that do not show the cart or the category menu (admin, owner) pay nothing for them."""
     from ..models import Category
-    from ..services.cart import count_in_cart
+    from ..services.cart import cart_owner, count_in_cart
 
     def cart_count() -> int:
-        u = g.get("user")
-        return count_in_cart(u.id) if u is not None and u.role == "user" else 0
+        return count_in_cart(cart_owner())  # signed-in customer, or the guest cookie cart; 0 for staff / no cart
 
     def nav_categories():
-        return db.session.scalars(select(Category).where(Category.parent_id.is_(None), Category.is_deleted.is_(False), Category.is_active.is_(True))
-                                  .order_by(Category.sort_order, Category.name).limit(14)).all()
+        from ..services.storefront import top_categories
+        return top_categories()  # cached per worker for HOME_CACHE_SECONDS (services/home_cache.py)
 
     def announcements() -> list[str]:
         from flask import current_app

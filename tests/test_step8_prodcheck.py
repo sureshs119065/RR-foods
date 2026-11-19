@@ -11,7 +11,7 @@ from app.prodcheck import config_problems
 def fake(**over):
     cfg = {"SECRET_KEY": "k" * 48, "SQLALCHEMY_DATABASE_URI": "postgresql+psycopg://shop:Zq8!x@db/nk", "ADMIN_WHATSAPP_NUMBER": "919876543210",
            "SESSION_COOKIE_SECURE": True, "DEBUG": False, "RATELIMIT_STORAGE_URI": "redis://r/0", "SITE_URL": "https://shop.example.com",
-           "TRUST_PROXY": True, "MAIL_MODE": "smtp", "MAIL_SERVER": "smtp.example.com", "UPLOAD_DIR": "/srv/uploads"}
+           "TRUST_PROXY": True, "SECURITY_CONTACT": "security@shop.example.com", "MAIL_MODE": "smtp", "MAIL_SERVER": "smtp.example.com", "UPLOAD_DIR": "/srv/uploads"}
     cfg.update(over)
     return SimpleNamespace(config=cfg)
 
@@ -31,9 +31,20 @@ def test_each_dangerous_setting_is_fatal(over):
 
 
 def test_softer_problems_are_advice_only():
-    fatal, advice = config_problems(fake(RATELIMIT_STORAGE_URI="memory://", SITE_URL="http://x", TRUST_PROXY=False, MAIL_MODE="off",
+    fatal, advice = config_problems(fake(SITE_URL="http://x", TRUST_PROXY=False, MAIL_MODE="off",
                                          UPLOAD_DIR="uploads", ADMIN_WHATSAPP_NUMBER=""))
-    assert fatal == [] and len(advice) == 6
+    assert fatal == [] and len(advice) == 5   # step 5.2: the in-memory rate limiter moved from advice to fatal
+
+
+def test_missing_security_contact_is_advice_only():
+    fatal, advice = config_problems(fake(SECURITY_CONTACT=""))   # step 5.7
+    assert fatal == [] and len(advice) == 1 and "security.txt" in advice[0]
+
+
+def test_memory_rate_limiter_is_fatal_unless_explicitly_allowed():
+    fatal, _ = config_problems(fake(RATELIMIT_STORAGE_URI="memory://"))
+    assert len(fatal) == 1 and "RATELIMIT_STORAGE_URI" in fatal[0]
+    assert config_problems(fake(RATELIMIT_STORAGE_URI="memory://", ALLOW_MEMORY_RATELIMIT=True))[0] == []
 
 
 def test_production_start_is_refused_with_a_weak_key(monkeypatch):

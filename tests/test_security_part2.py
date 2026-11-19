@@ -70,8 +70,23 @@ def shop(session):
     return a, b, p
 
 
+def _request(user, addr, coupon=None):
+    """Checkout: records a request only. Nothing is taken from stock or coupons yet."""
+    o = co.create_pending_order(user, addr.id, co.WHATSAPP_METHOD, coupon, None)
+    db.session.commit()
+    return o
+
+
+def _owner():
+    from app.models import User
+    return db.session.scalar(select(User).where(User.role == "owner"))
+
+
 def _place(user, addr, coupon=None):
-    o = co.place_order(user, addr.id, co.WHATSAPP_METHOD, coupon, None)
+    """A request whose WhatsApp message reached the shop: a real order (stock taken, coupon used)."""
+    from app.services import orders as order_svc
+    o = _request(user, addr, coupon)
+    order_svc.confirm_whatsapp_received(o.id, _owner())
     db.session.commit()
     return o
 
@@ -147,32 +162,33 @@ def test_cannot_oversell_sequentially(session, shop):
 
 
 def test_stock_race_two_threads_one_item(app, session, shop):
-    """Two customers press 'place order' for the last unit at the same moment: exactly one may win."""
+    """The shop confirms two requests for the last unit at the same moment: exactly one may become an order."""
+    from app.services import orders as order_svc
     a, b, p = shop
     p.stock_qty = 1
     session.commit()
     _cart(session, a, p)
     _cart(session, b, p)
-    aa, ba = _addr(session, a).id, _addr(session, b).id
-    ids = {"a": (a.id, aa), "b": (b.id, ba)}
+    oa, ob = _request(a, _addr(session, a)), _request(b, _addr(session, b))   # both requests are accepted: they hold no stock
+    owner_id = _owner().id
     results, barrier = [], threading.Barrier(2)
 
-    def worker(key):
+    def worker(order_id):
         with app.app_context():
             from app.models import User
-            u = db.session.get(User, ids[key][0])
+            actor = db.session.get(User, owner_id)
             barrier.wait()
             try:
-                co.place_order(u, ids[key][1], co.WHATSAPP_METHOD, None, None)
+                order_svc.confirm_whatsapp_received(order_id, actor)
                 db.session.commit()
                 results.append("ok")
-            except co.CheckoutError:
+            except order_svc.OrderError:
                 db.session.rollback()
                 results.append("blocked")
             finally:
                 db.session.remove()
 
-    ts = [threading.Thread(target=worker, args=(k,)) for k in ids]
+    ts = [threading.Thread(target=worker, args=(i,)) for i in (oa.id, ob.id)]
     [t.start() for t in ts]
     [t.join(30) for t in ts]
     assert sorted(results) == ["blocked", "ok"], results

@@ -47,7 +47,7 @@ Set `ADMIN_WHATSAPP_NUMBER` (country code and digits only, for example `91987654
 - Homepage with header banner carousel, Offers & Combo band, categories, bestsellers, new arrivals, recently viewed, trust sections and a contact form.
 - Shop All (12 products per page), `/bestsellers`, category listings; search with suggestions and typo tolerance; filters for category, price, brand, rating, discount and availability; sorting.
 - Product pages: gallery, variants, pincode delivery check, offers, reviews with rating bars, questions and answers, "you may also like", frequently bought together, YouTube recipe video, share button, Buy now.
-- Cart (with saved-for-later and coupons), checkout with delivery date and slot, order history and live tracking, cancellation, returns, reorder, invoices (PDF).
+- Cart (with saved-for-later and coupons), checkout (delivery date is set by the courier, not chosen by the customer), order history and live tracking, cancellation, reorder, invoices (PDF).
 - Wishlist, notifications, customer inbox, back-in-stock alerts, password recovery, optional browser push opt-in (see [Known gaps](#known-gaps)).
 - Recipes (with cook mode), reels on the homepage, product bundles and festival combos, About page with the quality journey, Help page with a WhatsApp or email message form.
 
@@ -127,17 +127,19 @@ Copy `.env.example` (development) or `.env.production.example` (production) to `
 
 | Variable | Purpose |
 |---|---|
-| `FLASK_APP`, `FLASK_ENV` | Entry point (`wsgi.py`); `development` or `production` |
-| `SECRET_KEY` | Sessions and CSRF; use 48+ random characters |
+| `FLASK_APP`, `FLASK_ENV` | Entry point (`wsgi.py`); `FLASK_ENV` must be set to `production` or `development`, otherwise the app refuses to start (tests are exempt) |
+| `SECRET_KEY` | Sessions and CSRF; **no default**, the app refuses to start without it; use 48+ random characters |
+| `HSTS_SECONDS` | `Strict-Transport-Security` max-age sent on every production response (default 31536000, 0 = off) |
 | `DATABASE_URL` | PostgreSQL URL (`postgresql://` or `postgresql+psycopg://`) |
 | `ADMIN_WHATSAPP_NUMBER` | Shop WhatsApp number; orders are sent here. `WHATSAPP_NUMBER` is accepted as a fallback |
 | `DEFAULT_COUNTRY_CODE`, `SHOP_NAME`, `SHOP_TIMEZONE` | Defaults for WhatsApp links, messages and dates (`Asia/Kolkata`) |
 | `SITE_URL` | Public URL, used in emails and sitemap |
 | `SUPPORT_EMAIL` | Shown on the Help page and footer |
-| `UPLOAD_DIR`, `MAX_UPLOAD_MB` | Where uploaded images and videos live, and the size cap |
+| `UPLOAD_DIR`, `MAX_UPLOAD_MB`, `CUSTOMER_MAX_UPLOAD_MB` | Where uploaded images and videos live (must be outside the app folder), the cap for admin/owner uploads (60 MB) and the smaller whole-request cap for customers, i.e. review photos (16 MB) |
 | `MAIL_MODE` | `off`, `console` or `smtp`; with `smtp` also `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_USE_TLS`, `MAIL_FROM` |
 | `TRUST_PROXY` | `1` only behind a correctly configured reverse proxy |
-| `RATELIMIT_STORAGE_URI` | Redis URL for shared rate-limit state with several workers |
+| `RATELIMIT_STORAGE_URI` | Redis URL for rate-limit counters (`redis://host:6379/0`). **Required in production**: the app refuses to start with the in-memory default unless `ALLOW_MEMORY_RATELIMIT=1`. If Redis goes down at run time the limiter falls back to per-worker counting instead of failing requests |
+| `RATE_LIMIT_<NAME>` | Override one limit, for example `RATE_LIMIT_COUPON="5 per minute"`. Names and defaults are in `app/ratelimits.py` |
 | `SESSION_COOKIE_SECURE` | On by default in production |
 | `LOGIN_IP_LOCKOUT_ENABLED`, `LOGIN_IP_MAX_FAILED` | Per-IP lockout (defaults: on, 12 failures); the per-account limit is 5 |
 | `DEFAULT_DELIVERY_DAYS`, `DEFAULT_DELIVERY_FEE` | Delivery defaults for Tamil Nadu pincodes (3 days, free) |
@@ -244,6 +246,7 @@ Run from the project root with the virtual environment active.
 | `flask send-stock-alerts` | Back-in-stock notifications (cron, every 5 minutes) |
 | `flask sync-stock-notifications` | Reconcile low-stock and out-of-stock alerts (cron, every 30 minutes) |
 | `flask check-config` | Production safety check |
+| `flask check-images [--all] [--strict]` | Lists products that have no real photo (they show the placeholder drawing). `--all` includes switched-off products; `--strict` exits 1 if any are listed |
 
 Examples: `flask set-setting tax_percent 5`, `flask set-setting business_name '"RR FOODS"'`. Invoice settings (business name, address, GSTIN) are also site settings.
 
@@ -254,7 +257,7 @@ The suite needs PostgreSQL 16 and a **dedicated, empty test database**: tests cl
 ```bash
 createdb rr_foods_test
 export TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/rr_foods_test
-export DATABASE_URL=$TEST_DATABASE_URL SECRET_KEY=test FLASK_ENV=testing
+export DATABASE_URL=$TEST_DATABASE_URL SECRET_KEY=test FLASK_ENV=development
 python -m pytest -q                      # whole suite, about 2 minutes
 python -m pytest -q tests/test_step8_access.py tests/test_step8_e2e.py   # access rules + full shop journey
 ```
