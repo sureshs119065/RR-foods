@@ -294,7 +294,7 @@
         .then(function (d) {
           var ok = !!d.deliverable;
           pinMsg.removeAttribute("aria-busy");
-          pinMsg.textContent = ok ? "Delivery by " + etaDate(d.eta_days || 3) + (d.fee ? " · delivery fee ₹" + Number(d.fee).toLocaleString("en-IN") : " · free delivery") + (d.city ? " (" + d.city + ")" : "") : (d.message || "Could not check right now.");
+          pinMsg.textContent = ok ? "Delivery by " + etaDate(d.eta_days || 3) + (d.fee ? " · delivery fee ₹" + Number(d.fee).toLocaleString("en-IN") : " · delivery charge is confirmed by the shop") + (d.city ? " (" + d.city + ")" : "") : (d.message || "Could not check right now.");
           pinMsg.className = "pin__msg " + (ok ? "is-ok" : "is-bad");
         })
         .catch(function () { pinMsg.removeAttribute("aria-busy"); pinMsg.textContent = "Could not check right now."; pinMsg.className = "pin__msg is-bad"; });

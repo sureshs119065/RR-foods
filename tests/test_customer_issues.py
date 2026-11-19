@@ -89,3 +89,11 @@ def test_8_no_easy_returns_anywhere(cust, session, catalog):
     for url in ("/", "/shop", f"/product/{p.slug}", "/offers", "/bundles", "/about", "/help", "/cart", "/login"):
         text = cust.get(url).get_data(as_text=True).lower()
         assert "easy return" not in text and "free return" not in text and "hassle-free return" not in text, url
+
+
+def test_internal_details_pending_tag_is_not_shown(cust, session, catalog):
+    _, p = catalog
+    p.tags = ["details-pending", "millet"]
+    session.commit()
+    html = cust.get(f"/product/{p.slug}").get_data(as_text=True)
+    assert "details-pending" not in html and ">millet<" in html

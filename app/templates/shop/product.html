@@ -72,7 +72,7 @@
       </div>
       {% if p.brand %}<p class="muted buy__brand">by <a href="{{ url_for('shop.listing', brand=p.brand) }}">{{ p.brand }}</a></p>{% endif %}
       {% if p.review_count %}<p><a class="stars" href="#reviews">{{ '%.1f'|format(p.avg_rating) }} ★</a> <span class="muted">{{ p.review_count }} review{{ '' if p.review_count == 1 else 's' }}</span></p>{% endif %}
-      {% if p.tags %}<p class="tags">{% for t in p.tags %}<span class="tagchip">{{ t }}</span>{% endfor %}</p>{% endif %}
+      {% set shown_tags = p.tags|reject('in', ['details-pending'])|list if p.tags else [] %}{% if shown_tags %}<p class="tags">{% for t in shown_tags %}<span class="tagchip">{{ t }}</span>{% endfor %}</p>{% endif %}
 
       <p class="price" aria-live="polite">
         <b class="price__now" id="price-now">{{ s.inr(p.final_price) }}</b>

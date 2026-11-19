@@ -4335,3 +4335,10 @@ html body .nurse-stage__dot { width: var(--tap); height: var(--tap); left: calc(
   html body .sh__actions.rr-header__actions { gap: 2px; }
   html body .sh__actions .icon-btn.rr-action-track { padding: 0 10px 0 8px !important; }
 }
+
+/* Product page: keep the whole main picture on screen. The square image used to be as tall as the column is wide, so on laptop screens
+   the bottom of the product was below the fold. Cap its size by the window height (thumbnails sit underneath). */
+html[data-shop] .gal__main { width: min(100%, max(320px, calc(100vh - 11rem))); margin-inline: auto; }
+@supports (height: 100dvh) {
+  html[data-shop] .gal__main { width: min(100%, max(320px, calc(100dvh - 11rem))); }
+}

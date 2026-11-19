@@ -54,12 +54,6 @@
 
     {% if view.lines %}
     <aside class="sum" aria-label="Order summary">
-      {% if view.free_from > 0 %}
-      <div class="fdbar" data-free-delivery>
-        <p class="fdbar__t" id="fd-t">{% if view.free_remaining > 0 %}Add <b>{{ s.inr(view.free_remaining) }}</b> more for <b>free delivery</b>{% else %}<b>You have free delivery</b> on this order{% endif %}</p>
-        <progress class="fdbar__bar" max="100" value="{{ view.free_pct }}" aria-labelledby="fd-t">{{ view.free_pct }}%</progress>
-      </div>
-      {% endif %}
       <form class="coupon" method="post" action="{{ url_for('shop.cart_coupon') }}">
         {{ s.csrf() }}
         <label for="code">Coupon code</label>

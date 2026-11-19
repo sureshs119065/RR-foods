@@ -115,9 +115,7 @@ def test_free_delivery_bar_and_waiver(app, session):
     session.add(SiteSetting(key="free_delivery_above", value="100000"))
     session.commit()
     html = c.get("/cart").get_data(as_text=True)
-    assert "fdbar" in html and "free delivery" in html
-    view = cart_svc.build(cart_svc.CartOwner(session_id=session.scalar(select(CartItem.session_id))))
-    assert view.free_remaining > 0 and 0 <= view.free_pct < 100
+    assert "fdbar" not in html and "free delivery" not in html.lower()  # delivery charges are handled by the shop: no free-delivery offer is shown
 
 
 def test_cart_empty_state_and_coupon_above_totals(app, session):
