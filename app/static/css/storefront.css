@@ -4310,10 +4310,6 @@ html body .account-card a:not(.btn) { min-width: var(--tap); justify-content: ce
 /* 3.3 journey stage dots: 44px target, same visual centre as the old 29px dot */
 html body .nurse-stage__dot { width: var(--tap); height: var(--tap); left: calc(-2.1rem - 7.5px); top: calc(1.1rem - 7.5px); }
 
-/* Step 3.5: pause control for the auto-scrolling New Arrivals row (visible, 44px tap target, token colours) */
-.rr-loop__pause { display: inline-flex; align-items: center; min-height: 44px; margin: 0 0 var(--sp-2); padding: 0 var(--sp-4);
-  border: 1px solid var(--ui-border); border-radius: var(--radius-sm); background: var(--c-surface); color: var(--c-ink); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
-.rr-loop__pause[aria-pressed="true"] { background: var(--c-soft); }
 
 /* Header: the "Track Orders" button was forced to a 44px circle by the tap-target rule above, so its text spilled over the account icon.
    On wide screens let this one button grow to fit its icon and label (the label is hidden below 1100px, where the 44px circle is right). */
@@ -4341,4 +4337,13 @@ html body .nurse-stage__dot { width: var(--tap); height: var(--tap); left: calc(
 html[data-shop] .gal__main { width: min(100%, max(320px, calc(100vh - 11rem))); margin-inline: auto; }
 @supports (height: 100dvh) {
   html[data-shop] .gal__main { width: min(100%, max(320px, calc(100dvh - 11rem))); }
+}
+
+
+/* Recently viewed: desktop keeps the grid; mobile gets the same slow auto-scrolling swipe row as New Arrivals */
+html body .rr-loop--recent { display: none; }
+@media (max-width: 700px) {
+  html body .rv__list--desktop { display: none; }
+  html body .rr-loop--recent { display: block; margin: 14px 0 6px; }
+  html body .home-bottom__recent .rr-loop--recent .rr-loop__track { padding-left: 16px; }
 }

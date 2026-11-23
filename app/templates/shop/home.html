@@ -127,7 +127,10 @@
       <div class="rv__titles"><h2 id="home-recent-heading">Recently viewed</h2><p>Pick up where you left off.</p></div>
       <a class="rv__all" href="{{ url_for('shop.listing') }}">Browse all →</a>
     </header>
-    <ul class="rv__list">{% for item in recent[:6] %}{{ s.rcard(item) }}{% endfor %}</ul>
+    <ul class="rv__list rv__list--desktop">{% for item in recent[:6] %}{{ s.rcard(item) }}{% endfor %}</ul>
+    <div class="rr-loop rr-loop--recent" data-loop role="region" aria-label="Recently viewed products row" tabindex="0">
+      <ul class="rr-loop__track">{% for item in recent[:6] %}{{ s.rcard(item) }}{% endfor %}</ul>
+    </div>
   </section>
   {% endif %}
   <section class="home-bottom__story" aria-labelledby="home-story-heading">

@@ -1,5 +1,5 @@
 /* RR FOODS home: gentle auto-scrolling product rows.
-   Frontend only. Rows scroll sideways on their own, pause on hover / focus / touch,
+   Frontend only. Rows scroll sideways on their own (New Arrivals, and Recently viewed on mobile), pause while touched / hovered / focused,
    can still be swiped or dragged, and stay still for visitors who prefer reduced motion. */
 (function () {
   'use strict';
@@ -11,7 +11,7 @@
     var track = box.querySelector('.rr-loop__track');
     if (!track) return;
     var items = track.children;
-    if (items.length < 4) return;
+    if (items.length < 2) return;
 
     if (reduce) return; /* keep as a plain swipeable row: no clones are made */
     if (track.scrollWidth <= box.clientWidth + 8) return; /* everything already fits: nothing to loop */
@@ -30,32 +30,16 @@
     });
     box.classList.add('is-looping');
 
-    var pos = 0, paused = false, resumeTimer = null, visible = true, last = 0, userPaused = false;
+    var pos = 0, paused = false, resumeTimer = null, visible = true, last = 0;
     var SPEED = 38; /* pixels per second */
 
     function half() { return track.scrollWidth / 2; }
     function pause() { paused = true; clearTimeout(resumeTimer); }
     function resume(delay) {
       clearTimeout(resumeTimer);
-      if (userPaused) return; /* the Pause button wins over hover/focus/touch resume */
       resumeTimer = setTimeout(function () { pos = box.scrollLeft; paused = false; }, delay || 0);
     }
 
-    /* WCAG 2.2.2: a real Pause/Play control for content that moves by itself */
-    var btn = document.createElement('button');
-    btn.type = 'button'; btn.className = 'rr-loop__pause';
-    btn.setAttribute('aria-pressed', 'false');
-    function paintBtn() {
-      btn.setAttribute('aria-pressed', userPaused ? 'true' : 'false');
-      btn.textContent = userPaused ? 'Play new arrivals' : 'Pause new arrivals';
-    }
-    btn.addEventListener('click', function () {
-      userPaused = !userPaused;
-      if (userPaused) pause(); else resume(0);
-      paintBtn();
-    });
-    paintBtn();
-    box.parentNode.insertBefore(btn, box);
     /* keyboard: arrow keys scroll the row (it is a focusable region) and stop the motion */
     box.addEventListener('keydown', function (e) {
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
