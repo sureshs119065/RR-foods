@@ -1,3 +1,10 @@
+## Unreleased
+
+- Home: "Message RR FOODS" now sends with fetch (no reload), shows the thank-you popup, clears the form, locks the button while sending. Endpoint: `POST /account/messages/quick` (subject 3-150, message 5-2000).
+- Customer sign-in by emailed 6 digit code (`/login/otp/send`, `/login/otp/verify`, `/login/otp/name`; table `email_otp`, migration `a7d2c91e4b55`). Password form kept under "Sign in with a password instead". Owner and admin login unchanged.
+- Home: Recently viewed is a slow auto-scrolling swipe row on phones; the Pause/Play button was removed from the scrolling rows.
+- Wishlist: removed the duplicate Add to cart / View product buttons under each card.
+
 ## Unreleased: cancellation rules and shipment details
 
 - A customer can cancel an order only until the shop confirms it (`placed`, or a WhatsApp request not yet confirmed). From Confirmed onward the Cancel button is gone from the tracking page, a direct cancel request is refused with a clear message, and the page tells the customer to contact the shop on WhatsApp.

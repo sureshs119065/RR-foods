@@ -1,0 +1,60 @@
+{% extends "auth/_layout.html" %}
+{% block robots %}noindex,nofollow{% endblock %}
+{% block title %}Sign in or create account | RR FOODS{% endblock %}
+{% block content %}
+<section class="card narrow otp" data-otp data-send-url="{{ url_for('auth.otp_send') }}" data-verify-url="{{ url_for('auth.otp_verify') }}" data-name-url="{{ url_for('auth.otp_name') }}" data-next="{{ next }}">
+  <div class="sr-only" id="otp-live" role="status" aria-live="polite"></div>
+
+  <h1>Sign in or create account</h1>
+  <div data-step="email">
+    <p class="muted">Enter your email. We will send you a 6 digit code, no password needed.</p>
+    <form class="form" data-email-form novalidate>
+      <label class="field">
+        <span>Email</span>
+        <input type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="255" required autofocus>
+      </label>
+      <p class="otp__err" data-error role="alert" hidden></p>
+      <button class="btn btn--block" type="submit" data-send-btn>Send OTP</button>
+    </form>
+  </div>
+
+  <div data-step="code" hidden>
+    <h2 class="otp__h">Enter the code</h2>
+    <p class="muted">We sent a 6 digit code to <b data-email-label></b>. <button type="button" class="otp__link" data-change-email>Change email</button></p>
+    <form class="form" data-code-form novalidate>
+      <div class="otp__boxes" role="group" aria-label="6 digit verification code">
+        {% for i in range(6) %}<input class="otp__box" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="{{ 'one-time-code' if i == 0 else 'off' }}" aria-label="Digit {{ i + 1 }} of 6" data-box>{% endfor %}
+      </div>
+      <p class="otp__timer muted" data-timer aria-live="off"></p>
+      <p class="otp__err" data-error role="alert" hidden></p>
+      <button class="btn btn--block" type="submit" data-verify-btn>Verify</button>
+    </form>
+    <p class="muted otp__resend">Did not get it? <button type="button" class="otp__link" data-resend disabled>Resend OTP</button> <span data-resend-wait></span></p>
+  </div>
+
+  <div data-step="name" hidden>
+    <h2 class="otp__h">Welcome to RR FOODS</h2>
+    <p class="muted">Your account is ready. What should we call you?</p>
+    <form class="form" data-name-form novalidate>
+      <label class="field"><span>Your name</span><input type="text" name="name" autocomplete="name" maxlength="120" required></label>
+      <p class="otp__err" data-error role="alert" hidden></p>
+      <button class="btn btn--block" type="submit">Save and continue</button>
+      <button class="otp__link otp__skip" type="button" data-skip-name>Skip for now</button>
+    </form>
+  </div>
+
+  <details class="otp__alt"{% if error %} open{% endif %}>
+    <summary>Sign in with a password instead</summary>
+    {% if error %}<div class="alert alert--error" role="alert" id="login-err">{{ error }}</div>{% endif %}
+    <form method="post" class="form" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ next }}">
+      <label class="field"><span>Email</span><input type="email" name="email" value="{{ email }}" autocomplete="username" inputmode="email" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} autocapitalize="none" spellcheck="false" required></label>
+      <label class="field"><span>Password</span><input type="password" name="password" autocomplete="current-password" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} required></label>
+      <button class="btn btn--block btn--ghost" type="submit">Sign in with password</button>
+    </form>
+    <p class="muted"><a href="/forgot">Forgot your password?</a></p>
+  </details>
+</section>
+<script src="{{ asset_url('js/login-otp.js') }}" defer></script>
+{% endblock %}

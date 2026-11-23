@@ -140,7 +140,7 @@ def test_loop_script_makes_inert_hidden_clones_only_when_it_loops():
     assert js.index("if (reduce) return;") < js.index("cloneNode(true)")
     assert js.index("track.scrollWidth <= box.clientWidth") < js.index("cloneNode(true)")
     assert "removeAttribute('id')" in js          # no duplicate ids from clones
-    assert "createElement('button')" in js and "aria-pressed" in js and "prefers-reduced-motion" in js  # pause control kept
+    assert "createElement('button')" not in js and "prefers-reduced-motion" in js  # Pause/Play button removed on request; reduced motion still respected
 
 
 def test_home_new_limit_is_six():

@@ -63,6 +63,14 @@ class Config:
     MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD", "")
     MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "1") == "1"
     MAIL_FROM = os.environ.get("MAIL_FROM", "RR FOODS <no-reply@example.com>")
+    MAIL_SENDER_NAME = os.environ.get("MAIL_SENDER_NAME", "RR FOODS")   # display name on the sign-in code email
+    MAIL_USE_SSL = os.environ.get("MAIL_USE_SSL", "0") == "1"           # implicit TLS (port 465); leave 0 for STARTTLS on 587
+    # customer email sign-in codes
+    OTP_TTL_SECONDS = int(os.environ.get("OTP_TTL_SECONDS", "300"))              # a code works for 5 minutes
+    OTP_MAX_ATTEMPTS = int(os.environ.get("OTP_MAX_ATTEMPTS", "5"))              # wrong guesses before the code is thrown away
+    OTP_RESEND_SECONDS = int(os.environ.get("OTP_RESEND_SECONDS", "45"))         # wait between two codes for one email
+    OTP_MAX_PER_EMAIL_HOUR = int(os.environ.get("OTP_MAX_PER_EMAIL_HOUR", "5"))
+    OTP_MAX_PER_IP_HOUR = int(os.environ.get("OTP_MAX_PER_IP_HOUR", "10"))
     WHATSAPP_NUMBER = os.environ.get("WHATSAPP_NUMBER", "")
     SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "")
     SECURITY_CONTACT = os.environ.get("SECURITY_CONTACT", "")   # step 5.7: published in /.well-known/security.txt (email, mailto: or https URL)

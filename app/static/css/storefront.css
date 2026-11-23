@@ -4347,3 +4347,10 @@ html body .rr-loop--recent { display: none; }
   html body .rr-loop--recent { display: block; margin: 14px 0 6px; }
   html body .home-bottom__recent .rr-loop--recent .rr-loop__track { padding-left: 16px; }
 }
+
+/* Home support form: inline errors, and the error variant of the thank-you popup */
+html body .sf-err { display: block; margin-top: .35rem; font-size: .9rem; font-weight: 600; color: #b3261e; }
+html body .sf-err[hidden] { display: none; }
+html body .home-contact-form [aria-invalid="true"] { border-color: #b3261e; }
+html body .rt--error .rt__title { color: #b3261e; }
+html body .rt--error .rt__heart { animation: none; }

@@ -10,9 +10,6 @@
     {% for p in products %}
     <div class="wl">
       {{ s.card(p) }}
-      {% if plain[p.id] and available_qty(p) > 0 %}
-      <form method="post" action="{{ url_for('shop.cart_add') }}" data-addcart>{{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="/account/wishlist"><button class="btn btn--block" type="submit">Add to cart</button></form>
-      {% else %}<a class="btn btn--ghost btn--block" href="{{ url_for('shop.product', slug=p.slug) }}">{{ 'Choose an option' if available_qty(p) > 0 else 'View product' }}</a>{% endif %}
     </div>
     {% endfor %}
   </div>

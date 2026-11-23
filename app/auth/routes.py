@@ -44,8 +44,13 @@ def _login(portal: str):
                     nxt = cfg["home"]
                 return redirect(nxt)
         status = 429 if error and error.startswith("Too many") else 401
+        if portal == "user":   # wrong password on the customer page: show the code form with the password fallback open
+            return render_template("auth/login_otp.html", portal=portal, cfg=cfg, email=email, error=error,
+                                   next=request.args.get("next", "")), status
         return render_template("auth/login.html", portal=portal, cfg=cfg, email=email, error=error,
                                next=request.args.get("next", "")), status
+    if portal == "user":   # customers: email code first (the password form stays on the same page as a fallback)
+        return render_template("auth/login_otp.html", portal=portal, cfg=cfg, email="", error=None, next=request.args.get("next", ""))
     return render_template("auth/login.html", portal=portal, cfg=cfg, email=email, error=None, next=request.args.get("next", ""))
 
 
@@ -179,3 +184,4 @@ def _change_password(template: str, done_url: str):
     return render_template(template, errors=errors)
 
 from . import recovery  # noqa: E402,F401  (forgot/reset routes)
+from . import otp  # noqa: E402,F401  (customer email sign-in code routes)

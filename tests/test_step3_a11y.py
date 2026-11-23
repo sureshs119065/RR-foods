@@ -114,7 +114,8 @@ def test_cart_image_link_is_not_a_nameless_tab_stop(cust, catalog):
 # ---------------------------------------------------------------- 3.5 carousel pause, focus traps, Esc, focus return
 def test_every_auto_moving_region_has_a_pause_control():
     loop = (JS_DIR / "home-loop.js").read_text(encoding="utf-8")
-    assert "createElement('button')" in loop and "aria-pressed" in loop and "prefers-reduced-motion" in loop
+    # the Pause/Play button was removed on request: rows still stop for reduced motion, and while touched, hovered or focused
+    assert "createElement('button')" not in loop and "prefers-reduced-motion" in loop and "mouseenter" in loop
     hc = (JS_DIR / "header-carousel.js").read_text(encoding="utf-8")
     assert "data-hc-pause" in hc and "prefers-reduced-motion" in hc and "ArrowLeft" in hc
 

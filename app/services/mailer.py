@@ -13,6 +13,49 @@ from ..extensions import db
 from ..models import Notification, User
 from ..models.base import utcnow
 
+class MailUnavailable(Exception):
+    """Email is switched off (MAIL_MODE=off) or not configured."""
+
+
+def _sender() -> str:
+    from email.utils import formataddr, parseaddr
+    cfg = current_app.config
+    address = parseaddr(cfg.get("MAIL_FROM") or "")[1] or cfg.get("MAIL_USERNAME") or "no-reply@example.com"
+    return formataddr((cfg.get("MAIL_SENDER_NAME") or "RR FOODS", address))
+
+
+def send_now(to: str, subject: str, text: str, html: str | None = None) -> None:
+    """Send one email immediately (plain text, plus an HTML version when given). Raises on any failure.
+    MAIL_MODE: off -> MailUnavailable, console -> printed to the log (testing), smtp -> real delivery."""
+    cfg = current_app.config
+    mode = cfg.get("MAIL_MODE", "off")
+    if mode == "off" or (mode == "smtp" and not cfg.get("MAIL_SERVER")):
+        raise MailUnavailable("email is not configured")
+    msg = EmailMessage()
+    msg["Subject"], msg["From"], msg["To"] = subject, _sender(), to
+    msg.set_content(text)
+    if html:
+        msg.add_alternative(html, subtype="html")
+    if mode == "console":
+        print(f"--- EMAIL to {to} ---\n{subject}\n{text}")
+        return
+    if cfg.get("MAIL_USE_SSL"):
+        server = smtplib.SMTP_SSL(cfg["MAIL_SERVER"], cfg["MAIL_PORT"], timeout=15)
+    else:
+        server = smtplib.SMTP(cfg["MAIL_SERVER"], cfg["MAIL_PORT"], timeout=15)
+    try:
+        if cfg.get("MAIL_USE_TLS") and not cfg.get("MAIL_USE_SSL"):
+            server.starttls()
+        if cfg.get("MAIL_USERNAME"):
+            server.login(cfg["MAIL_USERNAME"], cfg["MAIL_PASSWORD"])
+        server.send_message(msg)
+    finally:
+        try:
+            server.quit()
+        except Exception:  # noqa: BLE001  (the message is already sent or has failed)
+            pass
+
+
 EMAIL_KINDS = {"order_status", "return_status", "password_reset", "back_in_stock"}
 
 

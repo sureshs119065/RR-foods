@@ -12,6 +12,7 @@
 {% block content %}
 {{ img_priority_spent() }}{# home: the banner/offer cards are the LCP and the product rows sit below the fold, so product images load lazily and do not compete with the critical CSS #}
 <script src="{{ asset_url('js/home-loop.js') }}" defer></script>
+<script src="{{ asset_url('js/support-message.js') }}" defer></script>
 {% include "partials/header_carousel.html" %}
 {% if carousel and carousel.banners %}<h1 class="sr-only">RR FOODS: healthy, home-style millet foods</h1>{% endif %}
 {% if not (carousel and carousel.banners) %}
@@ -181,16 +182,18 @@
       <p class="muted">Your message is shared with both our Admin team and Shop Owner so the right person can help.</p>
     </div>
     {% if current_user and current_user.role == 'user' %}
-    <form method="post" action="{{ url_for('shop.message_new') }}" class="inbox-form card home-contact-form">
+    <form method="post" action="{{ url_for('shop.message_new') }}" class="inbox-form card home-contact-form" data-support-form data-quick-url="{{ url_for('shop.message_quick') }}" novalidate>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>Subject
-        <input name="subject" maxlength="160" minlength="3" required placeholder="e.g. Question about my order">
+        <input name="subject" maxlength="150" required placeholder="e.g. Question about my order" aria-describedby="support-err-subject" autocomplete="off">
+        <span class="sf-err" id="support-err-subject" data-err="subject" role="alert" hidden></span>
       </label>
       <label>Your message
-        <textarea name="body" rows="6" maxlength="4000" minlength="5" required placeholder="Tell us how we can help..."></textarea>
+        <textarea name="body" rows="6" maxlength="2000" required placeholder="Tell us how we can help..." aria-describedby="support-err-body"></textarea>
+        <span class="sf-err" id="support-err-body" data-err="body" role="alert" hidden></span>
       </label>
       <div class="inbox-actions">
-        <button class="btn btn--accent" type="submit">Send message</button>
+        <button class="btn btn--accent" type="submit" data-support-btn>Send message</button>
       </div>
     </form>
     {% else %}
