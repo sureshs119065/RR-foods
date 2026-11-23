@@ -26,7 +26,17 @@ Payments: there is no gateway. Customers pay the owner on WhatsApp and the owner
 5. Attach a **Disk** (paid instance) mounted at `/var/data`, or admin-uploaded images are lost on every deploy. Images bundled with the code (`app/static/img/products/`) survive on any plan.
 6. Create an admin from the Shell: `flask create-user you@example.com "Your Name" --role admin --password 'StrongPassword'`. Do not run `flask seed` on a live shop.
 7. Load the catalogue once: `flask import-rr-foods --yes`. Imported stock is 0; set real stock in Owner → Inventory before selling. Products without a bundled image get theirs via Admin → Products → Edit → Images.
-8. Cron jobs (same environment variables): `flask send-emails` every minute (needs `MAIL_MODE=smtp`), `flask send-stock-alerts` every 5 minutes, `flask sync-stock-notifications` every 30 minutes (run it once after deploying to backfill existing alerts).
+8. Cron jobs (same environment variables): `flask send-emails` every minute (needs `MAIL_MODE=smtp`, `brevo` or `resend`), `flask send-stock-alerts` every 5 minutes, `flask sync-stock-notifications` every 30 minutes (run it once after deploying to backfill existing alerts).
+
+### Sign-in code emails on Render (SMTP is blocked, use an HTTPS email API)
+
+Render blocks outbound SMTP (ports 25, 465, 587), so Gmail SMTP fails with `[Errno 101] Network is unreachable`. Send over HTTPS instead. Free option, no domain needed: **Brevo**.
+
+1. Create a free account at brevo.com → Senders & IP → add and verify your sender address (for example your Gmail).
+2. Brevo → SMTP & API → API Keys → create a key.
+3. Render → your web service → Environment: `MAIL_MODE=brevo`, `BREVO_API_KEY=<key>`, `MAIL_FROM=RR FOODS <your-verified-sender@gmail.com>`. Remove the old `MAIL_SERVER`, `MAIL_USERNAME`, `MAIL_PASSWORD` values. Save; Render redeploys.
+
+(`MAIL_MODE=resend` with `RESEND_API_KEY` also works, but Resend only delivers to arbitrary addresses once you have verified a domain.)
 
 Render's temporary filesystem is not a backup. Use a persistent host or Render cron for `scripts/backup_postgres.sh`.
 

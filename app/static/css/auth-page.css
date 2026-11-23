@@ -19,7 +19,21 @@ html body .otp__link:disabled { color: #8a9a90; text-decoration: none; cursor: n
 html body .otp__link:focus-visible { outline: 3px solid #ffd21f; outline-offset: 2px; }
 html body .otp__resend { text-align: center; }
 html body .otp__skip { display: block; margin: .75rem auto 0; }
-html body .otp__alt { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--c-line, #d9e7dd); }
-html body .otp__alt summary { cursor: pointer; font-weight: 700; color: var(--c-brand, #0f7b3e); }
-html body .otp__alt .form { margin-top: .75rem; }
 @media (max-width: 380px) { html body .otp__box { width: 2.5rem; height: 3.1rem; } html body .otp__boxes { gap: .35rem; } }
+
+/* Sign-in method tabs: only one panel is visible at a time */
+html body .otp__tabs { display: grid; grid-template-columns: 1fr 1fr; gap: .25rem; margin: 1rem 0; padding: .25rem; border-radius: 12px; background: #eaf2ec; }
+html body .otp__tab { min-height: 2.75rem; padding: .5rem .75rem; border: 0; border-radius: 9px; background: transparent; font: inherit; font-weight: 700; color: #3c5a49; cursor: pointer; transition: background .15s, color .15s, box-shadow .15s; }
+html body .otp__tab:hover { color: var(--c-brand, #0f7b3e); }
+html body .otp__tab[aria-selected="true"] { background: #fff; color: var(--c-brand, #0f7b3e); box-shadow: 0 1px 4px rgb(24 61 43 / .18); }
+html body .otp__tab:focus-visible { outline: 3px solid #ffd21f; outline-offset: 2px; }
+html body .otp__panel[hidden], html body [data-step][hidden] { display: none; }
+html body .otp__new { margin: 1.25rem 0 0; padding-top: 1rem; border-top: 1px solid var(--c-line, #d9e7dd); text-align: center; }
+html body .otp__create { font-weight: 700; color: var(--c-brand, #0f7b3e); }
+
+/* Show / hide password (eye) */
+html body .pw { position: relative; display: block; width: 100%; }
+html body .pw input { padding-right: 3rem; }
+html body .pw__eye { position: absolute; top: 50%; right: .35rem; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; padding: 0; border: 0; border-radius: 10px; background: transparent; color: #55705f; cursor: pointer; }
+html body .pw__eye:hover { color: var(--c-brand, #0f7b3e); background: rgb(15 123 62 / .08); }
+html body .pw__eye:focus-visible { outline: 3px solid #ffd21f; outline-offset: 1px; }

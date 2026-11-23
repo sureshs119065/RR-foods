@@ -55,7 +55,7 @@ class Config:
     ADMIN_WHATSAPP_NUMBER = os.environ.get("ADMIN_WHATSAPP_NUMBER", "")
     DEFAULT_COUNTRY_CODE = os.environ.get("DEFAULT_COUNTRY_CODE", "91")  # added to 10 digit customer numbers
     SHOP_NAME = os.environ.get("SHOP_NAME", "RR FOODS")
-    # email: "off" (send nothing), "console" (print to the terminal, for testing), "smtp" (real). Run `flask send-emails` every minute from cron.
+    # email: "off" (send nothing), "console" (print to the terminal, for testing), "smtp" (real), "brevo" / "resend" (HTTPS API). Run `flask send-emails` every minute from cron.
     MAIL_MODE = os.environ.get("MAIL_MODE", "off" if os.environ.get("FLASK_ENV") == "production" else "console")
     MAIL_SERVER = os.environ.get("MAIL_SERVER", "")
     MAIL_PORT = int(os.environ.get("MAIL_PORT", "587"))
@@ -64,6 +64,8 @@ class Config:
     MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "1") == "1"
     MAIL_FROM = os.environ.get("MAIL_FROM", "RR FOODS <no-reply@example.com>")
     MAIL_SENDER_NAME = os.environ.get("MAIL_SENDER_NAME", "RR FOODS")   # display name on the sign-in code email
+    BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")      # MAIL_MODE=brevo: email over HTTPS, works on Render's free plan
+    RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")    # MAIL_MODE=resend
     MAIL_USE_SSL = os.environ.get("MAIL_USE_SSL", "0") == "1"           # implicit TLS (port 465); leave 0 for STARTTLS on 587
     # customer email sign-in codes
     OTP_TTL_SECONDS = int(os.environ.get("OTP_TTL_SECONDS", "300"))              # a code works for 5 minutes

@@ -3,7 +3,10 @@
 queue_email() writes a row (notifications.channel = 'email', sent_at empty). `flask send-emails` (run it every minute from cron) sends the
 waiting rows and stamps sent_at only after the mail server accepted the message, so a failure is retried next time and nothing is lost.
 """
+import json
 import smtplib
+import urllib.error
+import urllib.request
 from email.message import EmailMessage
 
 from flask import current_app
@@ -24,13 +27,52 @@ def _sender() -> str:
     return formataddr((cfg.get("MAIL_SENDER_NAME") or "RR FOODS", address))
 
 
+API_MODES = {"brevo", "resend"}   # email over HTTPS (port 443). Render's free plan blocks SMTP ports, so use one of these there.
+
+
+def _api_send(mode: str, to: str, subject: str, text: str, html: str | None) -> None:
+    """Send one email through Brevo or Resend's HTTPS API. Raises on any failure."""
+    from email.utils import parseaddr
+    cfg = current_app.config
+    name, address = parseaddr(cfg.get("MAIL_FROM") or "")
+    name = name or cfg.get("MAIL_SENDER_NAME") or "RR FOODS"
+    if not address:
+        raise MailUnavailable("MAIL_FROM is not set")
+    if mode == "brevo":
+        key = cfg.get("BREVO_API_KEY")
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {"api-key": key or "", "accept": "application/json", "content-type": "application/json"}
+        body = {"sender": {"name": name, "email": address}, "to": [{"email": to}], "subject": subject, "textContent": text}
+        if html:
+            body["htmlContent"] = html
+    else:
+        key = cfg.get("RESEND_API_KEY")
+        url = "https://api.resend.com/emails"
+        headers = {"Authorization": f"Bearer {key}", "content-type": "application/json"}
+        body = {"from": f"{name} <{address}>", "to": [to], "subject": subject, "text": text}
+        if html:
+            body["html"] = html
+    if not key:
+        raise MailUnavailable(f"{mode} API key is not set")
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={**headers, "user-agent": "rr-foods/1.0"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp.read()
+    except urllib.error.HTTPError as exc:   # the provider's reason (unverified sender, bad key...) goes to the log
+        raise RuntimeError(f"{mode} API {exc.code}: {exc.read()[:300].decode(errors='replace')}") from exc
+
+
 def send_now(to: str, subject: str, text: str, html: str | None = None) -> None:
     """Send one email immediately (plain text, plus an HTML version when given). Raises on any failure.
-    MAIL_MODE: off -> MailUnavailable, console -> printed to the log (testing), smtp -> real delivery."""
+    MAIL_MODE: off -> MailUnavailable, console -> printed to the log (testing), smtp -> SMTP server,
+    brevo / resend -> HTTPS API (works on hosts that block SMTP)."""
     cfg = current_app.config
     mode = cfg.get("MAIL_MODE", "off")
     if mode == "off" or (mode == "smtp" and not cfg.get("MAIL_SERVER")):
         raise MailUnavailable("email is not configured")
+    if mode in API_MODES:
+        _api_send(mode, to, subject, text, html)
+        return
     msg = EmailMessage()
     msg["Subject"], msg["From"], msg["To"] = subject, _sender(), to
     msg.set_content(text)
@@ -110,7 +152,9 @@ def deliver_pending(limit: int = 100) -> tuple[int, int]:
                     n.sent_at = utcnow()  # nobody to send to: stop retrying
                     continue
                 msg = _compose(user, n)
-                if mode == "smtp":
+                if mode in API_MODES:
+                    _api_send(mode, user.email, msg["Subject"], msg.get_content(), None)
+                elif mode == "smtp":
                     server.send_message(msg)
                 else:
                     print(f"--- EMAIL to {user.email} ---\n{msg['Subject']}\n{msg.get_content()}")

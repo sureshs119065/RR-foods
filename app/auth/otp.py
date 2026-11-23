@@ -112,7 +112,7 @@ def otp_send():
         try:
             send_now(email, *_email_parts(code))
         except MailUnavailable:
-            current_app.logger.error("Sign-in code not sent: email is not configured (MAIL_MODE / MAIL_SERVER).")
+            current_app.logger.error("Sign-in code not sent: email is not configured (MAIL_MODE, MAIL_FROM and BREVO_API_KEY / RESEND_API_KEY / MAIL_SERVER).")
             db.session.delete(row); db.session.commit()
             return _fail("Email sign-in is not available right now. Please sign in with your password instead.", 503)
         except Exception as exc:  # noqa: BLE001  (SMTP down, wrong login, timeout...)

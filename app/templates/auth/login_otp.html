@@ -6,12 +6,19 @@
   <div class="sr-only" id="otp-live" role="status" aria-live="polite"></div>
 
   <h1>Sign in or create account</h1>
+
+  <div class="otp__tabs" role="tablist" aria-label="Choose how to sign in" data-tabs>
+    <button type="button" class="otp__tab" role="tab" id="tab-code" aria-controls="panel-code" aria-selected="{{ 'false' if error else 'true' }}" tabindex="{{ '-1' if error else '0' }}" data-tab="code">Email code</button>
+    <button type="button" class="otp__tab" role="tab" id="tab-password" aria-controls="panel-password" aria-selected="{{ 'true' if error else 'false' }}" tabindex="{{ '0' if error else '-1' }}" data-tab="password">Password</button>
+  </div>
+
+  <div class="otp__panel" role="tabpanel" id="panel-code" aria-labelledby="tab-code" data-panel="code"{% if error %} hidden{% endif %}>
   <div data-step="email">
     <p class="muted">Enter your email. We will send you a 6 digit code, no password needed.</p>
     <form class="form" data-email-form novalidate>
       <label class="field">
         <span>Email</span>
-        <input type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="255" required autofocus>
+        <input type="email" name="email" value="{{ email }}" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="255" required{% if not error %} autofocus{% endif %}>
       </label>
       <p class="otp__err" data-error role="alert" hidden></p>
       <button class="btn btn--block" type="submit" data-send-btn>Send OTP</button>
@@ -43,18 +50,22 @@
     </form>
   </div>
 
-  <details class="otp__alt"{% if error %} open{% endif %}>
-    <summary>Sign in with a password instead</summary>
+  </div>
+
+  <div class="otp__panel" role="tabpanel" id="panel-password" aria-labelledby="tab-password" data-panel="password"{% if not error %} hidden{% endif %}>
+    <p class="muted">Already have a password? Sign in with it.</p>
     {% if error %}<div class="alert alert--error" role="alert" id="login-err">{{ error }}</div>{% endif %}
     <form method="post" class="form" novalidate>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="next" value="{{ next }}">
       <label class="field"><span>Email</span><input type="email" name="email" value="{{ email }}" autocomplete="username" inputmode="email" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} autocapitalize="none" spellcheck="false" required></label>
       <label class="field"><span>Password</span><input type="password" name="password" autocomplete="current-password" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} required></label>
-      <button class="btn btn--block btn--ghost" type="submit">Sign in with password</button>
+      <button class="btn btn--block" type="submit">Sign in</button>
     </form>
     <p class="muted"><a href="/forgot">Forgot your password?</a></p>
-  </details>
+  </div>
+
+  <p class="muted otp__new">New to RR FOODS? <a class="otp__create" href="{{ url_for('auth.register') }}">Create new account</a></p>
 </section>
 <script src="{{ asset_url('js/login-otp.js') }}" defer></script>
 {% endblock %}
