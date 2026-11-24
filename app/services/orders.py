@@ -28,7 +28,7 @@ from ..extensions import db
 from ..models import CartItem, Coupon, CouponUsage, Order, OrderItem, OrderStatusHistory, Product, User
 from ..models.base import utcnow
 from ..models.orders import DRAFT_STATUS
-from .coupons import release as release_coupon
+from .coupons import CouponError, check_usage_available, release as release_coupon
 from .inventory import StockError, restore_order_stock, take_order_stock
 from .notify import notify
 from .tracking import clear_shipment
@@ -248,8 +248,13 @@ def confirm_whatsapp_received(order_id: int, actor) -> Order:
     except StockError as e:
         raise OrderError(f"Not placed: {e} Reject the request or update the stock first.") from e
     if order.coupon_id:
-        coupon = db.session.get(Coupon, order.coupon_id, with_for_update=True)
+        coupon = db.session.get(Coupon, order.coupon_id, with_for_update=True, populate_existing=True)
         if coupon:
+            try:  # checked again on the locked row: the customer's other request may have used the last allowed use meanwhile
+                check_usage_available(coupon, order.user_id)
+            except CouponError as e:
+                raise OrderError(f"Not placed: coupon {coupon.code} can no longer be used ({str(e).rstrip('.').lower()}). "
+                                 "Reject the request, or ask the customer to order again without it.") from e
             coupon.used_count += 1
             db.session.add(CouponUsage(coupon_id=coupon.id, user_id=order.user_id, order_id=order.id))
     pairs = {(i.product_id, i.variant_id) for i in order.items if i.product_id}

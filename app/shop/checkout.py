@@ -1,3 +1,5 @@
+import re
+
 from flask import abort, flash, g, redirect, render_template, request, session, url_for
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -9,9 +11,11 @@ from ..models.orders import DRAFT_STATUS
 from ..services import cart as cart_svc
 from ..services import checkout as svc
 from ..services.cart import totals_for
+from ..services.suspicious import note_tampered_fields
 from . import bp
 
 user_only = roles_required("user")
+_TOKEN_OK = re.compile(r"[A-Za-z0-9_-]{16,64}")  # what secrets.token_urlsafe(24) produces
 
 
 def _addresses():
@@ -56,8 +60,18 @@ def checkout_page():
 @user_only
 @limiter.limit("20 per minute")
 def checkout_place():
-    submitted_token = request.form.get("checkout_token", "")
-    if not submitted_token or submitted_token != session.get("checkout_token"):
+    """The browser sends only: the address, the payment method, text notes and the form's one-time token. Prices, stock, the coupon,
+    the delivery fee and the total are all worked out again here from the database; any price-like field sent is logged and ignored."""
+    note_tampered_fields()
+    submitted_token = (request.form.get("checkout_token") or "").strip()
+    if not _TOKEN_OK.fullmatch(submitted_token):
+        flash("This checkout expired. Please review your order and try again.", "info")
+        return redirect(url_for("shop.checkout_page"))
+    if submitted_token != session.get("checkout_token"):
+        # Back button / refresh after the order was already saved: show that order instead of an error (and never create a second).
+        earlier = svc.order_for_key(g.user.id, submitted_token)
+        if earlier is not None:
+            return redirect(url_for("shop.order_placed", order_number=earlier.order_number))
         flash("This checkout has already been submitted or expired. Please review your order.", "info")
         return redirect(url_for("shop.orders"))
     from .. import validation as v
@@ -68,12 +82,13 @@ def checkout_place():
         return redirect(url_for("shop.checkout_page", address=request.form.get("address_id")))
     try:
         order = svc.create_pending_order(g.user, int(request.form.get("address_id") or 0) if (request.form.get("address_id") or "").isdigit() else 0,
-                                request.form.get("method", ""), session.get("coupon"), notes, request.form.get("gift_message"), request.form.get("hide_prices") == "1")
+                                request.form.get("method", ""), session.get("coupon"), notes, request.form.get("gift_message"), request.form.get("hide_prices") == "1",
+                                idempotency_key=submitted_token)
         db.session.commit()
         session.pop("checkout_token", None)
     except svc.CheckoutError as e:
         db.session.rollback()
-        flash(str(e), "error")
+        flash(str(e), "error")  # e.g. "“Ragi flour” is down to 1. Update your cart and try again." The other cart items are untouched.
         return redirect(url_for("shop.checkout_page", address=request.form.get("address_id")))
     # The cart and the coupon stay as they are: this is only a request until the shop receives the WhatsApp message.
     return redirect(url_for("shop.order_placed", order_number=order.order_number))

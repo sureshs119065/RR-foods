@@ -13,6 +13,8 @@ from ..services import invoice as invoice_svc
 from ..services import orders as order_svc
 from ..services import reviews as rv_svc
 from ..services import tracking as tracking_svc
+from .. import ratelimits as limits
+from ..services.suspicious import log_suspicious
 from . import bp
 from ..services.cart import CartOwner
 from .cart import _add_one
@@ -34,8 +36,15 @@ def orders():
 def _mine(order_number: str) -> Order:
     order = db.session.scalar(select(Order).where(Order.order_number == order_number, Order.user_id == g.user.id).options(selectinload(Order.items), selectinload(Order.payments)))
     if order is None:
+        _log_if_not_theirs(order_number)
         abort(404)
     return order
+
+
+def _log_if_not_theirs(order_number: str) -> None:
+    """Same 404 for "no such order" and "someone else's order" (nothing leaks); the server log keeps the difference."""
+    if db.session.scalar(select(Order.id).where(Order.order_number == order_number, Order.user_id != g.user.id)) is not None:
+        log_suspicious("other_customers_order", f"order_number={order_number}")
 
 
 @bp.get("/account/orders/<order_number>")
@@ -78,6 +87,8 @@ def order_status_json(order_number):
     from flask import jsonify
     order = db.session.scalar(select(Order).where(Order.order_number == order_number, Order.user_id == g.user.id))
     if order is None:
+        _log_if_not_theirs(order_number)
+    if order is None:
         abort(404)
     closed = order.status in tracking_svc.NO_SHIPMENT
     resp = jsonify(status=order.status, label=order_svc.LABELS.get(order.status, order.status), updated=order.updated_at.isoformat() if order.updated_at else None, courier_name=None if closed else order.courier_name, tracking_id=None if closed else order.tracking_id, tracking_url=None if closed else order.tracking_url, delivery_date=None if closed or not order.delivery_date else order.delivery_date.isoformat(), delivery_slot=None if closed else order.delivery_slot)
@@ -87,6 +98,7 @@ def order_status_json(order_number):
 
 @bp.post("/account/orders/<order_number>/cancel")
 @user_only
+@limiter.limit(limits.limit("cart_change"))
 def order_cancel(order_number):
     order = _mine(order_number)
     try:
@@ -102,6 +114,7 @@ def order_cancel(order_number):
 
 @bp.post("/account/orders/<order_number>/return")
 @user_only
+@limiter.limit(limits.limit("cart_change"))
 def order_return(order_number):
     order = _mine(order_number)
     # Returns are not offered at the moment, so customers cannot raise one.
@@ -123,6 +136,7 @@ def order_invoice(order_number):
 
 @bp.post("/account/orders/<order_number>/reorder")
 @user_only
+@limiter.limit(limits.limit("cart_change"))
 def order_reorder(order_number):
     order = _mine(order_number)
     added, skipped = 0, []

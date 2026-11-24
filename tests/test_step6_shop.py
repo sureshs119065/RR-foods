@@ -581,7 +581,9 @@ def test_double_submit_creates_one_order(cust, session, catalog):
     assert session.scalar(select(func.count(Order.id))) == 1 and session.get(Product, p.id).stock_qty == 10   # one request, nothing taken yet
     confirm_requests(session)
     assert session.get(Product, p.id).stock_qty == 8
-    assert "already been submitted" in r.get_data(as_text=True)
+    order = session.scalar(select(Order))
+    assert order.idempotency_key == tok                                           # the token is saved with the order
+    assert order.order_number in r.get_data(as_text=True)                         # the second press lands on the SAME order, not an error
 
 
 def test_saved_for_later_items_stay_after_checkout(cust, session, catalog):

@@ -58,6 +58,9 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="bd__cta" type="submit">Add bundle to cart</button>
       </form>
+    {% elif c.sold_out %}
+      <button class="bd__cta" type="button" disabled>Out of stock</button>
+      <a class="btn btn--ghost btn--sm" href="{{ url_for('shop.product', slug=c.sold_out.slug) }}#notify">Notify me · {{ c.sold_out.name }}</a>
     {% else %}
       <button class="bd__cta" type="button" disabled>Currently unavailable</button>
     {% endif %}

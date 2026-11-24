@@ -320,7 +320,7 @@ def bundle_cards(*, include_upcoming: bool = True) -> list[dict]:
         upcoming = bool(starts and starts > now)
         if upcoming and (not include_upcoming or starts - now > timedelta(days=7)):
             continue
-        items, regular, ok = [], Decimal("0"), True
+        items, regular, ok, sold_out = [], Decimal("0"), True, None
         for line in (b.product_quantities or []):
             pr, qty = products.get(int(line.get("product_id", 0))), max(1, int(line.get("quantity", 1)))
             if pr is None:
@@ -329,6 +329,8 @@ def bundle_cards(*, include_upcoming: bool = True) -> list[dict]:
             regular += Decimal(str(pr.final_price)) * qty
             if not pr.is_active or active_variants(pr) or available_qty(pr) < qty:
                 ok = False
+            if sold_out is None and pr.is_active and available_qty(pr) <= 0:
+                sold_out = pr  # the combo shows "Out of stock" and a "Notify me" link to this product
             items.append({"product": pr, "qty": qty})
         if not items:
             continue
@@ -344,7 +346,7 @@ def bundle_cards(*, include_upcoming: bool = True) -> list[dict]:
                       "price": price, "regular": regular, "saving": saving,
                       "pct": int(round(saving * 100 / regular)) if regular > 0 and saving else 0,
                       "items": items, "count": sum(i["qty"] for i in items), "available": ok and not upcoming,
-                      "upcoming": upcoming, "window": window,
+                      "upcoming": upcoming, "window": window, "sold_out": sold_out,
                       "starts_label": f"{starts.astimezone(ist):%-d %b}" if starts else ""})
     cards.sort(key=lambda c: c["upcoming"])
     return cards

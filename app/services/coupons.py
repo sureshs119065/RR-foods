@@ -23,6 +23,18 @@ def find(code: str, lock: bool = False) -> Coupon | None:
     return db.session.scalar(q)
 
 
+def check_usage_available(coupon: Coupon, user_id: int) -> None:
+    """Usage limit and one-use-per-customer rules. Checkout runs this to be helpful; the moment an order is really placed it runs
+    again on the LOCKED coupon row (services.orders.confirm_whatsapp_received), because two requests can both pass here before
+    either one uses the coupon."""
+    if coupon.usage_limit is not None and coupon.used_count >= coupon.usage_limit:
+        raise CouponError("This coupon has been fully used.")
+    if coupon.per_user_limit and coupon.per_user_limit > 0:
+        mine = db.session.scalar(select(func.count(CouponUsage.id)).where(CouponUsage.coupon_id == coupon.id, CouponUsage.user_id == user_id)) or 0
+        if mine >= coupon.per_user_limit:
+            raise CouponError("You have already used this coupon the maximum number of times.")
+
+
 def discount_for(coupon: Coupon, user_id: int, subtotal: Decimal) -> Decimal:
     """The rupee discount, or CouponError saying why the code cannot be used."""
     now = utcnow()
@@ -32,12 +44,7 @@ def discount_for(coupon: Coupon, user_id: int, subtotal: Decimal) -> Decimal:
         raise CouponError("This coupon has expired.")
     if subtotal < coupon.min_cart_value:
         raise CouponError(f"Add items worth ₹{coupon.min_cart_value - subtotal:,.2f} more to use {coupon.code}. Minimum cart value is ₹{coupon.min_cart_value:,.2f}.")
-    if coupon.usage_limit is not None and coupon.used_count >= coupon.usage_limit:
-        raise CouponError("This coupon has been fully used.")
-    if coupon.per_user_limit and coupon.per_user_limit > 0:
-        mine = db.session.scalar(select(func.count(CouponUsage.id)).where(CouponUsage.coupon_id == coupon.id, CouponUsage.user_id == user_id)) or 0
-        if mine >= coupon.per_user_limit:
-            raise CouponError("You have already used this coupon the maximum number of times.")
+    check_usage_available(coupon, user_id)
     if coupon.discount_type == "percent":
         amount = subtotal * coupon.discount_value / Decimal(100)
         if coupon.max_discount is not None:

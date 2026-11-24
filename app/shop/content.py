@@ -71,6 +71,7 @@ def bundles():
     return render_template("shop/bundles.html", items=items, products=products, originals=originals, bundle_prices=bundle_prices)
 
 @bp.post("/bundles/<int:bundle_id>/add")
+@limiter.limit(limits.limit("cart_add"))
 def add_bundle(bundle_id):
     if not g.get("user") or g.user.role != "user":
         return redirect(url_for("auth.login", next=url_for("shop.bundles")))

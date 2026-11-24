@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from ..extensions import db
 from ..models import InventoryLog, Notification, Product, ProductVariant, User
+from ..models.base import utcnow
 
 MAX_QTY = 1_000_000
 
@@ -133,7 +134,13 @@ def restore_order_stock(order, reason: str, actor_id: int | None) -> int:
 
     Rows are locked in a fixed order (products, then variants, by id) so two simultaneous restores cannot deadlock.
     Lines whose product was permanently deleted (product_id is NULL) are skipped.
+
+    Only ever once per order: the caller holds the order row lock (services.orders.lock_order), and the moment the stock goes back
+    the order is stamped with stock_restored_at, so a double click, a retry or two different paths (reject, then return) cannot give
+    the same units back twice. A second call returns 0 and changes nothing.
     """
+    if order.stock_restored_at is not None:
+        return 0
     lines = [i for i in order.items if i.product_id is not None]
     restored = 0
     for item in sorted(lines, key=lambda i: (i.product_id, i.variant_id or 0)):
@@ -143,6 +150,7 @@ def restore_order_stock(order, reason: str, actor_id: int | None) -> int:
             continue
         add_quantity(row, item.quantity, reason, actor_id)
         restored += 1
+    order.stock_restored_at = utcnow()
     return restored
 
 

@@ -109,8 +109,15 @@
     f.addEventListener("submit", function (e) {
       if (e.defaultPrevented) return;
       if (f.getAttribute("data-sent")) { e.preventDefault(); return; }
-      f.setAttribute("data-sent", "1"); setTimeout(function () { f.removeAttribute("data-sent"); }, 8000);
+      f.setAttribute("data-sent", "1");
+      var btns = $$("button[type=submit],input[type=submit]", f);
+      setTimeout(function () { btns.forEach(function (b) { b.disabled = true; b.setAttribute("aria-busy", "true"); }); }, 0);  // after the browser has read the clicked button
+      setTimeout(function () { f.removeAttribute("data-sent"); btns.forEach(function (b) { b.disabled = false; b.removeAttribute("aria-busy"); }); }, 8000);
     });
+  });
+  window.addEventListener("pageshow", function (e) {  // back button restores the page from cache: make the button usable again
+    if (!e.persisted) return;
+    $$("form[data-once]").forEach(function (f) { f.removeAttribute("data-sent"); $$("button[aria-busy]", f).forEach(function (b) { b.disabled = false; b.removeAttribute("aria-busy"); }); });
   });
 
   /* ---------- accordions (animated by CSS: grid rows 0fr -> 1fr) ---------- */

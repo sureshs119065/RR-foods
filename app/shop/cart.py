@@ -9,6 +9,7 @@ from ..models import CartItem, Product, ProductVariant
 from ..services import cart as svc
 from ..services import coupons
 from ..services.storefront import LIVE, active_variants
+from ..services.suspicious import log_suspicious, note_tampered_fields
 from ..admin.helpers import to_int
 from . import bp, reply, wants_json
 
@@ -58,14 +59,18 @@ def _add_one(owner, product_id, variant_id, qty, *, replace=False):
     """Add to (or raise) one cart line. Returns (message, ok). Quantity is clamped to stock and the per-line maximum."""
     p = db.session.scalar(select(Product).where(Product.id == product_id, LIVE))
     if p is None:
+        log_suspicious("unknown_or_hidden_product", f"product_id={product_id}")
         return "That product is not available.", False
     options = active_variants(p)
     v = None
     if options:
         v = next((x for x in options if x.id == variant_id), None)
         if v is None:
+            if variant_id:
+                log_suspicious("invalid_variant", f"product_id={p.id} variant_id={variant_id}")
             return "Choose an option first.", False
     elif variant_id:
+        log_suspicious("invalid_variant", f"product_id={p.id} variant_id={variant_id}")
         return "That option does not exist.", False
     stock = v.stock_qty if v else p.stock_qty
     if stock <= 0:
@@ -105,10 +110,12 @@ def _add_one(owner, product_id, variant_id, qty, *, replace=False):
 def buy_now():
     """Add the selected quantity once, then go straight to checkout (guests are asked to sign in there)."""
     errs: dict = {}
+    note_tampered_fields()
     pid = to_int(request.form.get("product_id"), "p", errs, min_=1, max_=2_000_000_000)
     vid = to_int(request.form.get("variant_id"), "v", errs, min_=1, max_=2_000_000_000, required=False, default=None)
     qty = to_int(request.form.get("qty") or "1", "q", errs, min_=1, max_=svc.MAX_LINE_QTY)
     if errs:
+        log_suspicious("invalid_product_or_quantity", f"product_id={request.form.get('product_id')} qty={request.form.get('qty')}")
         flash("Choose a valid quantity before continuing.", "error")
         return redirect(request.form.get("next") or url_for("shop.listing"))
     msg, ok = _add_one(svc.cart_owner(create=True), pid, vid, qty, replace=True)
@@ -123,10 +130,12 @@ def buy_now():
 @guest_cart
 def cart_add():
     errs: dict = {}
+    note_tampered_fields()
     pid = to_int(request.form.get("product_id"), "p", errs, min_=1, max_=2_000_000_000)
     vid = to_int(request.form.get("variant_id"), "v", errs, min_=1, max_=2_000_000_000, required=False, default=None)
     qty = to_int(request.form.get("qty") or "1", "q", errs, min_=1, max_=svc.MAX_LINE_QTY)
     if errs:
+        log_suspicious("invalid_product_or_quantity", f"product_id={request.form.get('product_id')} qty={request.form.get('qty')}")
         return reply(False, "Choose a quantity from 1 to %d." % svc.MAX_LINE_QTY, "/cart", 422)
     owner = svc.cart_owner(create=True)
     msg, ok = _add_one(owner, pid, vid, qty)
@@ -165,6 +174,8 @@ def _own_item(item_id: int) -> CartItem | None:
     if item is None:
         return None
     mine = item.user_id == owner.user_id if owner.user_id is not None else (item.user_id is None and item.session_id == owner.session_id)
+    if not mine:
+        log_suspicious("other_customers_cart_line", f"cart_item_id={item_id}")
     return item if mine else None
 
 
@@ -172,6 +183,7 @@ def _own_item(item_id: int) -> CartItem | None:
 @limiter.limit(limits.limit("cart_change"))
 @guest_cart
 def cart_qty(item_id):
+    note_tampered_fields()
     item = _own_item(item_id)
     if item is None:
         return reply(False, "That item is no longer in your cart.", "/cart", 404)
@@ -185,6 +197,7 @@ def cart_qty(item_id):
         errs: dict = {}
         new = to_int(request.form.get("qty"), "qty", errs, min_=0, max_=svc.MAX_LINE_QTY)
         if errs:
+            log_suspicious("invalid_quantity", f"cart_item_id={item_id} qty={request.form.get('qty')}")
             return reply(False, "Enter a quantity from 1 to %d." % svc.MAX_LINE_QTY, "/cart", 422)
     if new <= 0:
         db.session.delete(item)
@@ -230,6 +243,7 @@ def cart_save(item_id):
 @guest_cart
 @limiter.limit(limits.limit("coupon"))
 def cart_coupon():
+    note_tampered_fields()  # a "discount" sent from the browser is logged and ignored: the server works out every discount itself
     from .. import validation as v
     code_errors: dict = {}
     code = v.coupon_code(request.form.get("code"), "code", code_errors)

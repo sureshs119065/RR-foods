@@ -64,6 +64,9 @@ class Order(TimestampMixin, db.Model):
     __tablename__ = "orders"
     __table_args__ = (
         UniqueConstraint("order_number", name="uq_orders_number"),
+        # One checkout form = one order: the form's token is stored here, so a double click, refresh or back button
+        # (even two requests at the same instant) can never create a second order. NULL for older orders.
+        UniqueConstraint("idempotency_key", name="uq_orders_idempotency_key"),
         CheckConstraint(f"status in ({_status_list})", name="ck_orders_status"),
         CheckConstraint("payment_method in ('cod','online','upi_manual')", name="ck_orders_pay_method"),
         CheckConstraint("payment_status in ('pending','paid','failed','refunded')", name="ck_orders_pay_status"),
@@ -96,6 +99,9 @@ class Order(TimestampMixin, db.Model):
     delivery_slot: Mapped[str | None] = mapped_column(String(20))
     gift_message: Mapped[str | None] = mapped_column(String(500))
     hide_prices: Mapped[bool] = mapped_column(default=False, server_default="false")
+    idempotency_key: Mapped[str | None] = mapped_column(String(64))
+    # Set the moment this order's stock goes back on the shelf. A second restore (double click, retry) sees it and does nothing.
+    stock_restored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     user = relationship("User")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")

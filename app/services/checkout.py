@@ -10,10 +10,11 @@ from decimal import Decimal
 
 from flask import current_app
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from ..auth.service import audit
 from ..extensions import db
-from ..models import Address, CartItem, CouponUsage, DeliveryZone, Order, OrderItem, OrderStatusHistory, Payment, Product, ProductVariant
+from ..models import Address, CartItem, CouponUsage, DeliveryZone, Order, OrderItem, OrderStatusHistory, Payment, Product, ProductVariant, User
 from ..models.base import utcnow
 from ..models.orders import DRAFT_STATUS
 from . import coupons, inventory
@@ -64,8 +65,26 @@ def _signature(items) -> tuple:
     return tuple(sorted((i["product_id"], i["variant_id"] or 0, i["quantity"]) for i in items))
 
 
-def create_pending_order(user, address_id: int, method: str, coupon_code: str | None, note: str | None, gift_message: str | None = None, hide_prices: bool = False) -> Order:
-    """Validate the cart and save it as an order request waiting for the WhatsApp message. Takes nothing from stock or coupons."""
+def order_for_key(user_id: int, key: str | None) -> Order | None:
+    """The order this checkout form already created (if any). Only the customer's own order is ever returned."""
+    if not key:
+        return None
+    return db.session.scalar(select(Order).where(Order.idempotency_key == key, Order.user_id == user_id))
+
+
+def create_pending_order(user, address_id: int, method: str, coupon_code: str | None, note: str | None, gift_message: str | None = None, hide_prices: bool = False,
+                         idempotency_key: str | None = None) -> Order:
+    """Validate the cart and save it as an order request waiting for the WhatsApp message. Takes nothing from stock or coupons.
+
+    Everything here is read from the database (prices, stock, bundle, coupon, delivery fee); the browser only supplies the address,
+    the payment method and the text fields. `idempotency_key` is the checkout form's one-time token: it is saved with the order, so the
+    same form sent twice (double click, refresh, back button, two requests at the same instant) returns the first order, never a second."""
+    # One checkout at a time per customer. This also makes the "same request twice" check below reliable: without the lock, two
+    # simultaneous requests could both find no open request and both create one.
+    db.session.execute(select(User.id).where(User.id == user.id).with_for_update())
+    again = order_for_key(user.id, idempotency_key)
+    if again is not None:
+        return again
     if method not in {m[0] for m in payment_methods()}:
         raise CheckoutError("Choose a payment method.")
     address = db.session.get(Address, address_id) if address_id else None
@@ -100,7 +119,8 @@ def create_pending_order(user, address_id: int, method: str, coupon_code: str | 
         if it.quantity > MAX_LINE_QTY:
             raise CheckoutError(f"You can buy at most {MAX_LINE_QTY} of “{name}” in one order.")
         if stock < it.quantity:  # checked again, with locks, when the shop confirms the WhatsApp message
-            raise CheckoutError(f"“{name}” is {'out of stock' if stock <= 0 else f'down to {stock}'}. Update your cart and try again.")
+            raise CheckoutError(f"Sorry, “{name}” just sold out. Remove it from your cart (your other items are kept) and try again." if stock <= 0
+                                else f"Only {stock} of “{name}” left. Please update your cart and try again.")
         price, mrp = (v.price, v.mrp or v.price) if v else (it.unit_price_override if it.unit_price_override is not None else p.final_price, p.mrp)
         lines.append(Line(item=it, product=p, variant=v, unit_price=Decimal(price), mrp=Decimal(mrp), stock=stock, error=None, qty=it.quantity))
 
@@ -133,14 +153,21 @@ def create_pending_order(user, address_id: int, method: str, coupon_code: str | 
                   subtotal=t.subtotal, discount_total=t.discount, delivery_fee=t.delivery or Decimal(0), tax_total=t.tax_included, total=t.total,
                   coupon_id=coupon.id if coupon else None, coupon_code=coupon.code if coupon else None, payment_method=method,
                   payment_status="pending", customer_notes=(note or "").strip()[:500] or None,
-                  gift_message=(gift_message or "").strip()[:500] or None, hide_prices=bool(hide_prices))
+                  gift_message=(gift_message or "").strip()[:500] or None, hide_prices=bool(hide_prices), idempotency_key=idempotency_key or None)
     for l in lines:
         order.items.append(OrderItem(product_id=l.product.id, variant_id=l.variant.id if l.variant else None,
                                      name=l.product.name + (f" ({l.variant.option_value})" if l.variant else ""), sku=l.sku, pack_size=l.product.pack_size,
                                      unit_price=l.unit_price, mrp=l.mrp, quantity=l.qty, line_total=l.total))
     order.payments.append(Payment(provider="upi_manual", amount=t.total, status="pending"))
-    db.session.add(order)
-    db.session.flush()
+    try:
+        with db.session.begin_nested():  # the database refuses a second order with the same token, even if the lock above were bypassed
+            db.session.add(order)
+            db.session.flush()
+    except IntegrityError:
+        winner = order_for_key(user.id, idempotency_key)
+        if winner is None:
+            raise CheckoutError("We could not place your order request. Please try again.") from None
+        return winner
     db.session.add(OrderStatusHistory(order_id=order.id, from_status=None, to_status=DRAFT_STATUS, changed_by=user.id, note="Waiting for the WhatsApp message"))
     audit("order.request", entity_type="order", entity_id=order.id, actor_id=user.id, after={"order_number": order.order_number, "total": str(order.total), "method": method})
     return order
