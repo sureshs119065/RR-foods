@@ -6,7 +6,7 @@ from sqlalchemy import select
 from app.models import CartItem, SiteSetting, User
 from app.models.base import utcnow
 from app.services import cart as cart_svc
-from tests.helpers import PW, make_user, token
+from tests.helpers import PW, make_user, signup, token
 from tests.test_step2_models import make_category, make_product
 
 JSON = {"Accept": "application/json"}
@@ -59,7 +59,7 @@ def test_checkout_requires_login_and_returns_to_checkout(app, session):
     assert r.status_code == 302 and r.headers["Location"].endswith("/checkout")
 
 
-def test_guest_cart_merges_on_login_and_register(app, session):
+def test_guest_cart_merges_on_login_and_register(app, session, monkeypatch):
     p = _product(session)
     u = make_user(session, "user")
     c = app.test_client()
@@ -77,7 +77,7 @@ def test_guest_cart_merges_on_login_and_register(app, session):
     # register
     c3 = app.test_client()
     _add(c3, p, 1)
-    c3.post("/register", data={"name": "Nina Rao", "email": "nina@test.com", "phone": "", "password": "Gr3at-Passw0rd!x", "confirm": "Gr3at-Passw0rd!x", "csrf_token": token(c3, "/register")})
+    assert signup(c3, monkeypatch, {"name": "Nina Rao", "email": "nina@test.com", "phone": "", "password": "Gr3at-Passw0rd!x", "confirm": "Gr3at-Passw0rd!x"}).status_code == 302
     session.expire_all()
     nina = session.scalar(select(User).where(User.email == "nina@test.com"))
     assert nina is not None and session.scalar(select(CartItem.quantity).where(CartItem.user_id == nina.id)) == 1

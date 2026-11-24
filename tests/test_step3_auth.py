@@ -7,6 +7,7 @@ from sqlalchemy import select
 from app.models import AuditLog, LoginLockout, User
 from app.models.base import utcnow
 from app.security import hash_password
+from tests.helpers import signup
 
 PW = "Sup3rSecret!"
 
@@ -236,12 +237,13 @@ def test_staff_next_cannot_cross_into_the_other_portal(client, users):
 
 
 # ---------------- registration ----------------
-def test_register_creates_a_customer_and_ignores_a_role_field(client, session):
-    r = post(client, "/register", {"name": "New Person", "email": "New@Test.com", "phone": "+91 98765 43210",
+def test_register_creates_a_customer_and_ignores_a_role_field(client, session, monkeypatch):
+    r = signup(client, monkeypatch, {"name": "New Person", "email": "New@Test.com", "phone": "+91 98765 43210",
                                    "password": "Passw0rdOK", "confirm": "Passw0rdOK", "role": "admin", "is_blocked": ""})
     assert r.status_code == 302 and r.headers["Location"] == "/account"
     u = session.scalar(select(User).where(User.email == "new@test.com"))
     assert u.role == "user" and u.phone == "9876543210" and u.password_hash.startswith("$argon2")
+    assert u.email_verified_at is not None                                   # the code proved the address
     assert client.get("/admin/").status_code == 403
 
 

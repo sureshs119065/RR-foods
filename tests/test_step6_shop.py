@@ -12,7 +12,7 @@ from app.models import (
 )
 from app.models.base import utcnow
 from app.services import header_banners
-from tests.helpers import checkout_post, checkout_token, confirm_requests, make_user, post, sign_in, token
+from tests.helpers import checkout_post, checkout_token, confirm_requests, make_user, post, sign_in, signup, token
 from tests.test_step2_models import make_category, make_product
 
 JSON = {"Accept": "application/json"}
@@ -764,9 +764,9 @@ def test_address_next_redirect_is_safe(cust, session):
 
 
 # ================================================================ regressions: the existing user flow
-def test_existing_login_register_account_flow_still_works(app, session, catalog):
+def test_existing_login_register_account_flow_still_works(app, session, catalog, monkeypatch):
     c = app.test_client()
-    r = c.post("/register", data={"name": "New Person", "email": "new@x.com", "phone": "", "password": "Sup3rSecret!x", "confirm": "Sup3rSecret!x", "csrf_token": token(c, "/register")})
+    r = signup(c, monkeypatch, {"name": "New Person", "email": "new@x.com", "phone": "", "password": "Sup3rSecret!x", "confirm": "Sup3rSecret!x"})
     assert r.status_code == 302 and r.headers["Location"] == "/account"
     html = c.get("/account").get_data(as_text=True)
     assert "Hello, New Person" in html and "My orders" in html and "Change password" in html

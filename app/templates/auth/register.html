@@ -14,6 +14,8 @@
 {% block content %}
 <section class="card narrow">
   <h1>Create your account</h1>
+  <p class="muted">Step 1 of 2: your details. Next, we email you a 6 digit code to verify your email address.</p>
+  {% if banner %}<div class="alert alert--error" role="alert">{{ banner }}</div>{% endif %}
   <form method="post" class="form" novalidate>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {{ field("name", "Full name", autocomplete="name") }}
@@ -21,7 +23,7 @@
     {{ field("phone", "Mobile number (optional)", "tel", "tel", "numeric", "10 digits, used only for delivery updates") }}
     {{ field("password", "Password", "password", "new-password", hint="At least 8 characters with a letter and a number") }}
     {{ field("confirm", "Confirm password", "password", "new-password") }}
-    <button class="btn btn--block" type="submit">Create account</button>
+    <button class="btn btn--block" type="submit">Send verification code</button>
   </form>
   <p class="muted">Already registered? <a href="/login">Sign in</a></p>
 </section>

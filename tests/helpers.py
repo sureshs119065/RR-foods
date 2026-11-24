@@ -36,6 +36,22 @@ def checkout_post(client, data=None, page=None, follow=False):
     return post(client, "/checkout", data, page=page, follow=follow)
 
 
+def signup(client, monkeypatch, data):
+    """Create an account the way a person does: fill the form, read the emailed 6 digit code, type it in.
+
+    Returns the response of the final /register/verify POST (302 to /account on success). If the form itself is
+    refused, that response is returned instead and no code is ever sent.
+    """
+    import app.auth.otp as otp
+    sent = []
+    monkeypatch.setattr(otp, "send_now", lambda to, subject, text, html=None: sent.append((to, subject, text, html)))
+    r = post(client, "/register", data, page="/register")
+    if r.status_code != 302:
+        return r
+    code = re.search(r"code is (\d{6})", sent[-1][2]).group(1)
+    return post(client, "/register/verify", {"code": code}, page="/register/verify")
+
+
 def sign_in(client, role="admin"):
     url = {"user": "/login", "owner": "/owner/login", "admin": "/admin/login"}[role]
     return client.post(url, data={"email": f"{role}@test.com", "password": PW, "csrf_token": token(client, url)})

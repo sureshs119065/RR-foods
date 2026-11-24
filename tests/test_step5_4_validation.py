@@ -8,7 +8,7 @@ from sqlalchemy import select
 from app import validation as v
 from app.extensions import limiter
 from app.models import Address, Order, User
-from tests.helpers import make_user, post, token
+from tests.helpers import make_user, post, signup, token
 from tests.test_step6_shop import JSON, add, address_id, catalog, checkout, cust, pj  # noqa: F401  (fixtures)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -120,14 +120,17 @@ def test_strip_controls_handles_non_strings():
 
 
 # ---------------------------------------------------------------- register
+def _reg_data(**over):
+    return {"name": "Asha Rao", "email": "asha@example.com", "phone": "9876543210", "password": "Sup3rSecret!", "confirm": "Sup3rSecret!", **over}
+
+
 def reg(c, **over):
-    data = {"name": "Asha Rao", "email": "asha@example.com", "phone": "9876543210", "password": "Sup3rSecret!", "confirm": "Sup3rSecret!", **over}
-    return post(c, "/register", data, page="/register")
+    return post(c, "/register", _reg_data(**over), page="/register")
 
 
-def test_register_accepts_a_tamil_name_and_formats_the_phone(app, session):
+def test_register_accepts_a_tamil_name_and_formats_the_phone(app, session, monkeypatch):
     c = app.test_client()
-    assert reg(c, name="அருண் குமார்", phone="+91 98765 43210").status_code == 302
+    assert signup(c, monkeypatch, _reg_data(name="அருண் குமார்", phone="+91 98765 43210")).status_code == 302
     u = session.scalar(select(User).where(User.email == "asha@example.com"))
     assert u.name == "அருண் குமார்" and u.phone == "9876543210"
 
@@ -139,9 +142,9 @@ def test_register_rejects_bad_input(app, session, over, field):
     assert r.status_code == 422 and session.scalar(select(User).where(User.email == "asha@example.com")) is None
 
 
-def test_register_without_phone_is_fine_and_control_characters_are_dropped(app, session):
+def test_register_without_phone_is_fine_and_control_characters_are_dropped(app, session, monkeypatch):
     c = app.test_client()
-    assert reg(c, phone="", name="As\x07ha Rao").status_code == 302
+    assert signup(c, monkeypatch, _reg_data(phone="", name="As\x07ha Rao")).status_code == 302
     assert session.scalar(select(User).where(User.email == "asha@example.com")).name == "Asha Rao"
 
 

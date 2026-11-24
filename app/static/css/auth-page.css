@@ -37,3 +37,10 @@ html body .pw input { padding-right: 3rem; }
 html body .pw__eye { position: absolute; top: 50%; right: .35rem; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; padding: 0; border: 0; border-radius: 10px; background: transparent; color: #55705f; cursor: pointer; }
 html body .pw__eye:hover { color: var(--c-brand, #0f7b3e); background: rgb(15 123 62 / .08); }
 html body .pw__eye:focus-visible { outline: 3px solid #ffd21f; outline-offset: 1px; }
+
+/* Create account, step 2: one wide code box (works with autofill and paste) */
+html body .otp__code { width: 100%; box-sizing: border-box; min-height: 3.5rem; text-align: center; font-size: 1.75rem; font-weight: 700; letter-spacing: .6em; text-indent: .6em; font-variant-numeric: tabular-nums; border: 2px solid var(--c-line, #cbdacf); border-radius: 12px; background: #fff; color: var(--c-ink, #183d2b); }
+html body .otp__code::placeholder { color: #b6c4bb; }
+html body .otp__code:focus { border-color: var(--c-brand, #0f7b3e); outline: none; box-shadow: 0 0 0 3px rgb(27 94 59 / .2); }
+html body .field--error .otp__code { border-color: #b3261e; }
+html body .auth-wrap > .card form.otp__resend { margin: .75rem 0 0; text-align: center; }

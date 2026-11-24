@@ -1,0 +1,30 @@
+{% extends "auth/_layout.html" %}
+{% block robots %}noindex,nofollow{% endblock %}
+{% block title %}Verify your email | RR FOODS{% endblock %}
+{% block content %}
+<section class="card narrow otp" data-signup-verify data-wait="{{ resend_in }}">
+  <h1>Verify your email</h1>
+  <p class="muted">Step 2 of 2. We sent a 6 digit code to <b>{{ email }}</b>. It is valid for {{ config.OTP_TTL_SECONDS // 60 }} minutes.
+    <a class="otp__link" href="{{ url_for('auth.register') }}">Change email</a></p>
+
+  {% if error %}<div class="alert alert--error" role="alert" id="code-err">{{ error }}</div>{% endif %}
+
+  <form method="post" action="{{ url_for('auth.register_verify') }}" class="form" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="field {% if error %}field--error{% endif %}">
+      <span>Verification code</span>
+      <input class="otp__code" type="text" name="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" minlength="6"
+             autocomplete="one-time-code" autocapitalize="none" spellcheck="false" placeholder="------" required autofocus
+             {% if error %}aria-invalid="true" aria-describedby="code-err"{% endif %}>
+    </label>
+    <button class="btn btn--block" type="submit">Verify and create account</button>
+  </form>
+
+  <form method="post" action="{{ url_for('auth.register_resend') }}" class="otp__resend">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p class="muted">{% if new_code_needed %}<b>Please ask for a new code.</b> {% endif %}Did not get it? Check your spam folder, or
+      <button type="submit" class="otp__link" data-resend>Resend code</button> <span data-resend-wait></span></p>
+  </form>
+</section>
+<script src="{{ asset_url('js/register-verify.js') }}" defer></script>
+{% endblock %}

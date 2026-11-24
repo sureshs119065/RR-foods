@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from app.models import (
     Address, AuditLog, Coupon, CouponUsage, DeliveryZone, InventoryLog, Notification, Order, OrderStatusHistory, Product, Review,
 )
-from tests.helpers import PW, checkout_post, checkout_token, confirm_requests, make_user, post, sign_in, token
+from tests.helpers import PW, checkout_post, checkout_token, confirm_requests, make_user, post, sign_in, signup, token
 from tests.test_step2_models import make_category, make_product
 
 
@@ -25,7 +25,7 @@ def _login(app, session, email):
     return c
 
 
-def test_full_shop_journey(app, session):
+def test_full_shop_journey(app, session, monkeypatch):
     # ---- setup the admin would do once
     cat = make_category(session, "Snacks")
     p = make_product(session, category=cat, sku="E2E-1", slug="millet-mix", name="Millet Soup Mix", stock_qty=10,
@@ -42,8 +42,7 @@ def test_full_shop_journey(app, session):
 
     # ---- customer signs up through the real form
     cust = app.test_client()
-    r = cust.post("/register", data={"name": "Asha Rao", "email": "asha@example.com", "phone": "9876543210", "password": PW,
-                                     "confirm": PW, "csrf_token": token(cust, "/register")})
+    r = signup(cust, monkeypatch, {"name": "Asha Rao", "email": "asha@example.com", "phone": "9876543210", "password": PW, "confirm": PW})
     assert r.status_code == 302 and r.headers["Location"] == "/account"
     r = post(cust, "/account/addresses/new", {"label": "Home", "full_name": "Asha Rao", "phone": "9876543210", "line1": "12 Lake Road",
                                               "city": "Coimbatore", "state": "Tamil Nadu", "pincode": "641001"},

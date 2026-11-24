@@ -80,53 +80,6 @@ def logout():
     return redirect(PORTALS.get(role, PORTALS["user"])["login"])
 
 
-@bp.route("/register", methods=["GET", "POST"])
-@limiter.limit(limits.limit("register"), methods=["POST"])
-def register():
-    if g.user is not None:
-        return redirect(PORTALS[g.user.role]["home"])
-    form = {"name": "", "email": "", "phone": ""}
-    errors: dict[str, str] = {}
-    if request.method == "POST":
-        # Only these fields are read. A "role" field in the request is ignored, so nobody can sign up as admin.
-        name = v.one_line(request.form.get("name", ""))
-        email = normalize_email(v.strip_controls(request.form.get("email", "")))
-        phone_raw = v.strip_controls(request.form.get("phone", ""))[:v.MAX["phone_raw"]]
-        password = request.form.get("password", "")
-        confirm = request.form.get("confirm", "")
-        form = {"name": name, "email": email, "phone": phone_raw}
-
-        v.person_name(name, "name", errors, label="Your name")
-        if "name" in errors and not 2 <= len(name) <= v.MAX["name"]:
-            errors["name"] = "Enter your name (2 to 120 characters)."
-        if not valid_email(email) or len(email) > v.MAX["email"]:
-            errors["email"] = "Enter a valid email address."
-        phone_errors: dict = {}
-        phone = v.phone(phone_raw, "phone", phone_errors, required=False) or None
-        if phone_errors:
-            errors["phone"] = "Enter a 10 digit mobile number, or leave it empty."
-        problems = password_problems(password, email, name)
-        if problems:
-            errors["password"] = " ".join(problems)
-        elif password != confirm:
-            errors["confirm"] = "The two passwords do not match."
-        if "email" not in errors:
-            from sqlalchemy import func, select
-            if db.session.scalar(select(User.id).where(func.lower(User.email) == email)):
-                errors["email"] = "An account with this email already exists. Try signing in."
-
-        if not errors:
-            user = User(email=email, name=name, phone=phone, role="user", password_hash=hash_password(password), referral_code="RR" + __import__("secrets").token_hex(4).upper())
-            db.session.add(user)
-            db.session.flush()
-            audit("auth.register", entity_id=user.id, actor_id=user.id)
-            login_user(user)
-            flash("Welcome! Your account is ready.", "success")
-            return redirect("/account")
-        return render_template("auth/register.html", form=form, errors=errors), 422
-    return render_template("auth/register.html", form=form, errors=errors)
-
-
 @bp.route("/account")
 @login_required("user")
 def account():
@@ -185,3 +138,4 @@ def _change_password(template: str, done_url: str):
 
 from . import recovery  # noqa: E402,F401  (forgot/reset routes)
 from . import otp  # noqa: E402,F401  (customer email sign-in code routes)
+from . import signup  # noqa: E402,F401  (create account + email verification code routes)

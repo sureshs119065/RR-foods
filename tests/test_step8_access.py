@@ -17,12 +17,12 @@ LOGIN_PAGES = {"/login", "/owner/login", "/admin/login"}
 # pages anybody may open without signing in (a new public page must be added here on purpose)
 PUBLIC_GET = {"/", "/shop", "/category/<slug>", "/product/<slug>", "/offers", "/compare", "/offline", "/sw.js", "/manifest.webmanifest",
               "/robots.txt", "/sitemap.xml", "/healthz", "/readyz", "/api/header-banners", "/api/pincode/<pin>", "/api/suggest",
-              "/banner-colors.css", "/uploads/<path:filename>", "/login", "/owner/login", "/admin/login", "/register", "/forgot",
+              "/banner-colors.css", "/uploads/<path:filename>", "/login", "/owner/login", "/admin/login", "/register", "/register/verify", "/forgot",
               "/reset/<token>", "/about", "/bestsellers", "/bundles", "/help", "/recipes", "/recipes/<slug>", "/health", "/favicon.ico",
               "/push/vapid-public-key", "/.well-known/security.txt", "/security.txt",
               "/cart"}  # the cart works for guests; sign-in is required at checkout
 # public POSTs: sign-in forms, sign-up, compare toggle and the Help page message form (no account needed), password-reset forms
-PUBLIC_POST = {"/login", "/login/otp/send", "/login/otp/verify", "/owner/login", "/admin/login", "/register", "/forgot", "/reset/<token>", "/compare/toggle", "/help",
+PUBLIC_POST = {"/login", "/login/otp/send", "/login/otp/verify", "/owner/login", "/admin/login", "/register", "/register/verify", "/register/resend", "/forgot", "/reset/<token>", "/compare/toggle", "/help",
                "/csp-report",   # step 5.3: sent by the browser itself, logs only
                # guest cart (cookie session): sign-in is required only at /checkout
                "/cart/add", "/buy-now", "/cart/add-many", "/cart/<int:item_id>/qty", "/cart/<int:item_id>/remove",
