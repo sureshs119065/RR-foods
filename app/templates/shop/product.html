@@ -375,8 +375,8 @@
   <section class="sec" id="qa" aria-labelledby="qa-h"><h2 id="qa-h" class="sec__h">Questions &amp; answers</h2>
     {% if questions %}<ul class="qa">{% for q in questions %}<li><p><b>Q:</b> {{ q.question }}</p><p><b>A:</b> {{ q.answer }}</p></li>{% endfor %}</ul>{% else %}<p class="muted">No questions answered yet.</p>{% endif %}
     {% if shopper %}
-    <form method="post" action="{{ url_for('shop.ask_question', slug=p.slug) }}" class="form" data-once>{{ s.csrf() }}
-      <label class="field"><span>Ask a question about this product</span><textarea name="question" rows="2" minlength="10" maxlength="500" required></textarea></label>
+    <form method="post" action="{{ url_for('shop.ask_question', slug=p.slug) }}" class="form qa-form" data-support-form data-success-title="Question sent" data-success-note="We will answer soon. Your question will appear here once it is answered." novalidate>{{ s.csrf() }}
+      <div class="field"><label for="qa-question">Ask a question about this product</label><textarea id="qa-question" name="question" rows="2" minlength="10" maxlength="500" required data-label="question" aria-describedby="qa-err-question"></textarea><span class="sf-err" id="qa-err-question" data-err="question" role="alert" hidden></span></div>
       <button class="btn btn--ghost" type="submit">Ask</button></form>
     {% elif not current_user %}<p class="muted small"><a href="/login?next={{ request.path }}">Sign in</a> to ask a question.</p>{% endif %}
   </section>
@@ -391,4 +391,5 @@
 </div>
 {% if product_bundles %}<section class="container sec"><h2>Available bundles with this product</h2><div class="content-grid">{% for bundle in product_bundles %}<article class="content-card"><div class="content-card__body"><h3>{{ bundle.name }}</h3><p>{{ bundle.description or '' }}</p><b>₹{{ '%.2f'|format(bundle.bundle_price) }}</b><form method="post" action="{{ url_for('shop.add_bundle', bundle_id=bundle.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn--small" type="submit">Add bundle to cart</button></form></div></article>{% endfor %}</div></section>{% endif %}
 <script src="{{ asset_url('js/ui-states.js') }}" defer></script>
+<script src="{{ asset_url('js/support-message.js') }}" defer></script>
 {% endblock %}

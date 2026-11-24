@@ -18,7 +18,7 @@ DEFAULTS = {
     "cart_add": "60 per minute;600 per hour",
     "cart_change": "120 per minute",             # quantity, remove, save for later
     "pincode": "60 per minute;600 per hour",
-    "contact": "5 per minute;20 per hour",       # /help enquiry form
+    "contact": "5 per minute;20 per hour",       # POST /help: the one contact/support form (home + Contact page)
     "csp_report": "30 per minute",
     "otp_send": "10 per minute;40 per hour",       # per IP, on top of the per-email and per-IP hourly caps kept in the email_otp table
     "otp_verify": "20 per minute;100 per hour",

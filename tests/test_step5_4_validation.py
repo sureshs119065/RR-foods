@@ -274,35 +274,37 @@ def test_pincode_api_validates(app, catalog, pin, code):
 
 # ---------------------------------------------------------------- contact form
 def help_post(c, **over):
-    data = {"name": "Asha Rao", "email": "asha@example.com", "phone": "9876543210", "subject": "Bulk order", "message": "Do you ship 20 kg of ragi flour?", **over}
-    return post(c, "/help", data, page="/help")
+    """The contact form the way the page's JavaScript sends it (JSON, with the CSRF header)."""
+    from tests.helpers import token
+    data = {"email": "asha@example.com", "subject": "Bulk order", "body": "Do you ship 20 kg of ragi flour?", **over}
+    return c.post("/help", json=data, headers={"X-CSRFToken": token(c, "/help")})
 
 
-def test_help_form_hands_off_to_whatsapp_when_valid(app, monkeypatch):
-    monkeypatch.setitem(app.config, "ADMIN_WHATSAPP_NUMBER", "919876543210")
+@pytest.fixture()
+def mail_sent(app, monkeypatch):
+    import app.services.mailer as mailer
+    sent = []
+    monkeypatch.setitem(app.config, "MAIL_MODE", "console")
+    monkeypatch.setitem(app.config, "SUPPORT_EMAIL", "shop@example.com")
+    monkeypatch.setattr(mailer, "send_now", lambda to, subject, text, html=None: sent.append((to, subject, text)))
+    return sent
+
+
+def test_help_form_sends_when_valid(app, mail_sent):
     r = help_post(app.test_client())
-    assert r.status_code == 302 and r.headers["Location"].startswith("https://wa.me/919876543210?text=")
+    assert r.status_code == 200 and r.json["ok"] is True and len(mail_sent) == 1
 
 
-@pytest.mark.parametrize("over", [{"name": "<b>"}, {"name": "A"}, {"email": "not-an-email"}, {"email": "a" * 300 + "@x.com"}, {"phone": "12"},
-                                  {"subject": ""}, {"subject": "<script>"}, {"subject": "s" * 141}, {"message": "short"}, {"message": "m" * 4001}])
-def test_help_form_rejects_bad_input_without_redirecting(app, monkeypatch, over):
-    monkeypatch.setitem(app.config, "ADMIN_WHATSAPP_NUMBER", "919876543210")
+@pytest.mark.parametrize("over", [{"email": "not-an-email"}, {"email": "a" * 300 + "@x.com"}, {"email": ""},
+                                  {"subject": ""}, {"subject": "Hi"}, {"subject": "s" * 151}, {"body": "shrt"}, {"body": "m" * 2001}])
+def test_help_form_rejects_bad_input(app, mail_sent, over):
     r = help_post(app.test_client(), **over)
-    assert r.status_code == 200 and "wa.me" not in r.headers.get("Location", "")
+    assert r.status_code == 422 and r.json["ok"] is False and not mail_sent
 
 
-def test_help_form_email_and_phone_are_optional(app, monkeypatch):
-    monkeypatch.setitem(app.config, "ADMIN_WHATSAPP_NUMBER", "919876543210")
-    assert help_post(app.test_client(), email="", phone="").status_code == 302
-
-
-def test_help_form_cannot_inject_extra_lines_into_the_whatsapp_text(app, monkeypatch):
-    monkeypatch.setitem(app.config, "ADMIN_WHATSAPP_NUMBER", "919876543210")
-    r = help_post(app.test_client(), subject="Hi\r\nName: Admin")
-    from urllib.parse import unquote_plus
-    text = unquote_plus(r.headers["Location"])
-    assert "Subject: Hi Name: Admin" in text and "\r" not in text
+def test_help_form_cannot_inject_extra_lines_into_the_email(app, mail_sent):
+    help_post(app.test_client(), subject="Hi\r\nName: Admin")
+    assert "Subject: Hi Name: Admin" in mail_sent[0][2] and "\r" not in mail_sent[0][1]
 
 
 # ---------------------------------------------------------------- password lengths

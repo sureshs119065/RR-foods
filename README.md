@@ -134,7 +134,8 @@ Copy `.env.example` (development) or `.env.production.example` (production) to `
 | `ADMIN_WHATSAPP_NUMBER` | Shop WhatsApp number; orders are sent here. `WHATSAPP_NUMBER` is accepted as a fallback |
 | `DEFAULT_COUNTRY_CODE`, `SHOP_NAME`, `SHOP_TIMEZONE` | Defaults for WhatsApp links, messages and dates (`Asia/Kolkata`) |
 | `SITE_URL` | Public URL, used in emails and sitemap |
-| `SUPPORT_EMAIL` | Shown on the Help page and footer |
+| `SUPPORT_EMAIL` | Shown on the Contact page; visitors' contact-form messages are emailed here (needs `MAIL_MODE` on) |
+| `SHOP_ADDRESS`, `SHOP_HOURS` | Optional. Shown in the Contact page details block when set |
 | `UPLOAD_DIR`, `MAX_UPLOAD_MB`, `CUSTOMER_MAX_UPLOAD_MB` | Where uploaded images and videos live (must be outside the app folder), the cap for admin/owner uploads (60 MB) and the smaller whole-request cap for customers, i.e. review photos (16 MB) |
 | `MAIL_MODE` | `off`, `console` or `smtp`; with `smtp` also `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_USE_TLS`, `MAIL_FROM` |
 | `TRUST_PROXY` | `1` only behind a correctly configured reverse proxy |

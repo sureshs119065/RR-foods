@@ -57,20 +57,36 @@ def message_thread(thread_id):
 SUBJECT_MAX, BODY_MAX = 150, 2000
 
 
-@bp.post("/account/messages/quick")
-@limiter.limit("10 per hour")
-def message_quick():
-    """The home page support form: saved with fetch() so the customer stays where they are. Same shared inbox as /account/messages/new."""
+def _wants_json() -> bool:
+    return request.is_json or request.accept_mimetypes.best == "application/json" or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+
+def _reply(ok: bool, message: str, status: int = 200, **extra):
+    """JSON for the fetch() form; flash + redirect back to the Contact page for a browser without JavaScript."""
+    if _wants_json():
+        return jsonify(ok=ok, message=message, **extra), status
+    flash(message, "success" if ok else "error")
+    return redirect(url_for("shop.help_page") + "#contact-form")
+
+
+def send_support_message():
+    """The ONE backend for the contact/support form (home page and Contact page share it).
+
+    Signed-in customer: saved to the shared Admin + Shop Owner inbox using their account name and email.
+    Visitor: needs an email address; the message is emailed to SUPPORT_EMAIL. Staff accounts cannot send.
+    """
+    from flask import current_app
     from .. import validation as v
+    from ..auth.passwords import valid_email
+    from ..services import mailer
+
     user = g.get("user")
-    if user is None:
-        return jsonify(ok=False, message="Please sign in to send a message.", login=url_for("auth.login", next=url_for("shop.home") + "#customer-message")), 401
-    if user.role != "user":
-        return jsonify(ok=False, message="Only customer accounts can send messages."), 403
+    if user is not None and user.role != "user":
+        return _reply(False, "Only customer accounts can send messages.", 403)
     data = request.get_json(silent=True) if request.is_json else request.form
     data = data or {}
     subject = v.one_line(data.get("subject"))
-    body = "\n".join(line.rstrip() for line in v.strip_controls(str(data.get("body") or "")).replace("\r\n", "\n").replace("\r", "\n").split("\n")).strip()
+    body = "\n".join(line.rstrip() for line in v.strip_controls(str(data.get("body") or data.get("message") or "")).replace("\r\n", "\n").replace("\r", "\n").split("\n")).strip()
     errors = {}
     if not subject:
         errors["subject"] = "Enter a subject."
@@ -84,14 +100,34 @@ def message_quick():
         errors["body"] = "Your message needs at least 5 characters."
     elif len(body) > BODY_MAX:
         errors["body"] = f"Your message can be up to {BODY_MAX:,} characters."
+    email = ""
+    if user is None:
+        raw_email = v.one_line(data.get("email"))
+        errs: dict = {}
+        email = v.email_address(raw_email, "email", errs, valid_email) if raw_email else ""
+        if not raw_email:
+            errors["email"] = "Enter your email address so we can reply."
+        elif errs:
+            errors["email"] = errs["email"]
     if errors:
-        return jsonify(ok=False, message="Please check the highlighted fields.", errors=errors), 422
+        return _reply(False, "Please check the highlighted fields.", 422, errors=errors)
+
+    if user is not None:
+        try:
+            create_thread(user, subject, body)
+            db.session.commit()
+        except Exception:  # noqa: BLE001
+            db.session.rollback()
+            current_app.logger.exception("Support message could not be saved")
+            return _reply(False, "We could not send your message right now. Please try again in a moment.", 500)
+        return _reply(True, "Your message was sent successfully.", note="Our Admin team and Shop Owner can both see it. You can read their reply in My messages.")
+
+    to = (current_app.config.get("SUPPORT_EMAIL") or "").strip()
+    if not to or not mailer.enabled():
+        return _reply(False, "Messaging is not available right now. Please contact us on WhatsApp or by phone.", 503)
     try:
-        create_thread(user, subject, body)
-        db.session.commit()
+        mailer.send_now(to, f"RR FOODS enquiry: {subject}"[:200], f"Website enquiry\nFrom: {email}\nSubject: {subject}\n\n{body}")
     except Exception:  # noqa: BLE001
-        db.session.rollback()
-        from flask import current_app
-        current_app.logger.exception("Support message could not be saved")
-        return jsonify(ok=False, message="We could not send your message right now. Please try again in a moment."), 500
-    return jsonify(ok=True, message="Your message was sent successfully.")
+        current_app.logger.exception("Contact email could not be sent")
+        return _reply(False, "We could not send your message right now. Please try again in a moment.", 500)
+    return _reply(True, "Your message was sent successfully.", note="We will reply to the email address you gave.")

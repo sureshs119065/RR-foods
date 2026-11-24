@@ -1,0 +1,28 @@
+{# The ONE contact form. Used on the home page and the Contact page. Posts to the one backend route (shop.help_page, POST /help).
+   Signed-in customer: name and email come from the account. Visitor: one extra Email field.
+   Include with:  {% with form_id='contact-form' %}{% include "partials/support_form.html" %}{% endwith %} #}
+{% set fid = form_id|default('contact-form') %}
+{% set customer = current_user and current_user.role == 'user' %}
+<form method="post" action="{{ url_for('shop.help_page') }}" class="contact-form" id="{{ fid }}" data-support-form data-quick-url="{{ url_for('shop.help_page') }}" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if customer %}
+  <p class="contact-form__as">Sending as <b>{{ current_user.name }}</b> ({{ current_user.email }})</p>
+  {% else %}
+  <div class="contact-form__field">
+    <label for="{{ fid }}-email">Email</label>
+    <input id="{{ fid }}-email" name="email" type="email" maxlength="160" required autocomplete="email" data-label="email address" aria-describedby="{{ fid }}-err-email">
+    <span class="sf-err" id="{{ fid }}-err-email" data-err="email" role="alert" hidden></span>
+  </div>
+  {% endif %}
+  <div class="contact-form__field">
+    <label for="{{ fid }}-subject">Subject</label>
+    <input id="{{ fid }}-subject" name="subject" type="text" minlength="3" maxlength="150" required autocomplete="off" data-label="subject" aria-describedby="{{ fid }}-err-subject">
+    <span class="sf-err" id="{{ fid }}-err-subject" data-err="subject" role="alert" hidden></span>
+  </div>
+  <div class="contact-form__field">
+    <label for="{{ fid }}-body">Message</label>
+    <textarea id="{{ fid }}-body" name="body" rows="5" minlength="5" maxlength="2000" required data-label="message" aria-describedby="{{ fid }}-err-body"></textarea>
+    <span class="sf-err" id="{{ fid }}-err-body" data-err="body" role="alert" hidden></span>
+  </div>
+  <button class="btn btn--accent contact-form__submit" type="submit">Send</button>
+</form>

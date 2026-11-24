@@ -1,37 +1,18 @@
-/* Home page "Message RR FOODS" form: sends with fetch() so the page never reloads or moves, then shows the same thank-you
-   popup style (.rt) that the review thank-you uses. Fields are cleared on success; the Send button is locked while sending. */
+/* Shared AJAX forms: the contact form (home page + Contact page) and the product "Ask a question" box.
+   Any <form data-support-form> is sent with fetch() so the page never reloads or jumps, then the same thank-you popup
+   (.rt, same look as the review thank-you) appears. Fields are cleared on success; the button is locked while sending.
+   Per-form settings (all optional):  data-quick-url  data-success-title  data-success-text  data-success-note
+   Without fetch() the normal form post still works. */
 (function () {
   "use strict";
-  var form = document.querySelector("[data-support-form]");
-  if (!form || !window.fetch) return;   // without fetch the normal form post still works
+  var forms = document.querySelectorAll("[data-support-form]");
+  if (!forms.length || !window.fetch) return;
   var csrf = (document.querySelector("meta[name=csrf-token]") || {}).content || "";
-  var btn = form.querySelector("[data-support-btn]"), sending = false;
-  var LIMITS = { subject: [3, 150], body: [5, 2000] };
   var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  function field(name) { return form.elements[name]; }
-  function showErr(name, text) {
-    var el = form.querySelector('[data-err="' + name + '"]'), input = field(name);
-    if (el) { el.textContent = text || ""; el.hidden = !text; }
-    if (input) { if (text) input.setAttribute("aria-invalid", "true"); else input.removeAttribute("aria-invalid"); }
-  }
-  function clearErrs() { showErr("subject", ""); showErr("body", ""); }
-  function clean(v) { return (v || "").replace(/\s+$/gm, "").trim(); }
-  function validate() {
-    var bad = null, subject = field("subject").value.replace(/\s+/g, " ").trim(), body = clean(field("body").value);
-    clearErrs();
-    if (!subject) { showErr("subject", "Enter a subject."); bad = bad || "subject"; }
-    else if (subject.length < LIMITS.subject[0]) { showErr("subject", "The subject needs at least 3 characters."); bad = bad || "subject"; }
-    else if (subject.length > LIMITS.subject[1]) { showErr("subject", "The subject can be up to 150 characters."); bad = bad || "subject"; }
-    if (!body) { showErr("body", "Write your message."); bad = bad || "body"; }
-    else if (body.length < LIMITS.body[0]) { showErr("body", "Your message needs at least 5 characters."); bad = bad || "body"; }
-    else if (body.length > LIMITS.body[1]) { showErr("body", "Your message can be up to 2,000 characters."); bad = bad || "body"; }
-    if (bad) { field(bad).focus({ preventScroll: true }); return null; }
-    return { subject: subject, body: body };
-  }
+  function clean(v) { return (v || "").replace(/[ \t]+$/gm, "").trim(); }
 
-  /* ---- popup: same markup and classes as partials/review_thanks.html, so it looks and behaves the same */
-  function popup(ok, title, text) {
+  function popup(ok, title, text, note) {
     var opener = document.activeElement, closed = false;
     var pop = document.createElement("div");
     pop.className = "rt" + (ok ? "" : " rt--error"); pop.setAttribute("role", ok ? "dialog" : "alertdialog");
@@ -42,15 +23,16 @@
       '<button class="rt__x" type="button" data-rt-close aria-label="Close">&times;</button>' +
       '<div class="rt__heart" aria-hidden="true"></div><h2 class="rt__title" id="sf-title"></h2>' +
       '<p class="rt__lead" id="sf-text"></p>' +
-      (ok ? '<p class="rt__text">Our Admin team and Shop Owner can both see it. You can read their reply in My messages.</p>' : '') +
+      (ok && note ? '<p class="rt__text" data-note></p>' : '') +
       '<button class="btn rt__btn" type="button" data-rt-close>' + (ok ? "Close" : "Try again") + "</button></div>";
     pop.querySelector(".rt__heart").textContent = ok ? "\u2705" : "\u26A0\uFE0F";
     pop.querySelector("#sf-title").textContent = title;
     pop.querySelector("#sf-text").textContent = text;
+    if (ok && note) pop.querySelector("[data-note]").textContent = note;
     document.body.appendChild(pop);
     var scrollY = window.scrollY;
     document.documentElement.classList.add("nolock");
-    var card = pop.querySelector(".rt__card"); card.focus({ preventScroll: true });
+    pop.querySelector(".rt__card").focus({ preventScroll: true });
     function close() {
       if (closed) return; closed = true;
       document.removeEventListener("keydown", onKey, true);
@@ -74,37 +56,77 @@
     document.addEventListener("keydown", onKey, true);
   }
 
-  function setBusy(on) {
-    sending = on; btn.disabled = on; btn.setAttribute("aria-busy", on ? "true" : "false");
-    if (on) { btn.dataset.label = btn.textContent; btn.textContent = "Sending..."; } else btn.textContent = btn.dataset.label || "Send message";
-  }
+  Array.prototype.forEach.call(forms, function (form) {
+    var btn = form.querySelector("[type=submit]"), sending = false;
+    var fields = Array.prototype.filter.call(form.elements, function (el) {
+      return el.name && el.name !== "csrf_token" && (el.tagName === "INPUT" || el.tagName === "TEXTAREA") && el.type !== "hidden";
+    });
 
-  form.addEventListener("input", function (e) { if (e.target.name) showErr(e.target.name, ""); });
-  form.addEventListener("submit", function (e) {
-    e.preventDefault();
-    if (sending) return;
-    var data = validate(); if (!data) return;
-    setBusy(true);
-    fetch(form.getAttribute("data-quick-url"), {
-      method: "POST", credentials: "same-origin",
-      headers: { "Content-Type": "application/json", Accept: "application/json", "X-CSRFToken": csrf },
-      body: JSON.stringify(data)
-    }).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (d) { return { s: r.status, d: d }; });
-    }).then(function (res) {
-      setBusy(false);
-      if (res.d.ok) { form.reset(); clearErrs(); popup(true, "Message sent", res.d.message || "Your message was sent successfully."); return; }
-      if (res.s === 401 && res.d.login) { window.location.assign(res.d.login); return; }
-      if (res.s === 422 && res.d.errors) {
-        Object.keys(res.d.errors).forEach(function (k) { showErr(k, res.d.errors[k]); });
-        var first = res.d.errors.subject ? "subject" : "body"; field(first).focus({ preventScroll: true }); return;
-      }
-      var msg = res.s === 429 ? "You have sent several messages already. Please try again a little later." :
-        res.s === 400 ? "For your safety this form expired. Please reload the page and try again." :
-        (res.d.message || "We could not send your message right now. Please try again in a moment.");
-      popup(false, "Message not sent", msg);
-    }).catch(function () {
-      setBusy(false); popup(false, "Message not sent", "No connection. Please check your internet and try again.");
+    function errEl(name) { return form.querySelector('[data-err="' + name + '"]'); }
+    function showErr(name, text) {
+      var el = errEl(name), input = form.elements[name];
+      if (el) { el.textContent = text || ""; el.hidden = !text; }
+      if (input) { if (text) input.setAttribute("aria-invalid", "true"); else input.removeAttribute("aria-invalid"); }
+    }
+    function clearErrs() { fields.forEach(function (f) { showErr(f.name, ""); }); }
+    function label(el) { return el.getAttribute("data-label") || el.name; }
+
+    function validate() {
+      var data = {}, bad = null;
+      clearErrs();
+      fields.forEach(function (el) {
+        var multi = el.tagName === "TEXTAREA";
+        var val = multi ? clean(el.value) : el.value.replace(/\s+/g, " ").trim(), min = +el.getAttribute("minlength") || 0, max = +el.getAttribute("maxlength") || 0, msg = "";
+        if (!val) { if (el.required) msg = "Enter your " + label(el) + "."; }
+        else if (min && val.length < min) msg = "Your " + label(el) + " needs at least " + min + " characters.";
+        else if (max && val.length > max) msg = "Your " + label(el) + " can be up to " + max.toLocaleString() + " characters.";
+        else if (el.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) msg = "Enter a valid email address.";
+        if (msg) { showErr(el.name, msg); bad = bad || el; }
+        data[el.name] = val;
+      });
+      if (bad) { bad.focus({ preventScroll: true }); return null; }
+      return data;
+    }
+
+    function setBusy(on) {
+      sending = on; btn.disabled = on; btn.setAttribute("aria-busy", on ? "true" : "false");
+      if (on) { btn.dataset.label = btn.textContent; btn.textContent = "Sending..."; } else btn.textContent = btn.dataset.label || btn.textContent;
+    }
+
+    form.addEventListener("input", function (e) { if (e.target.name) showErr(e.target.name, ""); });
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (sending) return;
+      var data = validate(); if (!data) return;
+      var title = form.getAttribute("data-success-title") || "Message sent";
+      setBusy(true);
+      fetch(form.getAttribute("data-quick-url") || form.action, {
+        method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json", Accept: "application/json", "X-Requested-With": "XMLHttpRequest", "X-CSRFToken": csrf },
+        body: JSON.stringify(data)
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) { return { s: r.status, d: d }; });
+      }).then(function (res) {
+        setBusy(false);
+        if (res.d.ok) {
+          form.reset(); clearErrs();
+          popup(true, title, form.getAttribute("data-success-text") || res.d.message || "Your message was sent successfully.", form.getAttribute("data-success-note") || res.d.note || "");
+          return;
+        }
+        if (res.s === 401 && res.d.login) { window.location.assign(res.d.login); return; }
+        if (res.s === 422 && res.d.errors) {
+          var first = null;
+          Object.keys(res.d.errors).forEach(function (k) { showErr(k, res.d.errors[k]); first = first || form.elements[k]; });
+          if (first) first.focus({ preventScroll: true });
+          return;
+        }
+        var msg = res.s === 429 ? "You have sent several messages already. Please try again a little later." :
+          res.s === 400 ? "For your safety this form expired. Please reload the page and try again." :
+          (res.d.message || "We could not send your message right now. Please try again in a moment.");
+        popup(false, "Message not sent", msg);
+      }).catch(function () {
+        setBusy(false); popup(false, "Message not sent", "No connection. Please check your internet and try again.");
+      });
     });
   });
 })();

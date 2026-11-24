@@ -263,6 +263,18 @@ def test_question_flow(app, cust, session, catalog):
     assert "Is this suitable" not in cust.get(f"/product/{p.slug}").get_data(as_text=True)
 
 
+def test_question_ajax_reply_and_form_wiring(cust, session, catalog):
+    _, p = catalog
+    html = cust.get(f"/product/{p.slug}").get_data(as_text=True)
+    assert "data-support-form" in html and 'for="qa-question"' in html and "support-message" in html
+    h = {"X-CSRFToken": token(cust, f"/product/{p.slug}"), "X-Requested-With": "XMLHttpRequest"}
+    bad = cust.post(f"/product/{p.slug}/ask", json={"question": "short"}, headers=h)
+    assert bad.status_code == 422 and "question" in bad.json["errors"]
+    ok = cust.post(f"/product/{p.slug}/ask", json={"question": "Is this suitable for diabetics?"}, headers=h)
+    assert ok.status_code == 200 and ok.json == {"ok": True, "message": "Your question was sent successfully."}
+    assert session.scalar(select(func.count(ProductQuestion.id))) == 1
+
+
 def test_question_limits_and_permissions(app, cust, session, catalog):
     _, p = catalog
     for i in range(5):

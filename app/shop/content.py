@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from urllib.parse import quote_plus
 from decimal import Decimal, ROUND_HALF_UP
 from flask import abort, current_app, flash, g, redirect, render_template, request, url_for
 from sqlalchemy import select
@@ -133,37 +132,12 @@ def add_recipe_ingredients(recipe_id):
 @bp.route("/help", methods=["GET", "POST"])
 @limiter.limit(limits.limit("contact"), methods=["POST"])
 def help_page():
-    """Public contact page with a validated WhatsApp/email message handoff."""
+    """Contact page. GET shows it; POST is the one backend for the shared contact form (also used by the home page)."""
+    if request.method == "POST":
+        from .messages import send_support_message
+        return send_support_message()
     from ..services import whatsapp as wa
 
-    whatsapp_number = wa.owner_number()
-    support_email = (current_app.config.get("SUPPORT_EMAIL") or "").strip()
-
-    if request.method == "POST":
-        from ..auth.passwords import valid_email
-        errs: dict = {}
-        name = v.person_name(request.form.get("name"), "name", errs, label="Your name", max_=100)
-        raw_email = request.form.get("email")
-        email = v.email_address(raw_email, "email", errs, valid_email) if v.one_line(raw_email) else ""
-        phone = v.phone(request.form.get("phone"), "phone", errs, required=False)
-        subject = v.text_line(request.form.get("subject"), "subject", errs, label="A subject", max_=140)
-        message = v.multiline(request.form.get("message"), "message", errs, label="Your message", min_=10, max_=v.MAX["message"], required=True)
-
-        if errs:
-            if {"name", "subject", "message"} & set(errs):
-                flash("Please check your name, subject and message (the message needs at least 10 characters). " + " ".join(errs.values()), "error")
-            else:
-                flash(" ".join(errs.values()), "error")
-        elif not whatsapp_number and not support_email:
-            flash("Contact messaging is not configured yet. Please contact the store team through your account.", "error")
-        else:
-            body = (
-                "RR FOODS website enquiry\n"
-                f"Name: {name}\nEmail: {email or 'Not provided'}\n"
-                f"Phone: {phone or 'Not provided'}\nSubject: {subject}\n\n{message}"
-            )
-            if whatsapp_number:
-                return redirect(f"https://wa.me/{whatsapp_number}?text={quote_plus(body)}")
-            return redirect(f"mailto:{support_email}?subject={quote_plus('RR FOODS enquiry: ' + subject)}&body={quote_plus(body)}")
-
-    return render_template("shop/help.html", whatsapp_number=whatsapp_number, support_email=support_email)
+    cfg = current_app.config
+    return render_template("shop/help.html", whatsapp_number=wa.owner_number(), support_email=(cfg.get("SUPPORT_EMAIL") or "").strip(),
+                           shop_address=(cfg.get("SHOP_ADDRESS") or "").strip(), shop_hours=(cfg.get("SHOP_HOURS") or "").strip())

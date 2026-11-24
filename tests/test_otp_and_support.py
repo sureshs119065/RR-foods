@@ -164,8 +164,8 @@ def test_quick_message_saved_for_admin_and_owner(client, session):
     make_user(session, "admin"); make_user(session, "owner")
     _customer(client, session)
     h = {"X-CSRFToken": token(client, "/")}
-    r = client.post("/account/messages/quick", json={"subject": "  Order   question ", "body": "Where is my order?"}, headers=h)
-    assert r.status_code == 200 and r.json == {"ok": True, "message": "Your message was sent successfully."}
+    r = client.post("/help", json={"subject": "  Order   question ", "body": "Where is my order?"}, headers=h)
+    assert r.status_code == 200 and r.json["ok"] is True and r.json["message"] == "Your message was sent successfully."
     t = session.scalar(select(CustomerMessageThread))
     assert t.subject == "Order question" and session.scalar(select(CustomerMessage)).body == "Where is my order?"
     assert {n.user_id for n in session.scalars(select(Notification).where(Notification.kind == "customer_message"))} == {u.id for u in session.scalars(select(User).where(User.role.in_(("admin", "owner"))))}
@@ -176,15 +176,79 @@ def test_quick_message_saved_for_admin_and_owner(client, session):
                                            ({"subject": "Order", "body": "y" * 2001}, "body")])
 def test_quick_message_validation(client, session, payload, field):
     _customer(client, session)
-    r = client.post("/account/messages/quick", json=payload, headers={"X-CSRFToken": token(client, "/")})
+    r = client.post("/help", json=payload, headers={"X-CSRFToken": token(client, "/")})
     assert r.status_code == 422 and field in r.json["errors"]
     assert session.scalar(select(CustomerMessageThread)) is None
 
 
-def test_quick_message_needs_csrf_and_login(client, session):
-    assert client.post("/account/messages/quick", json={"subject": "Order", "body": "hello there"}).status_code == 400
-    r = client.post("/account/messages/quick", json={"subject": "Order", "body": "hello there"}, headers={"X-CSRFToken": token(client, "/login")})
-    assert r.status_code == 401 and "login" in r.json
+def test_quick_message_needs_csrf(client, session):
+    assert client.post("/help", json={"subject": "Order", "body": "hello there", "email": "a@b.com"}).status_code == 400
+
+
+def test_visitor_must_give_an_email(client, session):
+    r = client.post("/help", json={"subject": "Order", "body": "hello there"}, headers={"X-CSRFToken": token(client, "/help")})
+    assert r.status_code == 422 and "email" in r.json["errors"]
+
+
+def test_visitor_message_is_emailed_to_the_shop(app, client, session, monkeypatch):
+    import app.services.mailer as mailer
+    sent = []
+    monkeypatch.setitem(app.config, "MAIL_MODE", "console")
+    monkeypatch.setitem(app.config, "SUPPORT_EMAIL", "shop@example.com")
+    monkeypatch.setattr(mailer, "send_now", lambda to, subject, text, html=None: sent.append((to, subject, text)))
+    r = client.post("/help", json={"subject": "Bulk order", "body": "Do you ship 20 kg?", "email": "asha@example.com"}, headers={"X-CSRFToken": token(client, "/help")})
+    assert r.status_code == 200 and r.json["ok"] is True
+    assert sent and sent[0][0] == "shop@example.com" and "asha@example.com" in sent[0][2] and "Bulk order" in sent[0][1]
+
+
+def test_visitor_message_when_email_is_not_set_up(app, client, session, monkeypatch):
+    monkeypatch.setitem(app.config, "SUPPORT_EMAIL", "")
+    r = client.post("/help", json={"subject": "Bulk order", "body": "Do you ship 20 kg?", "email": "asha@example.com"}, headers={"X-CSRFToken": token(client, "/help")})
+    assert r.status_code == 503 and r.json["ok"] is False
+
+
+def test_visitor_message_cannot_inject_lines(app, client, session, monkeypatch):
+    import app.services.mailer as mailer
+    sent = []
+    monkeypatch.setitem(app.config, "MAIL_MODE", "console")
+    monkeypatch.setitem(app.config, "SUPPORT_EMAIL", "shop@example.com")
+    monkeypatch.setattr(mailer, "send_now", lambda to, subject, text, html=None: sent.append((to, subject, text)))
+    client.post("/help", json={"subject": "Hi\r\nBcc: x@y.com", "body": "hello there", "email": "asha@example.com"}, headers={"X-CSRFToken": token(client, "/help")})
+    assert "\r" not in sent[0][1] and "\n" not in sent[0][1]
+
+
+def test_staff_cannot_send_contact_messages(client, session):
+    make_user(session, "owner")
+    from tests.helpers import sign_in
+    sign_in(client, "owner")
+    r = client.post("/help", json={"subject": "Order", "body": "hello there"}, headers={"X-CSRFToken": token(client, "/help")})
+    assert r.status_code == 403
+
+
+def test_contact_page_and_home_share_one_form(client, session):
+    _customer(client, session)
+    for url in ("/", "/help"):
+        html = client.get(url).get_data(as_text=True)
+        assert html.count("data-support-form") == 1 and 'action="/help"' in html and "Sending as" in html
+    assert 'name="email"' not in client.get("/help").get_data(as_text=True)
+
+
+def test_visitor_sees_email_field_on_contact_page(client, session):
+    html = client.get("/help").get_data(as_text=True)
+    assert 'name="email"' in html and 'for="contact-form-email"' in html and 'name="subject"' in html and 'name="body"' in html
+
+
+def test_contact_page_is_minimal(client, session):
+    html = client.get("/help").get_data(as_text=True)
+    for gone in ("contact-hero", "contact-methods", "contact-method", "Phone number", "Your name", "Order support"):
+        assert gone not in html
+
+
+def test_contact_details_only_show_what_is_configured(app, client, session, monkeypatch):
+    monkeypatch.setitem(app.config, "SHOP_ADDRESS", "12 Mill Road, Coimbatore")
+    monkeypatch.setitem(app.config, "SHOP_HOURS", "Mon-Sat, 9 AM - 7 PM")
+    html = client.get("/help").get_data(as_text=True)
+    assert "12 Mill Road, Coimbatore" in html and "Mon-Sat, 9 AM - 7 PM" in html
 
 
 def test_home_form_is_ajax_wired(client, session):

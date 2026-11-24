@@ -75,6 +75,8 @@ class Config:
     OTP_MAX_PER_IP_HOUR = int(os.environ.get("OTP_MAX_PER_IP_HOUR", "10"))
     WHATSAPP_NUMBER = os.environ.get("WHATSAPP_NUMBER", "")
     SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "")
+    SHOP_ADDRESS = os.environ.get("SHOP_ADDRESS", "")   # shown on the Contact page when set
+    SHOP_HOURS = os.environ.get("SHOP_HOURS", "")       # e.g. "Mon-Sat, 9 AM - 7 PM"
     SECURITY_CONTACT = os.environ.get("SECURITY_CONTACT", "")   # step 5.7: published in /.well-known/security.txt (email, mailto: or https URL)
     SECURITY_TXT_EXPIRES = os.environ.get("SECURITY_TXT_EXPIRES", "")   # optional fixed ISO date; default is rolling now+180 days
     SITE_URL = os.environ.get("SITE_URL", "http://localhost:5000").rstrip("/")  # used for links inside emails
