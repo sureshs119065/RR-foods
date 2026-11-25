@@ -2,7 +2,7 @@
 <html lang="{{ current_language|default('en') }}"{% block htmlattrs %}{% endblock %}>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover{% block viewport_extra %}{% endblock %}">
   <meta name="theme-color" content="#183D2B">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}">
@@ -20,9 +20,9 @@
   <meta name="twitter:card" content="summary_large_image">
   {% endblock %}
   {% block head %}{% endblock %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-polish-final.css', v='6') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-polish-final.css', v='7') }}">
 </head>
-<body>
+<body{% block bodyattrs %}{% endblock %}>
   <a class="skip" href="#main">Skip to content</a>
   {% block topbar %}{% include "partials/storefront_header.html" %}{% endblock %}
   {% block main %}

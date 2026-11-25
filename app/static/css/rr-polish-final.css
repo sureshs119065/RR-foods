@@ -291,6 +291,32 @@ body.owner-panel .owner-order-card__actions .btn--danger { background: #C62828 !
   .shop-lst .lay { grid-template-columns: 240px minmax(0, 1fr); }
 }
 
+/* ---- Shop listing: grid columns, trust strip, active-filter chips, 44px targets ---- */
+/* 2 columns on phones, 3 on tablets (the 240px filter sidebar starts at 1024px, so 3 stays roomy until 1200px), 4 on desktop.
+   Rows share one height (grid-auto-rows: 1fr) and each card fills its cell, so every card is the same height. */
+html[data-shop] body .shop-lst .pgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 10px; align-items: stretch; }
+html[data-shop] body .shop-lst .pgrid > .pc { height: 100%; min-width: 0; }
+@media (min-width: 768px) { html[data-shop] body .shop-lst .pgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
+@media (min-width: 1200px) { html[data-shop] body .shop-lst .pgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+html[data-shop] body .shop-lst .results { min-width: 0; }
+
+/* trust strip: three short claims under the toolbar, bullets between them, wraps on narrow screens */
+.shop-lst .trust-strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .15rem 0; margin: 0 0 .75rem; padding: .4rem .75rem; list-style: none; border: 1px solid #DCE8DD; border-radius: 999px; background: #F1F7F1; color: #1E5B34; font-size: .8125rem; font-weight: 700; line-height: 1.3; text-align: center; }
+.shop-lst .trust-strip li { display: inline-flex; align-items: center; min-width: 0; }
+.shop-lst .trust-strip li + li::before { content: "\2022"; margin-inline: .6rem; color: #6a8f74; font-weight: 400; }
+@media (max-width: 599.98px) { .shop-lst .trust-strip { border-radius: 14px; padding: .4rem .6rem; } }
+
+/* category chips and active-filter chips: 44px tall, never wider than the screen */
+.shop-lst .catchip { height: 44px; }
+.shop-lst .active-filters { margin: 0 0 .5rem; }
+.shop-lst .active-filters .chips2 { margin: 0; padding: 0; gap: .35rem .5rem; align-items: center; }
+.shop-lst .active-filters .chips2 > li { min-width: 0; max-width: 100%; }
+.shop-lst .active-filters .chip--active { max-width: 100%; box-sizing: border-box; padding-left: .85rem; }
+.shop-lst .active-filters .chip--active > span, .shop-lst .active-filters .chip--active { overflow-wrap: anywhere; white-space: normal; }
+.shop-lst .active-filters .chip__x { flex: none; margin-block: 0; }
+.shop-lst .active-filters .chip-clear { min-width: 44px; justify-content: center; font-weight: 700; text-decoration: underline; }
+.shop-lst .lst-subcats .chip, .shop-lst .empty .chip { min-height: 44px; }
+
 /* ---- Admin orders: summary strip, filters, status chips ---- */
 .ops-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 0 0 .9rem; }
 .ops-sum__card { display: grid; gap: .2rem; padding: .8rem 1rem; border: 1.5px solid #e1e9e3; border-radius: 14px; background: #fff; color: #1f432c; text-decoration: none; transition: border-color .15s, box-shadow .15s; }

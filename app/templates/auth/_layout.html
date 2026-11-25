@@ -1,9 +1,12 @@
 {# Shared shell for every auth page: sign in, create account, email code, verify, forgot and reset password (customer, admin and owner).
    Child pages fill: card_title, card_sub, card_class / card_attrs (optional) and content.
-   Desktop (768px+): brand panel left + form card right. Mobile: green brand band, then the card, then the feature strip. #}
+   Desktop (768px+): brand panel left + form card right. Mobile: compact green brand bar, then the card. The page is one fixed screen (see auth-page.css):
+   only .auth-wrap scrolls, inside itself. <body class="auth-body"> scopes the no-scroll rules to these pages. #}
 {% extends "base.html" %}
 {% from 'auth/_parts.html' import ic, strip %}
 {% block head %}<link rel="stylesheet" href="{{ asset_url('css/auth-page.css') }}">{% endblock %}
+{% block bodyattrs %} class="auth-body"{% endblock %}
+{% block viewport_extra %}, interactive-widget=resizes-content{% endblock %}
 {% block topbar %}{% endblock %}
 {% block main %}
 {% set staff = portal is defined and portal in ('admin', 'owner') %}
@@ -15,8 +18,8 @@
     </defs>
   </svg>
 
-  <div class="auth-deco" aria-hidden="true">
-    <span class="auth-bg"></span>
+  <div class="auth-bg" aria-hidden="true">
+    <span class="auth-bokeh"></span>
     <svg class="auth-leaf auth-leaf--tl" viewBox="0 0 120 120" focusable="false"><use href="#rr-leaf" x="10" y="4" width="64" height="64" transform="rotate(-24 42 36)"/><use href="#rr-leaf" x="34" y="40" width="52" height="52" transform="rotate(18 60 66)"/></svg>
     <svg class="auth-leaf auth-leaf--tr" viewBox="0 0 120 120" focusable="false"><use href="#rr-leaf" x="14" y="8" width="70" height="70" transform="rotate(62 49 43)"/><use href="#rr-leaf" x="52" y="30" width="54" height="54" transform="rotate(100 79 57)"/><use href="#rr-leaf" x="6" y="44" width="40" height="40" transform="rotate(30 26 64)"/></svg>
     <svg class="auth-leaf auth-leaf--br" viewBox="0 0 120 120" focusable="false"><use href="#rr-leaf" x="40" y="22" width="70" height="70" transform="rotate(-62 75 57)"/><use href="#rr-leaf" x="6" y="40" width="56" height="56" transform="rotate(-100 34 68)"/></svg>

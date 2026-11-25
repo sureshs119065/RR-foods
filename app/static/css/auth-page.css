@@ -1,21 +1,30 @@
 /* Auth pages (sign in, create account, email code, verify, forgot / reset password; customer, admin, owner).
    Mobile first: green brand band, form card, feature strip. 768px+: brand panel left, white card right.
    Colours: dark green #14532d on white 9.4:1, body text #1f2a22, muted #4a5a4f (7:1). Inputs are 16px+ so iOS does not zoom. */
-html body main.auth-page { --g9: #0f3d22; --g8: #14532d; --g7: #1b6b36; --ink: #1f2a22; --soft: #4a5a4f; --line: #8fa596; position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; box-sizing: border-box; width: 100%; min-height: 100vh; min-height: 100dvh; margin: 0; padding: 0 0 3.5rem; overflow-x: clip; color: var(--ink); background: linear-gradient(180deg, #eaf5df 0%, #dcefc9 55%, #eef7e4 100%); }
+/* One-screen shell. The page is pinned to the viewport (position: fixed, 100dvh) and never scrolls; the background is its own
+   fixed layer (.auth-bg) so nothing decorative can add page height; only .auth-wrap scrolls, inside itself, when a form is taller
+   than the screen (register). Cause of the old bug: a normal-flow grid with min-height: 100vh + 3.5rem bottom padding, an
+   oversized animated bokeh (inset: -12%) and the stacked brand band made the document taller than the screen. */
+html, body.auth-body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; }
+html body.auth-body { min-height: 0; background: #eaf5df; }
+html body main.auth-page { --g9: #0f3d22; --g8: #14532d; --g7: #1b6b36; --ink: #1f2a22; --soft: #4a5a4f; --line: #8fa596; --auth-gap: 12px; --auth-wave: 2.25rem;
+  position: fixed; inset: 0; z-index: 0; isolation: isolate; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--auth-gap);
+  box-sizing: border-box; width: 100%; height: 100vh; height: 100dvh; margin: 0; padding: 12px; padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); overflow: hidden; color: var(--ink); background: none; }
 html body .auth-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 
-/* ---- decoration: wave always, bokeh + leaves from 768px ---- */
-html body .auth-deco { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
-html body .auth-bg, html body .auth-leaf { display: none; }
-html body .auth-wave { position: absolute; left: 0; bottom: 0; width: 100%; height: 3.5rem; }
+/* ---- background layer: gradient, bokeh, leaves, wave. Fixed, clipped, never part of the layout ---- */
+html body .auth-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: linear-gradient(180deg, #eaf5df 0%, #dcefc9 55%, #eef7e4 100%); }
+html body .auth-bokeh, html body .auth-leaf { display: none; }
+html body .auth-wave { position: absolute; left: 0; bottom: 0; width: 100%; height: var(--auth-wave); }
+html body .auth-brand, html body .auth-wrap { position: relative; z-index: 1; }
 
 /* ---- brand band (mobile) / brand panel (desktop) ---- */
-html body .auth-brand { box-sizing: border-box; padding: 1rem 1rem 3.25rem; color: #fff; background: linear-gradient(135deg, #0f3d22 0%, #14532d 55%, #1f6b36 100%); }
-html body .auth-brand__in { display: flex; align-items: center; gap: .85rem; box-sizing: border-box; max-width: 28rem; margin-inline: auto; }
+html body .auth-brand { flex: none; box-sizing: border-box; width: 100%; max-width: 440px; padding: .6rem .85rem; border-radius: 1.25rem; color: #fff; background: linear-gradient(135deg, #0f3d22 0%, #14532d 55%, #1f6b36 100%); box-shadow: 0 6px 16px -6px rgb(15 61 34 / .55); }
+html body .auth-brand__in { display: flex; align-items: center; gap: .75rem; box-sizing: border-box; max-width: none; margin: 0; }
 html body .auth-logo { display: inline-flex; flex: none; padding: 4px; border-radius: 16px; background: #fff; box-shadow: 0 2px 10px rgb(0 0 0 / .2); }
-html body .auth-logo img { display: block; width: 64px; height: 64px; border-radius: 12px; }
+html body .auth-logo img { display: block; width: 52px; height: 52px; border-radius: 12px; }
 html body .auth-logo:focus-visible { outline: 3px solid #ffd21f; outline-offset: 3px; }
-html body .auth-brand__tag { flex: 1 1 auto; min-width: 0; margin: 0; font-size: .9375rem; font-style: italic; line-height: 1.4; color: #fff; }
+html body .auth-brand__tag { flex: 1 1 auto; min-width: 0; margin: 0; font-size: .875rem; font-style: italic; line-height: 1.4; color: #fff; }
 html body .auth-desk { display: none; }
 
 /* ---- feature strip ---- */
@@ -23,13 +32,14 @@ html body .auth-strip { display: grid; grid-template-columns: repeat(3, minmax(0
 html body .auth-strip li { display: flex; flex-direction: column; align-items: center; gap: .35rem; padding: .15rem .35rem; text-align: center; font-size: .875rem; font-weight: 700; line-height: 1.25; color: var(--g8); }
 html body .auth-strip li + li { border-left: 1px solid #b9cdbd; }
 html body .auth-strip .ic { color: #1b7a3a; }
-html body .auth-strip--mob { margin-top: .25rem; }
+html body .auth-strip--mob { display: none; }
 html body .auth-strip--desk { display: none; }
 
 /* ---- form column + card ---- */
-html body .auth-wrap { display: grid; justify-items: center; gap: 1rem; box-sizing: border-box; width: 100%; max-width: 28rem; margin: -1.75rem auto 0; padding: 0 1rem 1rem; }
+html body .auth-wrap { flex: 0 1 auto; display: grid; justify-items: center; align-content: start; gap: .75rem; box-sizing: border-box; width: 100%; max-width: 440px; min-height: 0; max-height: 100%; margin: 0; padding: 6px 6px 18px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none; }
+html body .auth-wrap::-webkit-scrollbar { display: none; width: 0; height: 0; }
 html body .auth-wrap > .card, html body .auth-wrap > .alert, html body .auth-wrap > .auth-strip { width: 100%; box-sizing: border-box; margin: 0; }
-html body .auth-card { position: relative; max-width: none; padding: 1.5rem 1.25rem 1.5rem; border: 0; border-radius: 1.5rem; background: #fff; box-shadow: 0 14px 40px rgb(20 83 45 / .16); }
+html body .auth-card { position: relative; max-width: none; padding: 1.5rem 1.25rem 1.5rem; border: 0; border-radius: 1.5rem; background: #fff; box-shadow: 0 8px 22px -6px rgb(20 83 45 / .24); }
 html body .auth-card__logo { display: none; width: 72px; height: 72px; margin: 0 auto .25rem; }
 html body .auth-card__title { margin: 0; text-align: center; font-size: clamp(1.6rem, 6.5vw, 2rem); line-height: 1.15; color: var(--g9); }
 html body .auth-card__sub { margin: .4rem 0 1.1rem; text-align: center; font-size: 1rem; line-height: 1.45; color: var(--ink); }
@@ -103,11 +113,11 @@ html body .otp__code::placeholder { color: #6b7b71; }
 html body .auth-card form.otp__resend { margin: .75rem 0 0; }
 @media (max-width: 380px) { html body .otp__box { width: 2.6rem; height: 3.1rem; } html body .otp__boxes { gap: .3rem; } }
 
-/* ================= 768px and up: two panels ================= */
+/* ================= 768px and up: brand panel left, card right (both centred, side by side) ================= */
 @media (min-width: 768px) {
-  html body main.auth-page { grid-template-columns: minmax(0, 1fr) minmax(21rem, 26rem); align-content: stretch; align-items: center; column-gap: clamp(1rem, 3vw, 3rem); padding: 0 clamp(1rem, 3vw, 3rem) 6.5rem; background: linear-gradient(120deg, #e4f3d3 0%, #cfe9b9 45%, #e9f6dc 100%); }
-  html body .auth-wave { height: 6rem; }
-  html body .auth-bg { position: absolute; inset: -12%; display: block; background:
+  html body main.auth-page { --auth-wave: 3.5rem; flex-direction: row; justify-content: center; gap: clamp(1rem, 3vw, 3rem); padding-inline: clamp(1rem, 3vw, 3rem); padding-bottom: calc(var(--auth-wave) * .6 + 8px); }
+  html body .auth-bg { background: linear-gradient(120deg, #e4f3d3 0%, #cfe9b9 45%, #e9f6dc 100%); }
+  html body .auth-bokeh { position: absolute; inset: -12%; display: block; background:
       radial-gradient(circle at 12% 20%, rgb(255 255 255 / .75) 0 4%, transparent 9%),
       radial-gradient(circle at 30% 8%, rgb(255 255 255 / .55) 0 3%, transparent 7%),
       radial-gradient(circle at 46% 42%, rgb(214 240 170 / .8) 0 6%, transparent 13%),
@@ -116,45 +126,85 @@ html body .auth-card form.otp__resend { margin: .75rem 0 0; }
       radial-gradient(circle at 70% 70%, rgb(255 255 255 / .5) 0 6%, transparent 14%),
       radial-gradient(circle at 92% 38%, rgb(200 232 150 / .7) 0 5%, transparent 12%),
       radial-gradient(circle at 36% 86%, rgb(255 255 255 / .55) 0 5%, transparent 11%); }
-  html body .auth-leaf { position: absolute; display: block; width: clamp(7rem, 14vw, 12rem); height: auto; }
+  html body .auth-leaf { position: absolute; display: block; width: clamp(6rem, 12vw, 11rem); height: auto; }
   html body .auth-leaf--tl { top: -.5rem; left: -.5rem; transform-origin: 0 0; }
-  html body .auth-leaf--tr { top: -.5rem; right: -.5rem; width: clamp(8rem, 17vw, 14rem); transform-origin: 100% 0; }
-  html body .auth-leaf--br { right: -.5rem; bottom: 3rem; transform-origin: 100% 100%; }
+  html body .auth-leaf--tr { top: -.5rem; right: -.5rem; width: clamp(7rem, 15vw, 13rem); transform-origin: 100% 0; }
+  html body .auth-leaf--br { right: -.5rem; bottom: 2rem; transform-origin: 100% 100%; }
 
   /* left panel: no band, text sits straight on the bokeh */
-  html body .auth-brand { align-self: start; display: block; padding: clamp(2rem, 5vh, 3.5rem) 0 1rem; color: var(--g8); background: none; }
-  html body .auth-brand__in { display: block; max-width: 34rem; margin: 0 auto; text-align: center; }
+  html body .auth-brand { flex: 1 1 0; min-width: 0; width: auto; max-width: 34rem; max-height: 100%; padding: 0; overflow: hidden; border-radius: 0; color: var(--g8); background: none; box-shadow: none; }
+  html body .auth-brand__in { display: block; max-width: none; margin: 0 auto; text-align: center; }
   html body .auth-logo { padding: 0; border-radius: 0; background: none; box-shadow: none; }
-  html body .auth-logo img { width: clamp(9rem, 16vw, 12.5rem); height: auto; aspect-ratio: 1; border-radius: 0; filter: drop-shadow(0 6px 10px rgb(20 83 45 / .2)); }
-  html body .auth-brand__tag { margin: .25rem auto 0; max-width: 24rem; font-size: clamp(1.05rem, 1.7vw, 1.3rem); font-weight: 600; color: var(--g7); }
+  html body .auth-logo img { width: clamp(6.5rem, 15vh, 11rem); height: auto; aspect-ratio: 1; border-radius: 0; filter: drop-shadow(0 6px 10px rgb(20 83 45 / .2)); }
+  html body .auth-brand__tag { margin: .25rem auto 0; max-width: 24rem; font-size: clamp(1rem, 1.6vw, 1.2rem); font-weight: 600; color: var(--g7); }
   html body .auth-desk { display: block; }
-  html body .auth-headline { margin: clamp(.75rem, 2.5vh, 1.75rem) 0 0; font-family: var(--font-display, system-ui, sans-serif); font-size: clamp(1.9rem, 3.6vw, 3rem); font-weight: 800; line-height: 1.05; letter-spacing: -.02em; color: var(--g9); }
+  html body .auth-headline { margin: clamp(.5rem, 2vh, 1.5rem) 0 0; font-family: var(--font-display, system-ui, sans-serif); font-size: clamp(1.7rem, 3.2vw, 2.75rem); font-weight: 800; line-height: 1.05; letter-spacing: -.02em; color: var(--g9); }
   html body .auth-headline__a { display: block; }
   html body .auth-script { display: block; margin-top: -.1em; font-family: "Segoe Script", "Brush Script MT", "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Lucida Handwriting", cursive; font-size: 1.3em; font-style: italic; font-weight: 700; letter-spacing: 0; color: var(--g8); }
-  html body .auth-line { margin: .5rem auto 0; max-width: 28rem; font-size: clamp(.95rem, 1.4vw, 1.1rem); font-weight: 600; line-height: 1.5; color: var(--ink); }
+  html body .auth-line { margin: .4rem auto 0; max-width: 28rem; font-size: clamp(.9rem, 1.3vw, 1.05rem); font-weight: 600; line-height: 1.45; color: var(--ink); }
 
   /* product photo, white pack backgrounds multiply away into the green */
-  html body .auth-photo { display: flex; align-items: flex-end; justify-content: center; margin: 1rem auto 0; max-width: 26rem; padding-top: .5rem; }
-  html body .auth-photo img { display: block; width: auto; height: clamp(7rem, 15vh, 11rem); mix-blend-mode: multiply; }
-  html body .auth-photo img:nth-child(2) { height: clamp(8.5rem, 19vh, 13.5rem); margin-inline: -1.25rem; position: relative; z-index: 1; }
-  html body .auth-strip--desk { display: grid; margin: .75rem auto 0; max-width: 32rem; }
+  html body .auth-photo { display: flex; align-items: flex-end; justify-content: center; margin: .6rem auto 0; max-width: 26rem; padding-top: .25rem; }
+  html body .auth-photo img { display: block; width: auto; height: clamp(5.5rem, 14vh, 10rem); mix-blend-mode: multiply; }
+  html body .auth-photo img:nth-child(2) { height: clamp(6.5rem, 17vh, 12rem); margin-inline: -1.25rem; position: relative; z-index: 1; }
+  html body .auth-strip--desk { display: grid; margin: .6rem auto 0; max-width: 32rem; }
   html body .auth-strip--mob { display: none; }
-  html body .auth-strip li { font-size: clamp(.8125rem, 1.2vw, 1rem); }
-  html body .auth-closing { margin: 1.25rem 0 0; font-family: "Segoe Script", "Brush Script MT", "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Lucida Handwriting", cursive; font-size: clamp(1.25rem, 2.2vw, 1.7rem); font-style: italic; font-weight: 700; line-height: 1.35; color: var(--g8); }
+  html body .auth-strip { padding: .6rem .25rem; }
+  html body .auth-strip li { font-size: clamp(.8125rem, 1.2vw, .95rem); }
+  html body .auth-closing { margin: .75rem 0 0; font-family: "Segoe Script", "Brush Script MT", "Snell Roundhand", "Apple Chancery", "URW Chancery L", "Lucida Handwriting", cursive; font-size: clamp(1.15rem, 2vw, 1.55rem); font-style: italic; font-weight: 700; line-height: 1.3; color: var(--g8); }
   html body .auth-closing span { display: inline-block; margin-left: 1.5rem; }
 
-  /* right panel: the white card */
-  html body .auth-wrap { align-self: center; max-width: 26rem; margin: 0; padding: 2rem 0; }
-  html body .auth-card { padding: 1.75rem 1.75rem 1.75rem; border-radius: 1.75rem; box-shadow: 0 20px 50px rgb(20 83 45 / .18); }
-  html body .auth-card__logo { display: block; }
-  html body .auth-card__title { font-size: clamp(1.75rem, 2.6vw, 2.25rem); }
+  /* right panel: the white card (the only part that can scroll) */
+  html body .auth-wrap { flex: 0 1 440px; width: 440px; max-width: 440px; padding: 12px 12px 28px; }
+  html body .auth-card { padding: 1.5rem 1.5rem; border-radius: 1.75rem; box-shadow: 0 10px 22px -10px rgb(20 83 45 / .34); }
+  html body .auth-card__logo { display: block; width: 64px; height: 64px; }
+  html body .auth-card__title { font-size: clamp(1.7rem, 2.4vw, 2.1rem); }
   html body .auth-badge { top: 1.25rem; right: 1.25rem; }
 }
 
 @media (min-width: 1100px) {
-  html body main.auth-page { grid-template-columns: minmax(0, 1.15fr) minmax(24rem, 30rem); }
-  html body .auth-wrap { max-width: 30rem; }
-  html body .auth-card { padding: 2rem 2.25rem; }
+  html body .auth-card { padding: 1.75rem 2rem; }
+}
+
+/* ================= short screens: smaller logo, card padding and gaps; hide photo + feature strips ================= */
+@media (max-height: 820px) and (min-width: 768px) {
+  html body .auth-logo img { width: clamp(5.5rem, 13vh, 8rem); }
+  html body .auth-photo img { height: clamp(4.5rem, 12vh, 7.5rem); }
+  html body .auth-photo img:nth-child(2) { height: clamp(5.5rem, 14.5vh, 9rem); }
+  html body .auth-closing { display: none; }
+  html body .auth-card__logo { width: 52px; height: 52px; }
+}
+@media (max-height: 700px) {
+  html body main.auth-page { --auth-gap: 8px; padding-block: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-bottom)); }
+  html body .auth-photo, html body .auth-strip, html body .auth-closing { display: none; }
+  html body .auth-brand { padding: .4rem .75rem; border-radius: 1rem; }
+  html body .auth-logo img { width: 40px; height: 40px; border-radius: 10px; }
+  html body .auth-brand__tag { font-size: .8125rem; line-height: 1.3; }
+  html body .auth-wrap { gap: .5rem; padding-bottom: 14px; }
+  html body .auth-card { padding: 1rem 1rem 1.1rem; border-radius: 1.25rem; }
+  html body .auth-card__logo { display: none; }
+  html body .auth-card__title { font-size: clamp(1.35rem, 5.4vw, 1.6rem); }
+  html body .auth-card__sub { margin: .25rem 0 .7rem; font-size: .9375rem; line-height: 1.35; }
+  html body .auth-card .form { gap: .6rem; }
+  html body .auth-card .btn { min-height: 2.75rem; }
+  :root .auth-card .btn:not(#rr) { min-height: 2.75rem; font-size: 1rem; }
+  html body .auth-card .field input:not([type="checkbox"]) { min-height: 2.75rem; }
+  html body .auth-card .otp__code { min-height: 3rem; font-size: 1.5rem; }
+  html body .otp__box { height: 3rem; }
+  html body .auth-or { margin: .6rem 0; }
+  html body .otp__new { margin-top: .75rem; }
+}
+@media (max-height: 700px) and (min-width: 768px) {
+  html body .auth-logo img { width: clamp(4rem, 12vh, 5.5rem); height: auto; border-radius: 0; }
+  html body .auth-headline { font-size: clamp(1.5rem, 3vw, 2.25rem); }
+  html body .auth-card { padding: 1.1rem 1.5rem; }
+}
+@media (max-height: 520px) {
+  html body .auth-desk { display: none; }
+  html body .auth-brand__tag { display: none; }
+}
+@media (max-width: 767px) {
+  html body .auth-strip--mob { display: none; }   /* phones: no feature strip */
 }
 
 /* ================= motion: only when the visitor has not asked for less ================= */
@@ -167,7 +217,7 @@ html body .auth-card form.otp__resend { margin: .75rem 0 0; }
   html body .otp__tab, html body .pw__eye, html body .auth-card .btn { transition: background .15s, color .15s, transform .15s; }
 }
 @media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
-  html body .auth-bg { will-change: transform; animation: auth-drift 38s ease-in-out infinite alternate; }
+  html body .auth-bokeh { will-change: transform; animation: auth-drift 38s ease-in-out infinite alternate; }
   html body .auth-leaf { will-change: transform; animation: auth-sway 8s ease-in-out infinite alternate; }
   html body .auth-leaf--tr { animation-duration: 10s; animation-delay: -3s; }
   html body .auth-leaf--br { animation-duration: 9s; animation-delay: -5s; }

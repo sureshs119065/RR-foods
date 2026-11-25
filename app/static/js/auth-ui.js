@@ -100,4 +100,30 @@
       else store(function (s) { s.removeItem(KEY); });
     });
   }
+
+  /* ---- 4. on-screen keyboard: keep the focused field visible inside the scrolling card (the page itself never scrolls) ---- */
+  var FIELD = "input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=submit]), select, textarea";
+  var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var keepVisible = function (el) {
+    var wrap = el.closest && el.closest(".auth-wrap");
+    if (wrap) {                                   // already fully on screen: leave the scroll position alone
+      var r = el.getBoundingClientRect(), w = wrap.getBoundingClientRect();
+      var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      if (r.top >= Math.max(w.top, 0) + 8 && r.bottom <= Math.min(w.bottom, vh) - 8) return;
+    }
+    try { el.scrollIntoView({ block: "center", inline: "nearest", behavior: calm ? "auto" : "smooth" }); }
+    catch (_) { el.scrollIntoView(true); }
+  };
+  var activeField = function () {
+    var a = document.activeElement;
+    return a && a.matches && a.matches(FIELD) ? a : null;
+  };
+  document.addEventListener("focusin", function (e) {
+    var el = e.target;
+    if (!el.matches || !el.matches(FIELD)) return;
+    window.setTimeout(function () { if (document.activeElement === el) keepVisible(el); }, 300);   // let the keyboard finish opening
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", function () { var a = activeField(); if (a) keepVisible(a); });
+  }
 })();

@@ -26,6 +26,11 @@
       </button>
     </div>
   </div>
+  <ul class="trust-strip" aria-label="Why shop with RR FOODS">
+    <li>100% Organic</li>
+    <li>Diabetic Friendly</li>
+    {% if free_delivery_min %}<li>Free delivery above {{ s.inr0(free_delivery_min) }}</li>{% endif %}
+  </ul>
   <nav class="catrow" data-catrow aria-label="Browse by category">
     <a class="catchip{{ ' catchip--on' if active_chip == 'all' else '' }}" href="{{ url_for('shop.listing') }}"{% if active_chip == 'all' %} aria-current="page"{% endif %}>All <span class="catchip__n">{{ shop_counts.all }}</span></a>
     <a class="catchip{{ ' catchip--on' if active_chip == 'bestsellers' else '' }}" href="{{ url_for('shop.bestsellers') }}"{% if active_chip == 'bestsellers' %} aria-current="page"{% endif %}>Bestsellers <span class="catchip__n">{{ shop_counts.bestsellers }}</span></a>

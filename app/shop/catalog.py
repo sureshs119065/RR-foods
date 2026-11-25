@@ -15,6 +15,7 @@ from ..services import reviews as review_svc
 from ..models.base import utcnow
 from ..services import header_banners, storefront
 from ..services import stock_alerts
+from ..services.cart import free_delivery_threshold
 from ..services.storefront import Filters, active_variants, available_qty, in_stock_sql
 from . import bp
 
@@ -171,6 +172,7 @@ def _render_listing(*, slug=None, bestseller_only=False):
         filter_chips=filter_chips(f, endpoint, cat, query_args),
         bestseller_only=bestseller_only,
         shop_counts=counts, active_chip=active_chip, diet_opts=storefront.diet_options(),
+        free_delivery_min=free_delivery_threshold() or None,   # the free_delivery_above setting; None = no offer, so no strip item
     )
 
 
