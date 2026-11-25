@@ -75,3 +75,6 @@ html body .hero__t span { color: #8A5A00 !important; }
 html body .home-bottom.container.home-bottom { display: flex !important; flex-direction: column; gap: 16px; grid-template-areas: none; }
 html body .home-bottom.container.home-bottom > section { width: 100%; max-width: none; grid-area: auto; }
 html body .home-bottom__story { min-height: 0; }
+
+/* Recently viewed uses the New Arrivals row: full width, no card box */
+html body .home-bottom.container.home-bottom > .rr-shelf { margin: 0; }
