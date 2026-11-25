@@ -4,3 +4,5 @@ html body .wa-fab:hover { background: #1EBE5A; }
 html body .wa-fab:focus-visible { outline: 3px solid #183D2B; outline-offset: 3px; }
 @media (max-width: 899px) { html body .wa-fab { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); width: 52px; padding: 0; justify-content: center; } html body .wa-fab__t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
 @media print { html body .wa-fab { display: none; } }
+html body .wa-fab { transition: opacity .2s ease, transform .2s ease; }
+html body .wa-fab.wa-fab--hide { opacity: 0; transform: translateY(12px); pointer-events: none; visibility: hidden; }

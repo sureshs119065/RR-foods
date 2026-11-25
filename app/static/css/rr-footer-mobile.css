@@ -1,0 +1,20 @@
+/* Footer on phones: tidy collapsible columns (were ~110px apart with the arrow stuck beside the title). Loaded on all storefront pages. */
+@media (max-width: 767px) {
+  html body .sf__inner.container { padding-block: 24px 12px; }
+  html body .sf__grid { gap: 0; }
+  html body .sf__brand { margin-bottom: 14px; }
+  html body .sf__col { padding: 0; border: 0; border-top: 1px solid rgb(255 255 255 / .22); }
+  html body .sf__col:last-of-type { border-bottom: 1px solid rgb(255 255 255 / .22); }
+  html body .sf__col summary {
+    display: flex !important; align-items: center; justify-content: space-between; gap: 12px;
+    min-height: 48px; margin: 0; padding: 0; cursor: pointer; pointer-events: auto; font-size: 16px;
+  }
+  html body .sf__col summary::after {
+    display: block; flex: none; content: ""; width: 9px; height: 9px; margin-right: 4px;
+    border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .2s ease;
+  }
+  html body .sf__col[open] summary::after { transform: rotate(-135deg); }
+  html body .sf__col ul { gap: 0; padding: 0 0 10px; }
+  html body .sf__col li a { display: inline-flex; align-items: center; min-height: 40px; }
+  html body .sf__base { margin-top: 16px; padding-top: 12px; }
+}
