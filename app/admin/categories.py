@@ -78,18 +78,23 @@ def _parse(category: Category | None):
     }, errors
 
 
+def _thumb_of(url):
+    """URL of the 400 px copy saved next to a category image (None when there is no image)."""
+    return url.rsplit(".", 1)[0] + "_t." + url.rsplit(".", 1)[1] if url and "." in url.rsplit("/", 1)[-1] else None
+
+
 def _apply_image(cat: Category, errors: dict) -> None:
     upload = request.files.get("image")
     if checked("remove_image") and cat.image:
-        delete_files(cat.image)
+        delete_files(cat.image, _thumb_of(cat.image))
         cat.image = None
     if upload and upload.filename:
         try:
-            url, _ = save_image(upload, "categories", max_side=1000, thumb_side=None)
+            url, _ = save_image(upload, "categories", max_side=1000)
         except UploadError as exc:
             errors["image"] = str(exc)
             return
-        delete_files(cat.image)
+        delete_files(cat.image, _thumb_of(cat.image))
         cat.image = url
 
 
@@ -211,6 +216,6 @@ def category_delete(cat_id):
     log("category.delete", "category", cat.id, before=_snapshot(cat))
     db.session.delete(cat)
     db.session.commit()
-    delete_files(image)
+    delete_files(image, _thumb_of(image))
     flash(f"Category “{name}” deleted permanently.", "success")
     return redirect(url_for("admin.categories", archived="1"))

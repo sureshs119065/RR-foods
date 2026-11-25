@@ -1,0 +1,72 @@
+/* Home page conversion layout: hero, trust line, category chips, compact product rows. Loaded on the home page only. */
+
+/* Hero fallback (no banners): copy + product photo, bright CTA */
+html body .rr-hero__grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 24px; align-items: center; padding-block: 28px; }
+html body .rr-hero__reasons { margin: 10px 0 0; font-weight: 700; font-size: .95rem; color: #183D2B; }
+html body .rr-hero__photo { display: block; justify-self: center; width: min(100%, 360px); aspect-ratio: 1; border-radius: 24px; overflow: hidden; background: #fff; box-shadow: 0 10px 30px rgb(24 61 43 / .15); }
+html body .rr-hero__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+html body .rr-hero__cta, html body .hc__btn {
+  background: #F59E0B !important; color: #1A1200 !important; border-color: #F59E0B !important; font-weight: 800;
+  box-shadow: 0 4px 14px rgb(245 158 11 / .45);
+}
+html body .rr-hero__cta:hover { background: #D97706 !important; }
+@media (max-width: 640px) {
+  html body .rr-hero__grid { grid-template-columns: 1fr; padding-block: 18px; }
+  html body .rr-hero__photo { width: 200px; order: -1; }
+}
+
+/* Trust line under hero / carousel */
+html body .rr-trust { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 0; margin: 10px auto 0; padding: 0; list-style: none; font-size: .88rem; font-weight: 700; color: #183D2B; }
+html body .rr-trust li + li::before { content: "·"; margin: 0 .6em; color: #B3262D; }
+
+/* Category chips: one slim row */
+html body .rr-chips { margin: 14px 0 4px; }
+html body .rr-chips__row { display: flex; gap: 16px; margin: 0; padding: 4px 2px 8px; list-style: none; overflow-x: auto; scrollbar-width: none; }
+html body .rr-chips__row::-webkit-scrollbar { display: none; }
+html body .rr-chip { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 76px; text-decoration: none; color: inherit; }
+html body .rr-chip__img { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #F4F8F1; border: 2px solid #DCE8DD; font-size: 1.4rem; color: #183D2B; }
+html body .rr-chip__img img { width: 100%; height: 100%; object-fit: cover; }
+html body .rr-chip__img .ct__ph svg { width: 26px; height: 26px; }
+html body .rr-chip:hover .rr-chip__img, html body .rr-chip:focus-visible .rr-chip__img { border-color: #F59E0B; }
+html body .rr-chip__name { font-size: .78rem; font-weight: 700; text-align: center; line-height: 1.2; }
+
+/* Fewer than 4 products: compact row of small horizontal cards */
+html body .rr-compact { display: flex; flex-wrap: wrap; gap: 12px; margin: 0; padding: 0; list-style: none; }
+html body .rr-compact > .rc { position: relative; display: grid; grid-template-columns: 104px 1fr; align-items: center; flex: 1 1 300px; max-width: 460px; width: auto; }
+html body .rr-compact .rc__img { aspect-ratio: 1; }
+html body .rr-compact .rc__body { padding: 8px 10px; }
+html body .rr-compact .rc__cat { display: none; }
+
+/* Tighter section rhythm so products show early on mobile */
+html body .rr-shelf { margin-block: 14px 8px; }
+
+/* ---- Less whitespace: smaller gaps between sections, no tall empty bands above headings ---- */
+html body .home-shelves-shell { padding-block: 0; }
+html body .home-shelves-shell > section,
+html body .home-shelves-shell > .rr-assure { padding-block: 0; margin-block: 16px 0; }
+html body .home-shelves-shell .sec { margin-block: 16px 0; padding-block: 0; }
+html body .sec__row { margin-bottom: 10px; }
+html body .rr-how-order { padding-block: 0; margin-top: 20px; }
+html body .rr-how-order__steps li { min-height: 0; padding: 12px; }
+html body .home-bottom.container { padding-block: 16px 0; gap: 12px; }
+html body .faq-sec { margin-block: 20px 0; padding-block: 0; }
+html body .rr-helpline { margin-block: 18px 8px; text-align: center; font-size: .92rem; }
+html body .rr-helpline a { font-weight: 700; color: #183D2B; text-decoration: underline; }
+html body .sf { margin-top: 20px; }
+
+/* Merged "How to Order" + "Ready to order?" bar */
+html body .rr-how-order__heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 12px; }
+html body .rr-how-order__cta { white-space: nowrap; background: #F59E0B !important; color: #1A1200 !important; font-weight: 800; }
+
+/* Icon assurance strip */
+html body .rr-assure { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 16px 0 0; padding: 0; list-style: none; }
+html body .rr-assure li > a, html body .rr-assure__i { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 8px 12px; border: 1px solid #DCE8DD; border-radius: 12px; background: #F4F8F1; color: #183D2B; font-size: .86rem; font-weight: 700; text-align: center; text-decoration: none; }
+html body .rr-assure li > a:hover { border-color: #F59E0B; }
+html body .rr-assure svg { flex: none; }
+@media (max-width: 760px) { html body .rr-assure { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+
+/* ---- Contrast (WCAG AA) ----
+   "Millet Foods" was #ffd21f on a white/pale hero = about 1.4:1. Deep amber is 5.9:1 on white and 5.4:1 on the pale green gradient.
+   The red badge (#B3262D) with white text is 6.5:1 and is kept. */
+html body .hero__t span { color: #8A5A00 !important; }

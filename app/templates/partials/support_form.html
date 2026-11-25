@@ -24,5 +24,6 @@
     <textarea id="{{ fid }}-body" name="body" rows="5" minlength="5" maxlength="2000" required data-label="message" aria-describedby="{{ fid }}-err-body"></textarea>
     <span class="sf-err" id="{{ fid }}-err-body" data-err="body" role="alert" hidden></span>
   </div>
+  <p class="contact-form__note">{% if customer %}Our team replies in <a href="{{ url_for('shop.messages') }}">My messages</a>.{% else %}We will reply to the email address you give. <a href="{{ url_for('auth.login', next=url_for('shop.help_page')) }}">Sign in</a> to read replies in My messages.{% endif %}</p>
   <button class="btn btn--accent contact-form__submit" type="submit">Send</button>
 </form>

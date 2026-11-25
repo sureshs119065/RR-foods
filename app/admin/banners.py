@@ -105,11 +105,11 @@ def _images(banner: HeaderBanner, errors: dict) -> tuple[list[str], list[str]]:
     the replaced ones are removed once it succeeds."""
     saved: list[str] = []
     old: list[str] = []
-    for field, attr, max_side, label in (("desktop_image", "desktop_image", 1920, "Desktop image"), ("mobile_image", "mobile_image", 900, "Mobile image")):
+    for field, attr, max_side, budget, label in (("desktop_image", "desktop_image", 1920, 220 * 1024, "Desktop image"), ("mobile_image", "mobile_image", 900, 110 * 1024, "Mobile image")):
         upload = request.files.get(field)
         if upload and upload.filename:
             try:
-                url, _ = save_image(upload, "banners", max_side=max_side, thumb_side=None, budget=None)
+                url, _ = save_image(upload, "banners", max_side=max_side, thumb_side=None, budget=budget)  # WebP, sized for the slot, kept near 220 KB / 110 KB
             except UploadError as exc:
                 errors[field] = f"{label}: {exc}"
                 delete_files(*saved)

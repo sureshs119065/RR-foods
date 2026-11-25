@@ -24,8 +24,13 @@ def _shop_helpers():
         from flask import current_app
         return current_app.config.get("ANNOUNCEMENTS", [])
 
+    def whatsapp_link(text: str = "") -> str | None:
+        """wa.me link to the shop's WhatsApp (None when no number is configured), for the floating button and the home strip."""
+        from ..services import whatsapp as wa
+        return wa.link(wa.owner_number(), text)
+
     from datetime import datetime
-    return {"cart_count": cart_count, "nav_categories": nav_categories, "announcements": announcements, "current_year": datetime.now().year}
+    return {"whatsapp_link": whatsapp_link, "cart_count": cart_count, "nav_categories": nav_categories, "announcements": announcements, "current_year": datetime.now().year}
 
 
 def wants_json() -> bool:

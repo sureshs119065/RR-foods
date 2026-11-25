@@ -163,6 +163,15 @@ def init_images(app) -> None:
         request.environ["rr.priority_images"] = PRIORITY_IMAGES
         return ""
 
+    def img_variant(url: str | None, kind: str = "t") -> str:
+        """The 400 px (`t`) or 800 px (`m`) copy of an image when that file exists, else the image itself.
+        Lets small spots (category chips, the hero photo) avoid downloading the full-size file; older uploads without copies still work."""
+        if not url:
+            return ""
+        alt = sibling(url, kind)
+        return alt if fs_path(alt) else url
+
+    app.jinja_env.globals["img_variant"] = img_variant
     app.jinja_env.globals["img_priority_spent"] = img_priority_spent
     app.jinja_env.globals["img_srcset"] = img_srcset
     app.jinja_env.globals["img_priority"] = img_priority

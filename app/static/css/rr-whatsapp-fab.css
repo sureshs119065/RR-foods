@@ -1,0 +1,6 @@
+/* Floating WhatsApp order button (all storefront pages). Sits above the mobile bottom nav. */
+html body .wa-fab { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 900; display: inline-flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 16px; border-radius: 999px; background: #25D366; color: #fff; font-weight: 800; font-size: .92rem; text-decoration: none; box-shadow: 0 6px 18px rgb(0 0 0 / .25); }
+html body .wa-fab:hover { background: #1EBE5A; }
+html body .wa-fab:focus-visible { outline: 3px solid #183D2B; outline-offset: 3px; }
+@media (max-width: 899px) { html body .wa-fab { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); width: 52px; padding: 0; justify-content: center; } html body .wa-fab__t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
+@media print { html body .wa-fab { display: none; } }

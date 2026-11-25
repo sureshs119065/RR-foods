@@ -6,30 +6,57 @@
   <link rel="stylesheet" href="{{ url_for('shop.banner_colors') }}?v={{ carousel.banners|map(attribute='id')|join('-') }}{{ carousel.banners|map(attribute='bg_color')|join('')|replace('#', '') }}{{ carousel.banners|map(attribute='text_color')|join('')|replace('#', '') }}">
   <script type="application/ld+json">{{ [{"@context": "https://schema.org", "@type": "Organization", "name": "RR FOODS", "url": request.host_url.rstrip('/'), "logo": url_for('static', filename='img/rr-foods-brand-logo.png', _external=True)},
     {"@context": "https://schema.org", "@type": "WebSite", "name": "RR FOODS", "url": request.host_url.rstrip('/')}]|tojson }}</script>
+  <link rel="stylesheet" href="{{ asset_url('css/rr-home-conversion.css') }}">
   <script src="{{ asset_url('js/header-carousel.js') }}" defer></script>
   {% set hf = home_faq() %}{% if hf.show %}
   <link rel="stylesheet" href="{{ asset_url('css/faq.css') }}">
   <script src="{{ asset_url('js/faq.js') }}" defer></script>
-  <script type="application/ld+json">{{ faq_jsonld(hf['items'])|tojson }}</script>
+  <script type="application/ld+json">{{ faq_jsonld(hf['items'][:3])|tojson }}</script>
   {% endif %}
   {% if carousel.banners and (carousel.banners[0].mobile_image or carousel.banners[0].desktop_image) %}<link rel="preload" as="image" href="{{ carousel.banners[0].mobile_image or carousel.banners[0].desktop_image }}" fetchpriority="high" media="(max-width: 767px)">{% endif %}
 {% endblock %}
 {% block content %}
+{% macro shelf(sid, title, items, href, aria, sub='') %}
+{% set n = items|length %}
+<section class="sec rr-featured-section rr-shelf" aria-labelledby="{{ sid }}-h">
+  <div class="sec__row"><div><h2 id="{{ sid }}-h" class="sec__h">{{ title }}</h2>{% if sub %}<p class="sec__sub">{{ sub }}</p>{% endif %}</div><div class="sec__tools"><a href="{{ href }}">View all →</a></div></div>
+  {% if n < 4 %}
+  {# Fewer than 4 products: a compact row of small cards instead of one lonely tall card in a scrolling track. #}
+  <ul class="rr-compact" aria-label="{{ aria }}">{% for p in items %}{{ s.rcard(p) }}{% endfor %}</ul>
+  {% else %}
+  <div class="rr-loop" data-loop role="region" aria-label="{{ aria }}" tabindex="0">
+    <ul class="rr-loop__track" id="{{ sid }}-track">{% for p in items[:6] %}{{ s.rcard(p) }}{% endfor %}</ul>
+  </div>
+  {% endif %}
+</section>
+{% endmacro %}
 {{ img_priority_spent() }}{# home: the banner/offer cards are the LCP and the product rows sit below the fold, so product images load lazily and do not compete with the critical CSS #}
 <script src="{{ asset_url('js/home-loop.js') }}" defer></script>
-<script src="{{ asset_url('js/support-message.js') }}" defer></script>
 {% include "partials/header_carousel.html" %}
 {% if carousel and carousel.banners %}<h1 class="sr-only">RR FOODS: healthy, home-style millet foods</h1>{% endif %}
+{% set hero_p = (rows.best or rows.new or [])|selectattr('primary_image')|first %}
 {% if not (carousel and carousel.banners) %}
-<section class="hero" aria-labelledby="hero-t">
-  <div class="hero__in container">
-    <p class="hero__badge">Fresh • Healthy • Trusted</p>
-    <h1 id="hero-t" class="hero__t">Healthy, Home-style <span>Millet Foods</span></h1>
-    <p class="hero__p">Traditional taste, delivered to your door</p>
-    <div class="hero__btns"><a class="btn btn--accent btn--lg" href="{{ url_for('shop.listing') }}">Shop Now →</a></div>
+<section class="hero rr-hero" aria-labelledby="hero-t">
+  <div class="hero__in container rr-hero__grid">
+    <div class="rr-hero__copy">
+      <p class="hero__badge">Fresh • Healthy • Trusted</p>
+      <h1 id="hero-t" class="hero__t">Healthy, Home-style <span>Millet Foods</span></h1>
+      <p class="hero__p">Traditional taste, delivered to your door</p>
+      <p class="rr-hero__reasons">No maida · Home-style · Delivered in Tamil Nadu</p>
+      <div class="hero__btns"><a class="btn btn--accent btn--lg rr-hero__cta" href="{{ url_for('shop.listing') }}">Shop Now →</a></div>
+    </div>
+    {% if hero_p %}
+    <a class="rr-hero__photo" href="{{ url_for('shop.product', slug=hero_p.slug) }}" aria-label="{{ hero_p.name }}">
+      {% set hi = hero_p.primary_image %}<img src="{{ img_variant(hi.url, 'm') }}"{% set ss = img_srcset(hi.url, hi.thumb_url) %}{% if ss %} srcset="{{ ss }}" sizes="(max-width: 640px) 200px, 360px"{% endif %} alt="{{ hero_p.name }}" width="360" height="360" fetchpriority="high" decoding="async">
+    </a>
+    {% endif %}
   </div>
 </section>
 {% endif %}
+{# One-line reasons to buy, shown under the hero or banner carousel (replaces the old, taller "Shop with confidence" strip). #}
+<ul class="rr-trust container" aria-label="Why shop with RR FOODS">
+  <li>No maida</li><li>Home-style</li><li>Delivered in Tamil Nadu</li>
+</ul>
 
 {% if reels_enabled and home_reels %}
 <section class="container sec home-reels" aria-labelledby="reels-title">
@@ -55,6 +82,50 @@
 
 
 <div class="container home-shelves-shell">
+  {% set cats = rows.categories|list %}
+  {% if cats and cats|length < 4 %}
+  {# Few categories: one slim row of round chips instead of a tall, mostly empty tile block. #}
+  <nav class="rr-chips" id="categories" aria-label="Shop by category">
+    <ul class="rr-chips__row">
+      {% for c in cats %}
+      <li><a class="rr-chip" href="{{ url_for('shop.category_listing', slug=c.slug) }}">
+        <span class="rr-chip__img">{% if c.image %}<img src="{{ img_variant(c.image, 't') }}" data-category-image alt="" loading="eager" decoding="async" width="64" height="64"><span class="ct__ph" aria-hidden="true" hidden>{{ s.icon('leaf') }}</span>{% else %}<span class="ct__ph" aria-hidden="true">{{ s.icon('leaf') }}</span>{% endif %}</span>
+        <span class="rr-chip__name">{{ c.name }}</span>
+      </a></li>
+      {% endfor %}
+      <li><a class="rr-chip rr-chip--all" href="{{ url_for('shop.listing') }}"><span class="rr-chip__img" aria-hidden="true">→</span><span class="rr-chip__name">View all</span></a></li>
+    </ul>
+  </nav>
+  {% endif %}
+
+  {% if rows.best %}{{ shelf('best', 'Best Sellers', rows.best, url_for('shop.listing', sort='popular'), 'Best sellers product row', 'What customers reorder most.') }}{% endif %}
+  {% if rows.new %}{{ shelf('new', 'New Arrivals', rows.new, url_for('shop.listing', sort='newest'), 'New arrivals product row') }}{% endif %}
+
+  {% if cats and cats|length >= 4 %}
+  <section class="sec rr-categories-section" id="categories" aria-labelledby="cats-h">
+    <div class="sec__row"><div><h2 id="cats-h" class="sec__h">Shop by Category</h2><p class="sec__sub">Browse our millet mixes, noodles, snacks and sweets.</p></div><a href="{{ url_for('shop.listing') }}">View all →</a></div>
+    <div class="rr-category-track-wrap">
+    <button class="rowarrow rr-category-arrow rr-category-prev" type="button" data-row-prev="rr-category-track" aria-label="Previous categories">{{ s.icon('left') }}</button>
+    <ul class="ctiles rr-category-track" id="rr-category-track" tabindex="0" aria-label="Categories, scroll sideways for more">
+      {% for c in rows.categories[:8] %}{% set n = rows.counts.get(c.id, 0) %}
+      <li><a class="ct" href="{{ url_for('shop.category_listing', slug=c.slug) }}">
+        <span class="ct__img">
+          {% if c.image %}
+            {% set css = img_srcset(c.image) %}<img src="{{ img_variant(c.image, 't') }}"{% if css %} srcset="{{ css }}" sizes="(max-width: 640px) 46vw, 220px"{% endif %} data-category-image alt="{{ c.name }}" loading="lazy" decoding="async" width="300" height="240">
+            <span class="ct__ph" aria-hidden="true" hidden>{{ s.icon('leaf') }}</span>
+          {% else %}
+            <span class="ct__ph" aria-hidden="true">{{ s.icon('leaf') }}</span>
+          {% endif %}
+        </span>
+        <span class="ct__name">{{ c.name }}</span>{% if n %}<span class="ct__n">{{ n }} item{{ 's' if n != 1 else '' }}</span>{% endif %}
+      </a></li>
+      {% endfor %}
+    </ul>
+    <button class="rowarrow rr-category-arrow rr-category-next" type="button" data-row-next="rr-category-track" aria-label="Next categories">{{ s.icon('right') }}</button>
+    </div>
+  </section>
+  {% endif %}
+
   {% set live_combos = rows.bundles|rejectattr('upcoming')|list %}
   {% if live_combos or rows.offers %}
   <section class="sec rr-offers-section" aria-labelledby="offers-heading">
@@ -70,43 +141,13 @@
   </section>
   {% endif %}
 
-  {% if rows.categories %}
-  <section class="sec rr-categories-section" id="categories" aria-labelledby="cats-h">
-    <div class="sec__row"><div><h2 id="cats-h" class="sec__h">Shop by Category</h2><p class="sec__sub">Browse our millet mixes, noodles, snacks and sweets.</p></div><a href="{{ url_for('shop.listing') }}">View all →</a></div>
-    <div class="rr-category-track-wrap">
-    <button class="rowarrow rr-category-arrow rr-category-prev" type="button" data-row-prev="rr-category-track" aria-label="Previous categories">{{ s.icon('left') }}</button>
-    <ul class="ctiles rr-category-track" id="rr-category-track" tabindex="0" aria-label="Categories, scroll sideways for more">
-      {% for c in rows.categories[:8] %}{% set n = rows.counts.get(c.id, 0) %}
-      <li><a class="ct" href="{{ url_for('shop.category_listing', slug=c.slug) }}">
-        <span class="ct__img">
-          {% if c.image %}
-            <img src="{{ c.image }}" data-category-image alt="{{ c.name }}" loading="lazy" decoding="async" width="300" height="240">
-            <span class="ct__ph" aria-hidden="true" hidden>{{ s.icon('leaf') }}</span>
-          {% else %}
-            <span class="ct__ph" aria-hidden="true">{{ s.icon('leaf') }}</span>
-          {% endif %}
-        </span>
-        <span class="ct__name">{{ c.name }}</span>{% if n %}<span class="ct__n">{{ n }} item{{ 's' if n != 1 else '' }}</span>{% endif %}
-      </a></li>
-      {% endfor %}
-    </ul>
-    <button class="rowarrow rr-category-arrow rr-category-next" type="button" data-row-next="rr-category-track" aria-label="Next categories">{{ s.icon('right') }}</button>
-    </div>
-  </section>
-  {% endif %}
-
-
-
-  {% if rows.new %}
-  <section class="sec rr-featured-section rr-new-arrivals" aria-labelledby="new-h">
-    <div class="sec__row"><div><h2 id="new-h" class="sec__h">New Arrivals</h2></div><div class="sec__tools"><a href="{{ url_for('shop.listing', sort='newest') }}">View all →</a></div></div>
-    <div class="rr-loop" data-loop role="region" aria-label="New arrivals product row" tabindex="0">
-      <ul class="rr-loop__track" id="new-track">
-        {% for p in rows.new[:6] %}{{ s.rcard(p) }}{% endfor %}
-      </ul>
-    </div>
-  </section>
-  {% endif %}
+  {% set _wa = whatsapp_link("Hi RR FOODS, I would like to place an order.") %}
+  <ul class="rr-assure" aria-label="How shopping works">
+    <li><a href="{{ _wa or url_for('shop.listing') }}"{% if _wa %} target="_blank" rel="noopener noreferrer"{% endif %}><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.5 7.3L3 20l1.300-4.800A8.400 8.400 0 1 1 21 11.500z"/></svg><span>Order on WhatsApp</span></a></li>
+    <li><a href="{{ url_for('shop.orders') }}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg><span>Track your order</span></a></li>
+    <li><span class="rr-assure__i"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V8"/><path d="M12 8c0-3 2-5 5-5 0 3-2 5-5 5z"/><path d="M12 13c0-2.500-1.800-4-4.500-4 0 2.500 1.800 4 4.500 4z"/></svg><span>Millet-based</span></span></li>
+    <li><span class="rr-assure__i"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6h13v10H1z"/><path d="M14 10h4l3 3v3h-7"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg><span>Pan-Tamil Nadu delivery</span></span></li>
+  </ul>
 
   {% if home_reviews %}
   <section class="sec hrev" id="customer-reviews" aria-labelledby="hrev-h">
@@ -125,8 +166,9 @@
 
   <section class="rr-how-order" aria-labelledby="rr-how-order-title">
     <div class="rr-how-order__heading">
-      <h2 id="rr-how-order-title">How to Order</h2>
-      <p>Fresh RR FOODS favourites in a few simple steps.</p>
+      <div><h2 id="rr-how-order-title">How to Order</h2>
+      <p>Fresh, healthy food delivered to your doorstep in a few simple steps.</p></div>
+      <a class="btn btn--accent rr-how-order__cta" href="{{ url_for('shop.listing') }}">Ready to order? Shop Now <span aria-hidden="true">→</span></a>
     </div>
     <ol class="rr-how-order__steps">
       <li><span class="rr-how-order__number">1</span><div><b>Choose your products</b><small>Browse categories or search for your favourites.</small></div></li>
@@ -157,7 +199,6 @@
   <section class="home-bottom__story" aria-labelledby="home-story-heading">
     <div class="home-bottom__story-copy"><h2 id="home-story-heading">Our Story</h2><p>From our farm to your home – fresh, natural and full of goodness.</p><a href="{{ url_for('shop.about') }}">Read the RR FOODS story <span aria-hidden="true">→</span></a></div>
   </section>
-  <section class="home-bottom__order" aria-labelledby="home-order-heading"><div class="home-bottom__order-copy"><span class="home-bottom__order-icon" aria-hidden="true">🛒</span><div><h2 id="home-order-heading">Ready to order?</h2><p>Get fresh, healthy food delivered to your doorstep.</p></div></div><a href="{{ url_for('shop.listing') }}">Shop Now <span aria-hidden="true">→</span></a></section>
 
 </section>
 
@@ -168,18 +209,9 @@
     <div><h2 id="home-faq-heading" class="sec__h">Frequently asked questions</h2><p class="sec__sub">Quick answers about delivery, payment and ordering.</p></div>
     <a class="faq-sec__more" href="{{ url_for('shop.faq_page') }}">View all FAQs <span aria-hidden="true">→</span></a>
   </div>
-  {% with items=hf['items'], faq_id='faq-home' %}{% include "partials/faq_accordion.html" %}{% endwith %}
+  {% with items=hf['items'][:3], faq_id='faq-home' %}{% include "partials/faq_accordion.html" %}{% endwith %}
 </section>
 {% endif %}
 
-<section class="home-contact-section" id="customer-message" aria-labelledby="customer-message-title">
-  <div class="container narrow2">
-    <div class="pagehead">
-      <p class="eyebrow">Customer support</p>
-      <h2 id="customer-message-title" class="pg-h">Message RR FOODS</h2>
-      <p class="muted">Send us a message and we will get back to you.</p>
-    </div>
-    {% with form_id='home-contact' %}{% include "partials/support_form.html" %}{% endwith %}
-  </div>
-</section>
+<p class="rr-helpline container">Need help? <a href="{{ url_for('shop.help_page') }}#contact-form">Message us</a>{% if current_user and current_user.role == 'user' %} &middot; our team replies in <a href="{{ url_for('shop.messages') }}">My messages</a>{% endif %}.</p>
 {% endblock %}
