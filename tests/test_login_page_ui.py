@@ -9,13 +9,14 @@ def client(app, session):
     return app.test_client()
 
 
-def test_login_shows_tabs_with_only_email_code_visible_first(client):
+def test_login_shows_password_form_first_with_email_otp_switch(client):
     html = client.get("/login").get_data(as_text=True)
     assert "<details" not in html
-    assert 'data-tab="code"' in html and 'data-tab="password"' in html
-    assert re.search(r'data-panel="code"(?![^>]*hidden)', html)
-    assert re.search(r'data-panel="password"[^>]*hidden', html)
-    assert 'href="/register"' in html and "Create new account" in html
+    assert 'data-switch="code"' in html and 'data-switch="password"' in html
+    assert re.search(r'data-panel="password"(?![^>]*hidden)', html)
+    assert re.search(r'data-panel="code"[^>]*hidden', html)
+    assert "Send OTP" in html and "Continue with Email OTP" in html and "Welcome Back!" in html
+    assert 'href="/register"' in html and "Register Here" in html
     assert "auth-ui.js" in html
 
 

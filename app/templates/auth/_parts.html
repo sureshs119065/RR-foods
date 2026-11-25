@@ -1,0 +1,22 @@
+{# Small inline SVG icons shared by the auth pages (decorative: the text next to them carries the meaning). #}
+{% macro ic(name, size=22) -%}
+<svg class="ic ic--{{ name }}" viewBox="0 0 24 24" width="{{ size }}" height="{{ size }}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+{%- if name == 'user' %}<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>
+{%- elif name == 'lock' %}<rect x="4" y="10" width="16" height="11" rx="2.5" fill="currentColor" stroke="none"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+{%- elif name == 'mail' %}<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/>
+{%- elif name == 'login' %}<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M3 12h11"/><path d="m10 8 4 4-4 4"/>
+{%- elif name == 'leaf' %}<path d="M20 4C9 4 4 10 4 16c0 1.5.4 2.8 1 4 1.2-.6 2.5-1 4-1 6 0 11-5 11-15z" fill="currentColor" stroke="none"/><path d="M5 20c2-5 5-8 9-10" stroke="#fff" stroke-width="1.5"/>
+{%- elif name == 'heart' %}<path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z" fill="currentColor" stroke="none"/><path d="M5.5 12h3l1.5-3 3 6 1.5-3h4" stroke="#fff" stroke-width="1.6"/>
+{%- elif name == 'shield' %}<path d="M12 2.5 4.5 5.500v6c0 4.8 3.2 8.5 7.5 10 4.3-1.5 7.5-5.2 7.5-10v-6z" fill="currentColor" stroke="none"/><path d="m8.5 12 2.5 2.5 4.5-5" stroke="#fff" stroke-width="2"/>
+{%- endif -%}
+</svg>
+{%- endmacro %}
+
+{# The 100% Organic / Diabetic Friendly / Pure & Healthy strip. Rendered twice by _layout (left panel on desktop, under the card on mobile); CSS shows one. #}
+{% macro strip(cls="") %}
+<ul class="auth-strip {{ cls }}">
+  <li>{{ ic('leaf', 34) }}<span>100% Organic</span></li>
+  <li>{{ ic('heart', 34) }}<span>Diabetic Friendly</span></li>
+  <li>{{ ic('shield', 34) }}<span>Pure &amp; Healthy</span></li>
+</ul>
+{% endmacro %}

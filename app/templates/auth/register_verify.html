@@ -1,12 +1,12 @@
 {% extends "auth/_layout.html" %}
 {% block robots %}noindex,nofollow{% endblock %}
 {% block title %}Verify your email | RR FOODS{% endblock %}
+{% block card_class %}otp{% endblock %}
+{% block card_attrs %}data-signup-verify data-wait="{{ resend_in }}"{% endblock %}
+{% block card_title %}Verify your email{% endblock %}
+{% block card_sub %}<p class="auth-card__sub">Step 2 of 2. We sent a 6 digit code to <b>{{ email }}</b>. It is valid for {{ config.OTP_TTL_SECONDS // 60 }} minutes.
+    <a class="otp__link" href="{{ url_for('auth.register') }}">Change email</a></p>{% endblock %}
 {% block content %}
-<section class="card narrow otp" data-signup-verify data-wait="{{ resend_in }}">
-  <h1>Verify your email</h1>
-  <p class="muted">Step 2 of 2. We sent a 6 digit code to <b>{{ email }}</b>. It is valid for {{ config.OTP_TTL_SECONDS // 60 }} minutes.
-    <a class="otp__link" href="{{ url_for('auth.register') }}">Change email</a></p>
-
   {% if error %}<div class="alert alert--error" role="alert" id="code-err">{{ error }}</div>{% endif %}
 
   <form method="post" action="{{ url_for('auth.register_verify') }}" class="form" novalidate>
@@ -25,6 +25,5 @@
     <p class="muted">{% if new_code_needed %}<b>Please ask for a new code.</b> {% endif %}Did not get it? Check your spam folder, or
       <button type="submit" class="otp__link" data-resend>Resend code</button> <span data-resend-wait></span></p>
   </form>
-</section>
 <script src="{{ asset_url('js/register-verify.js') }}" defer></script>
 {% endblock %}

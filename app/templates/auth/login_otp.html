@@ -1,28 +1,42 @@
 {% extends "auth/_layout.html" %}
+{% from 'auth/_parts.html' import ic %}
 {% block robots %}noindex,nofollow{% endblock %}
 {% block title %}Sign in or create account | RR FOODS{% endblock %}
+{% block card_class %}otp{% endblock %}
+{% block card_attrs %}data-otp data-send-url="{{ url_for('auth.otp_send') }}" data-verify-url="{{ url_for('auth.otp_verify') }}" data-name-url="{{ url_for('auth.otp_name') }}" data-next="{{ next }}"{% endblock %}
+{% block card_title %}Welcome Back!{% endblock %}
+{% block card_sub %}<p class="auth-card__sub">Sign in to continue your healthy journey</p>{% endblock %}
 {% block content %}
-<section class="card narrow otp" data-otp data-send-url="{{ url_for('auth.otp_send') }}" data-verify-url="{{ url_for('auth.otp_verify') }}" data-name-url="{{ url_for('auth.otp_name') }}" data-next="{{ next }}">
   <div class="sr-only" id="otp-live" role="status" aria-live="polite"></div>
 
-  <h1>Sign in or create account</h1>
-
-  <div class="otp__tabs" role="tablist" aria-label="Choose how to sign in" data-tabs>
-    <button type="button" class="otp__tab" role="tab" id="tab-code" aria-controls="panel-code" aria-selected="{{ 'false' if error else 'true' }}" tabindex="{{ '-1' if error else '0' }}" data-tab="code">Email code</button>
-    <button type="button" class="otp__tab" role="tab" id="tab-password" aria-controls="panel-password" aria-selected="{{ 'true' if error else 'false' }}" tabindex="{{ '0' if error else '-1' }}" data-tab="password">Password</button>
+  {# Password sign in is the main view (as in the design). "Continue with Email OTP" swaps to the email-code view and back (auth-ui.js, data-switch). #}
+  <div class="otp__panel" id="panel-password" data-panel="password">
+    {% if error %}<div class="alert alert--error" role="alert" id="login-err">{{ error }}</div>{% endif %}
+    <form method="post" class="form" data-remember-form novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ next }}">
+      <label class="field field--ph"><span>Email Address</span><span class="field__box">{{ ic('user') }}<input type="email" name="email" value="{{ email }}" placeholder="Email Address" autocomplete="username" inputmode="email" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} autocapitalize="none" spellcheck="false" required {% if not email %}autofocus{% endif %}></span></label>
+      <label class="field field--ph"><span>Password</span><span class="field__box">{{ ic('lock') }}<input type="password" name="password" placeholder="Password" autocomplete="current-password" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} required {% if email %}autofocus{% endif %}></span></label>
+      <div class="auth-row">
+        <label class="auth-check"><input type="checkbox" name="remember" value="1" data-remember><span>Remember Me</span></label>
+        <a class="auth-link" href="/forgot">Forgot your password?</a>
+      </div>
+      <button class="btn btn--block" type="submit">{{ ic('login', 20) }}<span>Login</span></button>
+    </form>
+    <p class="auth-or"><span>OR</span></p>
+    <button class="btn btn--block btn--outline" type="button" data-switch="code">{{ ic('mail', 20) }}<span>Continue with Email OTP</span></button>
   </div>
 
-  <div class="otp__panel" role="tabpanel" id="panel-code" aria-labelledby="tab-code" data-panel="code"{% if error %} hidden{% endif %}>
+  <div class="otp__panel" id="panel-code" data-panel="code" hidden>
   <div data-step="email">
     <p class="muted">Enter your email. We will send you a 6 digit code, no password needed.</p>
     <form class="form" data-email-form novalidate>
-      <label class="field">
-        <span>Email</span>
-        <input type="email" name="email" value="{{ email }}" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="255" required{% if not error %} autofocus{% endif %}>
-      </label>
+      <label class="field field--ph"><span>Email Address</span><span class="field__box">{{ ic('user') }}<input type="email" name="email" value="{{ email }}" placeholder="Email Address" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="255" required></span></label>
       <p class="otp__err" data-error role="alert" hidden></p>
       <button class="btn btn--block" type="submit" data-send-btn>Send OTP</button>
     </form>
+    <p class="auth-or"><span>OR</span></p>
+    <button class="btn btn--block btn--outline" type="button" data-switch="password">{{ ic('lock', 20) }}<span>Sign in with password</span></button>
   </div>
 
   <div data-step="code" hidden>
@@ -43,29 +57,14 @@
     <h2 class="otp__h">Welcome to RR FOODS</h2>
     <p class="muted">Your account is ready. What should we call you?</p>
     <form class="form" data-name-form novalidate>
-      <label class="field"><span>Your name</span><input type="text" name="name" autocomplete="name" maxlength="120" required></label>
+      <label class="field"><span>Your name</span><span class="field__box">{{ ic('user') }}<input type="text" name="name" autocomplete="name" maxlength="120" required></span></label>
       <p class="otp__err" data-error role="alert" hidden></p>
       <button class="btn btn--block" type="submit">Save and continue</button>
       <button class="otp__link otp__skip" type="button" data-skip-name>Skip for now</button>
     </form>
   </div>
-
   </div>
 
-  <div class="otp__panel" role="tabpanel" id="panel-password" aria-labelledby="tab-password" data-panel="password"{% if not error %} hidden{% endif %}>
-    <p class="muted">Already have a password? Sign in with it.</p>
-    {% if error %}<div class="alert alert--error" role="alert" id="login-err">{{ error }}</div>{% endif %}
-    <form method="post" class="form" novalidate>
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="next" value="{{ next }}">
-      <label class="field"><span>Email</span><input type="email" name="email" value="{{ email }}" autocomplete="username" inputmode="email" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} autocapitalize="none" spellcheck="false" required></label>
-      <label class="field"><span>Password</span><input type="password" name="password" autocomplete="current-password" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} required></label>
-      <button class="btn btn--block" type="submit">Sign in</button>
-    </form>
-    <p class="muted"><a href="/forgot">Forgot your password?</a></p>
-  </div>
-
-  <p class="muted otp__new">New to RR FOODS? <a class="otp__create" href="{{ url_for('auth.register') }}">Create new account</a></p>
-</section>
+  <p class="muted otp__new">Don't have an account? <a class="otp__create" href="{{ url_for('auth.register') }}">Register Here</a></p>
 <script src="{{ asset_url('js/login-otp.js') }}" defer></script>
 {% endblock %}

@@ -1,30 +1,29 @@
 {% extends "auth/_layout.html" %}
+{% from 'auth/_parts.html' import ic %}
 {% block robots %}noindex{% endblock %}
 {% block title %}Create account | RR FOODS{% endblock %}
-{% macro field(name, label, type="text", autocomplete="", inputmode="", hint="") %}
+{% macro field(name, label, type="text", autocomplete="", inputmode="", hint="", icon="user") %}
   <label class="field {% if errors.get(name) %}field--error{% endif %}">
     <span>{{ label }}</span>
-    <input type="{{ type }}" name="{{ name }}" {% if type != 'password' %}value="{{ form.get(name, '') }}"{% endif %}
+    <span class="field__box">{{ ic(icon) }}<input type="{{ type }}" name="{{ name }}" {% if type != 'password' %}value="{{ form.get(name, '') }}"{% endif %}
       autocomplete="{{ autocomplete }}" {% if inputmode %}inputmode="{{ inputmode }}"{% endif %}
-      {% if errors.get(name) %}aria-invalid="true" aria-describedby="{{ name }}-err"{% elif hint %}aria-describedby="{{ name }}-hint"{% endif %}>
+      {% if errors.get(name) %}aria-invalid="true" aria-describedby="{{ name }}-err"{% elif hint %}aria-describedby="{{ name }}-hint"{% endif %}></span>
     {% if hint and not errors.get(name) %}<small class="muted" id="{{ name }}-hint">{{ hint }}</small>{% endif %}
     {% if errors.get(name) %}<small id="{{ name }}-err" class="error">{{ errors[name] }}</small>{% endif %}
   </label>
 {% endmacro %}
+{% block card_title %}Create your account{% endblock %}
+{% block card_sub %}<p class="auth-card__sub">Step 1 of 2: your details. Next, we email you a 6 digit code to verify your email address.</p>{% endblock %}
 {% block content %}
-<section class="card narrow">
-  <h1>Create your account</h1>
-  <p class="muted">Step 1 of 2: your details. Next, we email you a 6 digit code to verify your email address.</p>
   {% if banner %}<div class="alert alert--error" role="alert">{{ banner }}</div>{% endif %}
   <form method="post" class="form" novalidate>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {{ field("name", "Full name", autocomplete="name") }}
-    {{ field("email", "Email", "email", "email", "email") }}
+    {{ field("email", "Email", "email", "email", "email", icon="mail") }}
     {{ field("phone", "Mobile number (optional)", "tel", "tel", "numeric", "10 digits, used only for delivery updates") }}
-    {{ field("password", "Password", "password", "new-password", hint="At least 8 characters with a letter and a number") }}
-    {{ field("confirm", "Confirm password", "password", "new-password") }}
+    {{ field("password", "Password", "password", "new-password", hint="At least 8 characters with a letter and a number", icon="lock") }}
+    {{ field("confirm", "Confirm password", "password", "new-password", icon="lock") }}
     <button class="btn btn--block" type="submit">Send verification code</button>
   </form>
-  <p class="muted">Already registered? <a href="/login">Sign in</a></p>
-</section>
+  <p class="muted otp__new">Already registered? <a class="otp__create" href="/login">Sign in</a></p>
 {% endblock %}

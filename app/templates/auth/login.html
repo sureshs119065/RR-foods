@@ -1,25 +1,18 @@
 {% extends "auth/_layout.html" %}
+{% from 'auth/_parts.html' import ic %}
 {% block robots %}noindex,nofollow{% endblock %}
 {% block title %}{{ cfg.label }} sign in | RR FOODS{% endblock %}
+{% block card_title %}{{ cfg.label }} sign in{% endblock %}
+{% block card_sub %}{% if portal != 'user' %}<p class="auth-card__sub">Staff area. Customers sign in <a href="/login">here</a>.</p>{% endif %}{% endblock %}
 {% block content %}
-<section class="card narrow">
-  <h1>{{ cfg.label }} sign in</h1>
-  {% if portal != 'user' %}<p class="muted">Staff area. Customers sign in <a href="/login">here</a>.</p>{% endif %}
   {% if error %}<div class="alert alert--error" role="alert" id="login-err">{{ error }}</div>{% endif %}
   <form method="post" class="form" novalidate>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="next" value="{{ next }}">
-    <label class="field">
-      <span>Email</span>
-      <input type="email" name="email" value="{{ email }}" autocomplete="username" inputmode="email" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} autocapitalize="none" spellcheck="false" required {% if not email %}autofocus{% endif %}>
-    </label>
-    <label class="field">
-      <span>Password</span>
-      <input type="password" name="password" autocomplete="current-password" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} required {% if email %}autofocus{% endif %}>
-    </label>
-    <button class="btn btn--block" type="submit">Sign in</button>
+    <label class="field field--ph"><span>Email</span><span class="field__box">{{ ic('user') }}<input type="email" name="email" value="{{ email }}" placeholder="Email Address" autocomplete="username" inputmode="email" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} autocapitalize="none" spellcheck="false" required {% if not email %}autofocus{% endif %}></span></label>
+    <label class="field field--ph"><span>Password</span><span class="field__box">{{ ic('lock') }}<input type="password" name="password" placeholder="Password" autocomplete="current-password" {% if error %}aria-invalid="true" aria-describedby="login-err"{% endif %} required {% if email %}autofocus{% endif %}></span></label>
+    <button class="btn btn--block" type="submit">{{ ic('login', 20) }}<span>Sign in</span></button>
   </form>
   {% if portal == 'user' %}<p class="muted"><a href="/forgot">Forgot your password?</a></p>{% endif %}
   {% if portal == 'user' %}<p class="muted">New here? <a href="/register">Create an account</a></p>{% endif %}
-</section>
 {% endblock %}

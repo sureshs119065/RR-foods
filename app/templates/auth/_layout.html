@@ -1,33 +1,57 @@
-{# Standalone layout for sign in, create account and password recovery: no storefront header or footer.
-   Desktop: brand panel (left) + form card (right). Mobile: compact brand band above the form. #}
+{# Shared shell for every auth page: sign in, create account, email code, verify, forgot and reset password (customer, admin and owner).
+   Child pages fill: card_title, card_sub, card_class / card_attrs (optional) and content.
+   Desktop (768px+): brand panel left + form card right. Mobile: green brand band, then the card, then the feature strip. #}
 {% extends "base.html" %}
+{% from 'auth/_parts.html' import ic, strip %}
 {% block head %}<link rel="stylesheet" href="{{ asset_url('css/auth-page.css') }}">{% endblock %}
 {% block topbar %}{% endblock %}
 {% block main %}
 {% set staff = portal is defined and portal in ('admin', 'owner') %}
 <main id="main" class="auth-page"{% if staff %} data-portal="{{ portal }}"{% endif %}>
+  <svg class="auth-sprite" aria-hidden="true" focusable="false" width="0" height="0">
+    <defs>
+      <linearGradient id="rr-leaf-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6cc24a"/><stop offset="1" stop-color="#1e6b32"/></linearGradient>
+      <symbol id="rr-leaf" viewBox="0 0 24 24"><path d="M21 2C10 3 3.5 9 3 17c0 1.6.3 3 .9 4.2C5 15 9 10.5 15 8 10.5 10.8 7.2 15 5.5 21.5 16 21.5 21 13 21 2z" fill="url(#rr-leaf-g)"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="auth-deco" aria-hidden="true">
+    <span class="auth-bg"></span>
+    <svg class="auth-leaf auth-leaf--tl" viewBox="0 0 120 120" focusable="false"><use href="#rr-leaf" x="10" y="4" width="64" height="64" transform="rotate(-24 42 36)"/><use href="#rr-leaf" x="34" y="40" width="52" height="52" transform="rotate(18 60 66)"/></svg>
+    <svg class="auth-leaf auth-leaf--tr" viewBox="0 0 120 120" focusable="false"><use href="#rr-leaf" x="14" y="8" width="70" height="70" transform="rotate(62 49 43)"/><use href="#rr-leaf" x="52" y="30" width="54" height="54" transform="rotate(100 79 57)"/><use href="#rr-leaf" x="6" y="44" width="40" height="40" transform="rotate(30 26 64)"/></svg>
+    <svg class="auth-leaf auth-leaf--br" viewBox="0 0 120 120" focusable="false"><use href="#rr-leaf" x="40" y="22" width="70" height="70" transform="rotate(-62 75 57)"/><use href="#rr-leaf" x="6" y="40" width="56" height="56" transform="rotate(-100 34 68)"/></svg>
+    <svg class="auth-wave" viewBox="0 0 1440 120" preserveAspectRatio="none" focusable="false"><path fill="#4f9a4a" fill-opacity=".45" d="M0 58C240 14 480 96 720 56s480-44 720 6v58H0z"/><path fill="#14532d" d="M0 86C300 48 560 112 860 80s400-26 580 8v32H0z"/></svg>
+  </div>
+
   <aside class="auth-brand" aria-label="About RR FOODS">
-    <img class="auth-hero" src="{{ url_for('static', filename='img/auth-hero.webp') }}" width="640" height="857" alt="" loading="lazy" decoding="async">
-    <span class="auth-bg" aria-hidden="true"><i></i><i></i><i></i></span>
     <div class="auth-brand__in">
-      <div class="auth-brand__top">
-        <a class="auth-logo" href="{{ url_for('shop.home') }}" aria-label="RR FOODS home"><img src="{{ url_for('static', filename='img/rr-foods-logo-144.webp') }}" width="72" height="72" alt=""></a>
-        {% if staff %}<span class="auth-badge auth-badge--{{ portal }}">{{ portal|capitalize }}</span>{% endif %}
-        <div class="auth-brand__txt">
-          <p class="auth-brand__name">RR FOODS</p>
-          <p class="auth-brand__tag">Wholesome millet foods, made fresh and delivered to your door.</p>
+      <a class="auth-logo" href="{{ url_for('shop.home') }}" aria-label="RR FOODS home"><img src="{{ url_for('static', filename='img/rr-foods-logo-144.webp') }}" srcset="{{ url_for('static', filename='img/rr-foods-logo-144.webp') }} 144w, {{ url_for('static', filename='img/rr-foods-logo-384.webp') }} 384w" sizes="(min-width: 768px) 200px, 64px" width="200" height="200" alt="RR FOODS"></a>
+      <p class="auth-brand__tag">Traditional Roots. Modern Taste. A&nbsp;Healthier Tomorrow.</p>
+
+      <div class="auth-desk">
+        <p class="auth-headline"><span class="auth-headline__a">Good Food</span> <span class="auth-script">Good Health</span></p>
+        <p class="auth-line">Nutritious Millets &bull; Organic Products &bull; Healthy Living</p>
+        <div class="auth-photo" aria-hidden="true">
+          <img src="{{ url_for('static', filename='img/products/kodo-millet-noodles_t.webp') }}" width="300" height="400" alt="" loading="lazy" decoding="async">
+          <img src="{{ url_for('static', filename='img/products/foxtail-millet-semiya_t.webp') }}" width="363" height="400" alt="" loading="lazy" decoding="async">
+          <img src="{{ url_for('static', filename='img/products/inippu-ellu-idli-podi_t.webp') }}" width="267" height="400" alt="" loading="lazy" decoding="async">
         </div>
+        {{ strip('auth-strip--desk') }}
+        <p class="auth-closing">Eat Healthy...<br><span>Live Happier...</span></p>
       </div>
-      <ul class="auth-benefits">
-        <li><span class="auth-benefits__ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.9-5.5 5-7"/></svg></span><span><strong>Fresh millet foods</strong><small>Small batches, no shortcuts.</small></span></li>
-        <li><span class="auth-benefits__ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span><span><strong>Fast delivery</strong><small>Packed and on its way quickly.</small></span></li>
-        <li><span class="auth-benefits__ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span><span><strong>Secure payments</strong><small>Your details stay protected.</small></span></li>
-      </ul>
     </div>
   </aside>
+
   <div class="auth-wrap">
     {% from 'shared/_flash.html' import flashes %}{{ flashes() }}
-    {% block content %}{% endblock %}
+    <section class="card narrow auth-card {% block card_class %}{% endblock %}" {% block card_attrs %}{% endblock %}>
+      <img class="auth-card__logo" src="{{ url_for('static', filename='img/rr-foods-logo-192.webp') }}" width="72" height="72" alt="RR FOODS">
+      {% if staff %}<span class="auth-badge auth-badge--{{ portal }}">{{ portal|capitalize }}</span>{% endif %}
+      <h1 class="auth-card__title">{% block card_title %}{% endblock %}</h1>
+      {% block card_sub %}{% endblock %}
+      {% block content %}{% endblock %}
+    </section>
+    {{ strip('auth-strip--mob') }}
   </div>
 </main>
 {% endblock %}

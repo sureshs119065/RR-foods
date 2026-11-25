@@ -1,21 +1,20 @@
 {% extends "auth/_layout.html" %}
+{% from 'auth/_parts.html' import ic %}
 {% block robots %}noindex,nofollow{% endblock %}
 {% block title %}Forgot password | RR FOODS{% endblock %}
+{% block card_title %}Forgot your password?{% endblock %}
+{% block card_sub %}{% if not sent %}<p class="auth-card__sub">Enter your email and we will send you a link.</p>{% endif %}{% endblock %}
 {% block content %}
-<section class="card narrow">
-  <h1>Forgot your password?</h1>
   {% if sent %}
     <div class="alert alert--success" role="status">If an account exists for that email, we have sent a link to reset the password. It works for 1 hour.</div>
     <p><a href="/login">Back to sign in</a></p>
   {% else %}
-    <p class="muted">Enter your email and we will send you a link.</p>
     {% if error %}<div class="alert alert--error" role="alert" id="forgot-err">{{ error }}</div>{% endif %}
     <form method="post" class="form" novalidate>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label class="field"><span>Email</span><input type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" {% if error %}aria-invalid="true" aria-describedby="forgot-err"{% endif %} required autofocus></label>
+      <label class="field field--ph"><span>Email</span><span class="field__box">{{ ic('mail') }}<input type="email" name="email" placeholder="Email Address" autocomplete="email" inputmode="email" autocapitalize="none" {% if error %}aria-invalid="true" aria-describedby="forgot-err"{% endif %} required autofocus></span></label>
       <button class="btn btn--block" type="submit">Send reset link</button>
     </form>
-    <p class="muted"><a href="/login">Back to sign in</a></p>
+    <p class="muted otp__new"><a class="otp__create" href="/login">Back to sign in</a></p>
   {% endif %}
-</section>
 {% endblock %}
