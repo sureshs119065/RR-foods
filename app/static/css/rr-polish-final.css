@@ -161,3 +161,168 @@
   .ot__strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) { .ot__step.is-now .ot__dot { animation: none; } }
+
+/* Owner order card cleanup: single info row, lean timeline, compact strip, coloured actions. */
+body.owner-panel .owner-order-meta { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: .8rem 1rem; padding: .6rem 0; margin: .6rem 0; }
+body.owner-panel .owner-order-meta__cust { min-width: 0; }
+body.owner-panel .ot--compact { margin-bottom: .25rem; }
+body.owner-panel .ot--compact .ot__step { padding-bottom: .7rem; }
+body.owner-panel .ot--compact .ot__step:last-child { padding-bottom: .1rem; }
+body.owner-panel .ot--compact .ot__step:not(.is-done) { color: #8a948d; }
+body.owner-panel .ot--compact .ot__step.is-now b { color: var(--rr-green); font-weight: 800; }
+body.owner-panel .ot--compact .ot__step.is-now .ot__time { color: #1f432c; font-weight: 600; }
+body.owner-panel .ot__strip--compact { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem 1.25rem; width: fit-content; max-width: 100%; margin: .4rem 0 .2rem; padding: .4rem .7rem; }
+body.owner-panel .ot__strip--compact .ot__cell { display: flex; align-items: center; gap: .45rem; }
+body.owner-panel .ot__strip--compact .ot__cell--items b { white-space: nowrap; }
+body.owner-panel .owner-order-card__foot { padding-top: 0; }
+body.owner-panel .owner-order-card__actions .owner-order-primary { background: #2E7D32 !important; border-color: #2E7D32 !important; color: #fff !important; }
+body.owner-panel .owner-order-card__actions .owner-order-wa { background: #25D366 !important; border-color: #25D366 !important; color: #fff !important; }
+body.owner-panel .owner-order-card__actions .owner-order-view { background: #1D6FD8 !important; border-color: #1D6FD8 !important; color: #fff !important; }
+body.owner-panel .owner-order-card__actions .btn--danger { background: #C62828 !important; border-color: #C62828 !important; color: #fff !important; }
+@media (min-width: 681px) {
+  body.owner-panel .owner-order-card__actions { justify-content: flex-end; }
+}
+@media (max-width: 680px) {
+  body.owner-panel .owner-order-meta { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.owner-panel .owner-order-meta__cust { grid-column: 1 / -1; }
+  body.owner-panel .owner-order-meta > span:first-child { grid-column: auto; }
+  body.owner-panel .owner-order-meta > span:only-child, body.owner-panel .owner-order-meta > span:nth-child(1):nth-last-child(2) { grid-column: auto; }
+  body.owner-panel .owner-order-card__actions { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; width: 100%; }
+  body.owner-panel .owner-order-card__actions form { display: contents; }
+  body.owner-panel .owner-order-card__actions .btn,
+  body.owner-panel .owner-order-card__actions > a.btn,
+  body.owner-panel .owner-order-card__actions > button.btn { width: 100%; flex: none; white-space: normal; text-align: center; }
+}
+
+/* ---- Shared chips: payment (Pending amber, Paid green, Failed red) and order status. ---- */
+.pchip, .schip { display: inline-flex; align-items: center; padding: .18rem .6rem; border-radius: 999px; font-size: .78rem; font-weight: 700; line-height: 1.3; white-space: nowrap; border: 1px solid transparent; }
+.pchip--pending { background: #FFF3CD; color: #7A5200; border-color: #F1DC95; }
+.pchip--paid { background: #DDF3E1; color: #1E6B33; border-color: #B5E0BE; }
+.pchip--failed { background: #FBE0E0; color: #A61B1B; border-color: #F1B8B8; }
+.pchip--refunded { background: #ECEFF1; color: #455A64; border-color: #D3D9DC; }
+.schip { background: #ECEFF1; color: #455A64; border-color: #D3D9DC; }
+.schip--placed { background: #FFF3CD; color: #7A5200; border-color: #F1DC95; }
+.schip--confirmed { background: #DCEBFF; color: #0F5CC0; border-color: #B3D2F7; }
+.schip--packed { background: #EEE0FA; color: #6A2C9B; border-color: #D9BFEF; }
+.schip--shipped { background: #E0E4FF; color: #2F3FB5; border-color: #BFC7F5; }
+.schip--out_for_delivery { background: #FFE3CC; color: #A84300; border-color: #F5C49C; }
+.schip--delivered { background: #DDF3E1; color: #1E6B33; border-color: #B5E0BE; }
+.schip--cancelled, .schip--rejected { background: #FBE0E0; color: #A61B1B; border-color: #F1B8B8; }
+
+/* ---- Customer tracker: info area above the stepper, timestamp beside each step on mobile. ---- */
+.ot__info { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem 1rem; align-items: center; margin: .75rem 0 .25rem; padding: .6rem .75rem; border: 1px solid #e3e9e5; border-radius: 12px; background: #f7faf8; }
+.ot__info .ot__cell { align-content: start; }
+.ot__info .ot__cell--items { grid-column: 1 / -1; }
+.ot__cell--items { display: flex; align-items: center; gap: .5rem; }
+.ot__cell--items b { white-space: nowrap; }
+.ot__info .pchip { justify-self: start; }
+.ot--compact .ot__step:not(.is-done) { color: #8a948d; }
+.ot--compact .ot__step.is-now b { color: var(--rr-green); font-weight: 800; }
+.ot--compact .ot__step.is-now .ot__time { color: #1f432c; font-weight: 600; }
+@media (max-width: 599.98px) {
+  .ot--side .ot__step { grid-template-columns: minmax(0, 1fr) auto; column-gap: .75rem; align-items: baseline; }
+  .ot--side .ot__time { text-align: right; max-width: 10.5em; }
+}
+@media (min-width: 600px) {
+  .ot__info { grid-template-columns: repeat(3, minmax(0, auto)); justify-content: start; gap: .6rem 2.5rem; }
+  .ot__info .ot__cell--items { grid-column: auto; }
+}
+
+/* ---- Admin orders list, desktop only (900px and wider). Mobile keeps the cards. ---- */
+.ops-order-table { display: none; }
+@media (min-width: 900px) {
+  .ops-orders-wrap { max-width: 1280px; margin-inline: auto; }
+  .ops-order-list--cards { display: none; }
+  .ops-order-table { display: block; }
+  .ops-otable { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; background: #fff; border: 1px solid #e5ebe6; border-radius: 14px; font-size: .88rem; }
+  .ops-otable th { position: sticky; top: 3.5rem; z-index: 5; height: 40px; padding: 0 .75rem; background: #f3f7f4; color: #5b6b60; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; text-align: left; border-bottom: 1px solid #e0e8e2; }
+  .ops-otable th:first-child { border-top-left-radius: 13px; }
+  .ops-otable th:last-child { border-top-right-radius: 13px; }
+  .ops-otable td { height: 64px; padding: 0 .75rem; border-bottom: 1px solid #edf1ed; vertical-align: middle; overflow: hidden; }
+  .ops-otable tbody tr:last-child td { border-bottom: 0; }
+  .ops-otable .c-num { width: 17%; } .ops-otable .c-cust { width: 21%; } .ops-otable .c-items { width: 15%; }
+  .ops-otable .c-pay { width: 10%; } .ops-otable .c-status { width: 14%; } .ops-otable .c-total { width: 10%; text-align: right; } .ops-otable .c-act { width: 13%; text-align: right; }
+  .ops-orow { position: relative; cursor: pointer; transition: background .12s; }
+  .ops-orow:hover { background: #f6faf7; }
+  .ops-orow:focus-within { background: #f6faf7; }
+  .ops-orow__link { font-weight: 800; color: #1e5938; text-decoration: none; }
+  .ops-orow__link::after { content: ""; position: absolute; inset: 0; }
+  .ops-orow small, .ops-ocell small { display: block; margin-top: 2px; color: #7b887e; font-size: .74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ops-ocell b { display: block; font-weight: 700; color: #243c2c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ops-otable .ot__thumbs { display: inline-flex; }
+  .ops-otable .c-total { font-weight: 800; color: #243c2c; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ops-orow__view { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 1rem; border-radius: 10px; background: #1D6FD8; border: 1px solid #1D6FD8; color: #fff; font-weight: 700; font-size: .85rem; text-decoration: none; }
+  .ops-orow__view:hover { background: #1859AE; border-color: #1859AE; }
+  .ops-orow.is-closed td:first-child { box-shadow: inset 4px 0 0 #C62828; }
+  .ops-orow.is-closed td > * { opacity: .62; }
+  .ops-orow.is-closed td.c-act > * { opacity: .85; }
+  .ops-orow.is-closed { background: #fafafa; }
+}
+.ops-otable th.c-act span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ---- Shop listing: one toolbar row, one category chip row, 240px sidebar / bottom sheet ---- */
+.shop-lst .lst-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; margin: .25rem 0 .75rem; }
+.shop-lst .lst-bar__t { margin: 0; min-width: 0; font-size: var(--fs-h2, 1.5rem); line-height: 1.25; }
+.shop-lst .lst-bar__ctl { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .5rem .75rem; margin-left: auto; }
+.shop-lst .lst-bar .sortbox select { min-height: 44px; }
+.shop-lst .lst-bar .btn { min-height: 44px; }
+.shop-lst .catrow { display: flex; flex-wrap: nowrap; gap: .5rem; margin: 0 0 .9rem; padding: 2px 2rem 6px 2px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; -webkit-overflow-scrolling: touch; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent); }
+.shop-lst .catrow::-webkit-scrollbar { display: none; }
+.shop-lst .catchip { flex: none; scroll-snap-align: start; display: inline-flex; align-items: center; gap: .4rem; box-sizing: border-box; height: 40px; padding: 0 .9rem; border: 1.5px solid #D5E2D8; border-radius: 999px; background: #fff; color: #2b3d31; font-size: .92rem; font-weight: 650; line-height: 1; text-decoration: none; white-space: nowrap; transition: border-color .15s, background .15s; }
+.shop-lst .catchip:hover { border-color: #1E5B34; }
+.shop-lst .catchip:focus-visible { outline: 2px solid #1E5B34; outline-offset: 2px; }
+.shop-lst .catchip__n { display: inline-grid; place-items: center; min-width: 1.5rem; height: 1.35rem; padding: 0 .4rem; border-radius: 999px; background: #EAF1EB; color: #4a5f50; font-size: .75rem; font-weight: 700; }
+.shop-lst .catchip--on, .shop-lst .catchip--on:hover { background: #1E5B34; border-color: #1E5B34; color: #fff; }
+.shop-lst .catchip--on .catchip__n { background: rgb(255 255 255 / .22); color: #fff; }
+.shop-lst .lst-subcats { margin-top: -.2rem; }
+@media (max-width: 599.98px) {
+  .shop-lst .lst-bar__t { flex: 1 1 100%; }
+  .shop-lst .lst-bar__ctl { width: 100%; flex-wrap: nowrap; justify-content: space-between; gap: .4rem; }
+  .shop-lst .sortbox__l { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .shop-lst .sortbox { flex: 1 1 auto; min-width: 0; }
+  .shop-lst .sortbox select { width: 100%; max-width: none; }
+  .shop-lst .lst-bar .btn { padding-inline: .7rem; }
+}
+@media (min-width: 900px) {
+  .shop-lst .catrow { flex-wrap: wrap; overflow: visible; padding-right: 2px; -webkit-mask-image: none; mask-image: none; }
+}
+@media (min-width: 1024px) {
+  .shop-lst .lst-bar__filters { display: none !important; }
+  .shop-lst .lay { grid-template-columns: 240px minmax(0, 1fr); }
+}
+
+/* ---- Admin orders: summary strip, filters, status chips ---- */
+.ops-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 0 0 .9rem; }
+.ops-sum__card { display: grid; gap: .2rem; padding: .8rem 1rem; border: 1.5px solid #e1e9e3; border-radius: 14px; background: #fff; color: #1f432c; text-decoration: none; transition: border-color .15s, box-shadow .15s; }
+.ops-sum__card:hover { border-color: #1E5B34; }
+.ops-sum__card:focus-visible { outline: 2px solid #1E5B34; outline-offset: 2px; }
+.ops-sum__card small { color: #68766d; font-size: .76rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.ops-sum__card b { font-size: 1.45rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ops-sum__card.is-on { border-color: #1E5B34; background: #EEF6F0; box-shadow: inset 0 0 0 1px #1E5B34; }
+.ops-order-filters--v2 { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .6rem; margin: 0 0 .75rem; }
+.ops-order-filters--v2 .ops-of__q { flex: 1 1 260px; min-width: 0; }
+.ops-order-filters--v2 .ops-of__d { display: grid; gap: 2px; flex: 0 0 auto; }
+.ops-order-filters--v2 .ops-of__d span { color: #68766d; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.ops-order-filters--v2 .ops-of__d input { flex: none; width: 10.5rem; }
+.ops-order-filters--v2 .btn { min-height: 46px; }
+.ops-fchips { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1rem; }
+.ops-fchip { flex: none; display: inline-flex; align-items: center; gap: .4rem; box-sizing: border-box; height: 38px; padding: 0 .85rem; border: 1.5px solid #d8e3da; border-radius: 999px; background: #fff; color: #2b3d31; font-size: .86rem; font-weight: 650; text-decoration: none; white-space: nowrap; }
+.ops-fchip:hover { border-color: #1E5B34; }
+.ops-fchip:focus-visible { outline: 2px solid #1E5B34; outline-offset: 2px; }
+.ops-fchip span { display: inline-grid; place-items: center; min-width: 1.4rem; height: 1.3rem; padding: 0 .35rem; border-radius: 999px; background: #EAF1EB; color: #4a5f50; font-size: .72rem; font-weight: 700; }
+.ops-fchip.is-on { background: #1E5B34; border-color: #1E5B34; color: #fff; }
+.ops-fchip.is-on span { background: rgb(255 255 255 / .22); color: #fff; }
+.ops-note { margin: -.4rem 0 .9rem; color: #5b6b60; font-size: .86rem; }
+@media (max-width: 899.98px) {
+  .ops-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+  .ops-sum__card { padding: .7rem .8rem; }
+  .ops-sum__card b { font-size: 1.2rem; }
+  .ops-order-filters--v2 { display: grid; grid-template-columns: 1fr 1fr; align-items: end; }
+  .ops-order-filters--v2 .ops-of__q { grid-column: 1 / -1; flex: none; }
+  .ops-order-filters--v2 .ops-of__d input { width: 100%; }
+  .ops-order-filters--v2 .ops-of__go, .ops-order-filters--v2 .ops-of__clear { width: 100%; }
+  .ops-order-filters--v2 .ops-of__go:last-child { grid-column: 1 / -1; }
+  .ops-fchips { flex-wrap: nowrap; overflow-x: auto; margin-inline: -.25rem; padding: 2px .25rem 6px; scrollbar-width: none; scroll-snap-type: x proximity; }
+  .ops-fchips::-webkit-scrollbar { display: none; }
+  .ops-fchip { scroll-snap-align: start; }
+}

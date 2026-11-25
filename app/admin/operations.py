@@ -1,17 +1,22 @@
 """Admin operational screens: inventory alerts, orders, FAQs and notifications."""
+from datetime import date, datetime, time, timedelta, timezone
+from decimal import Decimal
+
 from flask import abort, flash, g, jsonify, redirect, render_template, request, url_for
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import joinedload, selectinload
 
 from ..auth.service import safe_next
 from ..extensions import db, limiter
+from ..services import order_view
 from ..services import tracking as tracking_svc
 from ..models import Category, Notification, Order, OrderStatusHistory, Product, User
 from ..services import inventory as stock
 from ..services.inventory import MAX_QTY, StockError
 from ..services.stock_alerts import notify_restocked
 from . import bp
-from .helpers import page_number
+from ..services.orders import REVENUE_STATUSES
+from .helpers import page_number, shop_tz
 
 PER_PAGE = 24
 STOCK_LEVELS = ("attention", "out", "low", "in", "all")
@@ -104,19 +109,79 @@ def stock_alert_update(product_id):
                         qty=qty, state=state, label={"out": "Out", "low": "Low", "ok": "Healthy"}[state])
 
 
+ORDER_STATUSES = ("placed", "confirmed", "packed", "shipped", "out_for_delivery", "delivered", "rejected", "cancelled",
+                  "return_requested", "returned", "refunded")
+
+
+def _iso_day(raw):
+    try:
+        return date.fromisoformat((raw or "").strip())
+    except ValueError:
+        return None
+
+
+def _local_midnight_utc(day: date) -> datetime:
+    return datetime.combine(day, time.min, tzinfo=shop_tz()).astimezone(timezone.utc)
+
+
 @bp.get("/orders")
 def orders():
+    """Orders list. Search, date range and status chips all narrow the same query, and every link and the pager carry them along."""
     status = request.args.get("status", "")
+    status = status if status in ORDER_STATUSES else ""
     term = (request.args.get("q") or "").strip()
-    q = select(Order).options(joinedload(Order.user)).where(Order.status != "pending_whatsapp")  # unconfirmed WhatsApp requests are not orders yet
-    if status:
-        q = q.where(Order.status == status)
+    d_from, d_to = _iso_day(request.args.get("date_from")), _iso_day(request.args.get("date_to"))
+    if d_from and d_to and d_to < d_from:
+        d_from, d_to = d_to, d_from
+    rev = request.args.get("rev") == "1"  # set by the "Revenue today" tile: only orders that count as sales
+
+    base = [Order.status != "pending_whatsapp"]  # unconfirmed WhatsApp requests are not orders yet
     if term:
-        q = q.where(or_(Order.order_number.ilike(f"%{term}%"), Order.user_id.in_(
-            select(User.id).where(or_(User.name.ilike(f"%{term}%"), User.phone.ilike(f"%{term}%")))
-        )))
+        base.append(or_(Order.order_number.ilike(f"%{term}%"),
+                        Order.shipping_address["full_name"].as_string().ilike(f"%{term}%"),
+                        Order.shipping_address["phone"].as_string().ilike(f"%{term}%"),
+                        Order.user_id.in_(select(User.id).where(or_(User.name.ilike(f"%{term}%"), User.phone.ilike(f"%{term}%"))))))
+    if d_from:
+        base.append(Order.created_at >= _local_midnight_utc(d_from))
+    if d_to:
+        base.append(Order.created_at < _local_midnight_utc(d_to + timedelta(days=1)))
+    if rev:
+        base.append(Order.status.in_(REVENUE_STATUSES))
+
+    # chip counts follow search + dates (not the status itself), so each chip says what clicking it would show
+    counts = dict(db.session.execute(select(Order.status, func.count()).where(*base).group_by(Order.status)).all())
+    counts_all = sum(counts.values())
+
+    conds = [*base, Order.status == status] if status else base
+    q = select(Order).options(joinedload(Order.user)).where(*conds)
     page = db.paginate(q.order_by(Order.created_at.desc(), Order.id.desc()), page=page_number(), per_page=PER_PAGE, error_out=False)
-    return render_template("admin/orders.html", page=page, status=status, q=term)
+
+    # summary strip (always today / right now, whatever the filters are)
+    today = datetime.now(shop_tz()).date()
+    t0, t1 = _local_midnight_utc(today), _local_midnight_utc(today + timedelta(days=1))
+    live = Order.status != "pending_whatsapp"
+    today_rows = db.session.execute(select(Order.status, func.count(), func.coalesce(func.sum(Order.total), 0))
+                                    .where(live, Order.created_at >= t0, Order.created_at < t1).group_by(Order.status)).all()
+    open_counts = dict(db.session.execute(select(Order.status, func.count()).where(Order.status.in_(("placed", "confirmed"))).group_by(Order.status)).all())
+    today_s = today.isoformat()
+    plain = not (term or rev)
+    summary = [
+        {"key": "today", "label": "Today's orders", "value": str(sum(n for _, n, _ in today_rows)),
+         "url": url_for("admin.orders", date_from=today_s, date_to=today_s),
+         "on": plain and not status and d_from == today and d_to == today},
+        {"key": "pending", "label": "Pending confirmation", "value": str(open_counts.get("placed", 0)),
+         "url": url_for("admin.orders", status="placed"), "on": plain and status == "placed" and not (d_from or d_to)},
+        {"key": "pack", "label": "To pack", "value": str(open_counts.get("confirmed", 0)),
+         "url": url_for("admin.orders", status="confirmed"), "on": plain and status == "confirmed" and not (d_from or d_to)},
+        {"key": "revenue", "label": "Revenue today", "value": "₹{:,.2f}".format(sum((Decimal(str(t)) for st, _, t in today_rows if st in REVENUE_STATUSES), Decimal("0"))),
+         "url": url_for("admin.orders", date_from=today_s, date_to=today_s, rev=1),
+         "on": rev and not term and not status and d_from == today and d_to == today},
+    ]
+    args = {"q": term or None, "date_from": d_from.isoformat() if d_from else None, "date_to": d_to.isoformat() if d_to else None, "rev": "1" if rev else None}
+    return render_template("admin/orders.html", page=page, status=status, q=term, prods=order_view.item_products(page.items),
+                           summary=summary, pager_args={**args, "status": status or None}, args_norev={**args, "rev": None}, counts=counts, counts_all=counts_all, order_statuses=ORDER_STATUSES, args=args,
+                           d_from=args["date_from"] or "", d_to=args["date_to"] or "", rev=rev,
+                           filtered=bool(status or term or d_from or d_to or rev))
 
 
 @bp.get("/orders/<int:order_id>")

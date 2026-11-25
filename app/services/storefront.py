@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
 from flask import session
-from sqlalchemy import and_, case, exists, func, or_, select
+from sqlalchemy import Text, and_, case, cast, exists, func, or_, select
 from sqlalchemy.orm import aliased, joinedload, selectinload
 
 from ..extensions import db
@@ -50,6 +50,20 @@ def in_stock_sql():
     return case((has_var, var_stock), else_=Product.stock_qty > 0)
 
 
+# ------------------------------------------------------------------ diet (read from the product tags the admin already edits)
+DIETS = {
+    "vegetarian": ("Vegetarian", ("vegetarian", "veg")),
+    "vegan": ("Vegan", ("vegan",)),
+    "gluten-free": ("Gluten-free", ("gluten-free", "gluten free", "glutenfree")),
+}
+
+
+def diet_clause(key: str):
+    """True when one of the product's tags is this diet (tags are a JSON list; compared case-insensitively)."""
+    tags = func.lower(cast(Product.tags, Text))
+    return or_(*[tags.contains(f'"{t}"', autoescape=True) for t in DIETS[key][1]])
+
+
 # ------------------------------------------------------------------ filters
 @dataclass
 class Filters:
@@ -61,6 +75,7 @@ class Filters:
     rating: int = 0
     discount: int = 0
     avail: bool = False
+    diets: list = field(default_factory=list)
     sort: str = "relevance"
     page: int = 1
 
@@ -84,11 +99,12 @@ class Filters:
         rating = rating if rating in (2, 3, 4) else 0
         return cls(q=q, category=(args.get("category") or "").strip()[:150], brands=[b[:120] for b in args.getlist("brand")[:20] if b.strip()],
                    min_price=dec("min_price"), max_price=dec("max_price"), rating=rating, discount=num("discount", 90),
-                   avail=args.get("avail") in ("1", "on", "true"), sort=sort if sort in SORTS else ("relevance" if q else "popular"),
+                   avail=args.get("avail") in ("1", "on", "true"), diets=[d for d in dict.fromkeys(args.getlist("diet")) if d in DIETS],
+                   sort=sort if sort in SORTS else ("relevance" if q else "popular"),
                    page=max(1, num("page", 100000) or 1))
 
     def active_count(self) -> int:
-        return sum([bool(self.brands), self.min_price is not None or self.max_price is not None, bool(self.rating), bool(self.discount), self.avail])
+        return sum([bool(self.brands), self.min_price is not None or self.max_price is not None, bool(self.rating), bool(self.discount), self.avail, bool(self.diets)])
 
 
 def category_ids(slug: str) -> tuple[Category | None, list[int]]:
@@ -130,6 +146,8 @@ def conditions(f: Filters, cat_ids: list[int], skip: tuple = ()) -> list:
         c.append(and_(Product.mrp > 0, (Product.mrp - Product.final_price) * 100 >= f.discount * Product.mrp))
     if f.avail:
         c.append(in_stock_sql())
+    for d in f.diets:  # several diets narrow the list (vegan AND gluten-free)
+        c.append(diet_clause(d))
     return c
 
 
@@ -256,6 +274,40 @@ def _load_top_categories(sess) -> tuple:
 
 def _load_category_counts(sess) -> dict:
     return dict(sess.execute(select(Product.category_id, func.count()).where(LIVE).group_by(Product.category_id)).all())
+
+
+def _load_shop_counts(sess) -> dict:
+    """Catalogue-wide counts for the listing's category chips: all, bestsellers, and one per top-level category.
+    A top-level count includes its sub-categories, matching what the category page lists."""
+    all_n = sess.scalar(select(func.count()).select_from(Product).where(LIVE)) or 0
+    best_n = sess.scalar(select(func.count()).select_from(Product).where(LIVE, Product.is_bestseller.is_(True))) or 0
+    cats = sess.execute(select(Category.id, Category.parent_id).where(Category.is_deleted.is_(False), Category.is_active.is_(True))).all()
+    kids: dict[int, set] = {}
+    for cid, parent in cats:
+        if parent is not None:
+            kids.setdefault(parent, set()).add(cid)
+    rows = sess.execute(select(Product.category_id, Product.subcategory_id, func.count()).where(LIVE).group_by(Product.category_id, Product.subcategory_id)).all()
+    per_cat = {}
+    for cid, parent in cats:
+        if parent is None:
+            ids = {cid, *kids.get(cid, ())}
+            per_cat[cid] = sum(n for c, sub, n in rows if c in ids or sub in ids)
+    return {"all": all_n, "bestsellers": best_n, "cats": per_cat}
+
+
+def shop_counts() -> dict:
+    return home_cache.get("shop_counts", _load_shop_counts)
+
+
+def _load_diet_counts(sess) -> list:
+    cols = [func.sum(case((diet_clause(k), 1), else_=0)) for k in DIETS]
+    row = sess.execute(select(*cols).where(LIVE)).one()
+    return [(k, DIETS[k][0], int(n or 0)) for k, n in zip(DIETS, row) if n]
+
+
+def diet_options() -> list:
+    """[(key, label, product count)] for diets that at least one live product is tagged with; empty hides the filter."""
+    return home_cache.get("diet_counts", _load_diet_counts)
 
 
 def _load_new_arrivals(sess) -> tuple:

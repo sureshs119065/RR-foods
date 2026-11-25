@@ -105,6 +105,8 @@ def filter_chips(f: Filters, endpoint: str, cat, query_args: dict) -> list[dict]
         chips.append({"label": f"{f.discount}% off or more", "url": without("discount")})
     if f.avail:
         chips.append({"label": "In stock", "url": without("avail")})
+    for d in f.diets:
+        chips.append({"label": storefront.DIETS[d][0], "url": without("diet", **({"diet": [x for x in f.diets if x != d]} if len(f.diets) > 1 else {}))})
     return chips
 
 
@@ -147,6 +149,9 @@ def _render_listing(*, slug=None, bestseller_only=False):
         endpoint = "shop.listing"
         canonical = url_for("shop.listing", _external=True)
 
+    counts = storefront.shop_counts()
+    top = cat if cat is None or cat.parent_id is None else db.session.get(Category, cat.parent_id)  # a sub-category page lights up its parent chip
+    active_chip = "bestsellers" if bestseller_only else (top.id if top else "all")
     clear_args = {"q": f.q} if f.q else {}
     clean = not (f.q or f.active_count() or request.args.get("sort"))
     subcats = (db.session.scalars(
@@ -165,6 +170,7 @@ def _render_listing(*, slug=None, bestseller_only=False):
         index_ok=clean and f.page == 1, subcats=subcats,
         filter_chips=filter_chips(f, endpoint, cat, query_args),
         bestseller_only=bestseller_only,
+        shop_counts=counts, active_chip=active_chip, diet_opts=storefront.diet_options(),
     )
 
 

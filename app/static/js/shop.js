@@ -204,9 +204,21 @@
   var ff = $("#filter-form");
   if (ff) {
     ff.addEventListener("change", debounce(function () { ff.submit(); }, 250));
+    var avT = $("[data-avail-toolbar]"), avF = $("[data-avail-field]", ff);  // one real field (the sidebar's); the toolbar toggle mirrors it
+    if (avT && avF) {
+      avT.addEventListener("change", function () { avF.checked = avT.checked; });  // registered before the autosubmit below, so the field is set first
+      avF.addEventListener("change", function () { avT.checked = avF.checked; });
+    }
     $$("[data-autosubmit]").forEach(function (s) {
       s.addEventListener("change", function () { if (ff) ff.requestSubmit(); });
     });
+  }
+
+  /* ---------- listing: bring the active category chip into view in the scrolling row ---------- */
+  var catrow = $("[data-catrow]");
+  if (catrow) {
+    var onChip = $(".catchip--on", catrow);
+    if (onChip && catrow.scrollWidth > catrow.clientWidth) catrow.scrollLeft = Math.max(0, onChip.offsetLeft - (catrow.clientWidth - onChip.offsetWidth) / 2);
   }
 
   /* ---------- product page ---------- */

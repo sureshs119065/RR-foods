@@ -36,15 +36,13 @@
       <div class="owner-order-card__badges">{{ o.status_badge(ord.status) }}{{ o.pay_badge(ord) }}</div>
     </div>
     <div class="owner-order-meta">
-      {% if ord.delivery_date and ord.status not in ('cancelled','rejected') %}<span><small>Expected delivery</small><b>{{ ord.delivery_date.strftime('%d %b') }}</b></span>{% endif %}
-      <span><b>{{ addr.get('full_name') or ord.user.name }}</b>{% if addr.get('phone') %}<small>{{ addr.get('phone') }}</small>{% endif %}</span>
-      <span><small>Items</small><b>{{ ord.items|sum(attribute='quantity') }}</b></span>
+      {% if ord.delivery_date and ord.status not in ('cancelled','rejected') %}<span><small>Expected delivery</small><b>{{ ord.delivery_date.strftime('%d %b') }}{% if ord.delivery_slot %} · {{ ord.delivery_slot }}{% endif %}</b></span>{% endif %}
       <span><small>Order total</small><b>{{ o.inr(ord.total) }}</b></span>
+      <span class="owner-order-meta__cust"><small>Customer</small><b>{{ addr.get('full_name') or ord.user.name }}</b>{% if addr.get('phone') %}<small>{{ addr.get('phone') }}</small>{% endif %}</span>
     </div>
     {% if ix >= 0 %}
       {{ ot.track(stages, ix, whens.get(ord.id), ord.created_at, ord.order_number ~ ' delivery progress') }}
       {{ ot.strip(ord, addr, prods) }}
-      {{ ot.expected(ord) }}
     {% elif ord.status == 'rejected' %}
       <p class="owner-order-special owner-order-special--rejected"><strong>Order rejected.</strong>{% if ord.rejection_reason %} {{ ord.rejection_reason }}{% else %} The customer has been notified.{% endif %}</p>
     {% else %}
@@ -59,8 +57,8 @@
           </form>
         {% endif %}
         {% set wa = wa_customer_link(ord) %}
-        {% if wa and ord.status in ('placed','confirmed','packed','shipped','out_for_delivery') %}<a class="btn btn--ghost btn--sm" href="{{ wa }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}
-        <a class="btn btn--info btn--sm" href="{{ url_for('owner.order_detail', order_id=ord.id) }}">View details</a>
+        {% if wa and ord.status in ('placed','confirmed','packed','shipped','out_for_delivery') %}<a class="btn btn--sm owner-order-wa" href="{{ wa }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}
+        <a class="btn btn--info btn--sm owner-order-view" href="{{ url_for('owner.order_detail', order_id=ord.id) }}">View details</a>
         {% if svc.can_reject(ord.status) %}
           <button class="btn btn--danger btn--sm" type="button" data-reject-order data-action="{{ url_for('owner.order_status', order_id=ord.id) }}" data-from-status="{{ ord.status }}" data-order-number="{{ ord.order_number|e }}">Reject order</button>
         {% endif %}

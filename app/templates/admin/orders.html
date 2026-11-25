@@ -1,9 +1,49 @@
 {% extends "admin/layout.html" %}
 {% import "admin/_macros.html" as m %}
+{% import "shared/_order_timeline.html" as ot %}
 {% block title %}Orders{% endblock %}{% block heading %}Orders{% endblock %}
 {% block content %}
-<div class="ops-page-head"><div><span class="ops-eyebrow">CUSTOMER FULFILMENT</span><h2>All customer orders</h2><p>{{ page.total }} orders · newest orders first</p></div></div>
-<form method="get" class="ops-order-filters" role="search"><input type="search" name="q" value="{{ q }}" placeholder="Search order, customer or phone" aria-label="Search orders"><select name="status" aria-label="Filter by order status"><option value="">All statuses</option>{% for st in ['placed','confirmed','packed','shipped','out_for_delivery','delivered','rejected','cancelled','return_requested','returned','refunded'] %}<option value="{{ st }}" {% if status == st %}selected{% endif %}>{{ st|replace('_',' ')|title }}</option>{% endfor %}</select><button class="btn" type="submit">Apply filters</button></form>
-<div class="ops-order-list">{% for o in page.items %}{% set addr = o.shipping_address or {} %}<article class="ops-order-card"><div class="ops-order-card__head"><div><a href="{{ url_for('admin.order_detail', order_id=o.id) }}">{{ o.order_number }}</a><small>{{ o.created_at|local_display }}</small></div><strong>₹{{ '%.2f'|format(o.total) }}</strong></div><div class="ops-order-card__meta"><span><small>Customer</small><b>{{ addr.get('full_name') or (o.user.name if o.user else 'Customer') }}</b></span><span><small>Payment</small><b class="{{ 'is-paid' if o.payment_status == 'paid' else 'is-pending' }}">{{ 'Paid' if o.payment_status == 'paid' else o.payment_status|title }}</b></span><span><small>Order status</small><b>{{ o.status|replace('_',' ')|title }}</b></span>{% if o.delivery_date %}<span><small>Delivery slot</small><b>{{ o.delivery_date.strftime('%d %b') }} · {{ o.delivery_slot or 'TBC' }}</b></span>{% endif %}</div><a class="ops-order-open" href="{{ url_for('admin.order_detail', order_id=o.id) }}">View full order details →</a></article>{% else %}<div class="ops-empty"><strong>No orders found.</strong><p>Try changing your search or status filter.</p></div>{% endfor %}</div>
-{{ m.pager(page, 'admin.orders', {'q': q, 'status': status}) }}
+<div class="ops-orders-wrap">
+<div class="ops-page-head"><div><span class="ops-eyebrow">CUSTOMER FULFILMENT</span><h2>All customer orders</h2><p>{{ page.total }} {{ 'matching order' if filtered else 'order' }}{{ '' if page.total == 1 else 's' }} · newest orders first</p></div></div>
+
+<nav class="ops-sum" aria-label="Order summary">
+  {% for c in summary %}<a class="ops-sum__card{{ ' is-on' if c.on else '' }}" href="{{ c.url }}"{% if c.on %} aria-current="true"{% endif %}><small>{{ c.label }}</small><b>{{ c.value }}</b></a>{% endfor %}
+</nav>
+
+<form method="get" class="ops-order-filters ops-order-filters--v2" role="search" action="{{ url_for('admin.orders') }}">
+  {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+  {% if rev %}<input type="hidden" name="rev" value="1">{% endif %}
+  <input class="ops-of__q" type="search" name="q" value="{{ q }}" placeholder="Search order number, name or phone" aria-label="Search orders" inputmode="search">
+  <label class="ops-of__d"><span>From</span><input type="date" name="date_from" value="{{ d_from }}" aria-label="From date"></label>
+  <label class="ops-of__d"><span>To</span><input type="date" name="date_to" value="{{ d_to }}" aria-label="To date"></label>
+  <button class="btn ops-of__go" type="submit">Apply</button>
+  {% if filtered %}<a class="btn btn--ghost ops-of__clear" href="{{ url_for('admin.orders') }}">Clear</a>{% endif %}
+</form>
+
+<nav class="ops-fchips" aria-label="Filter by order status">
+  <a class="ops-fchip{{ ' is-on' if not status else '' }}" href="{{ url_for('admin.orders', **args) }}"{% if not status %} aria-current="true"{% endif %}>All <span>{{ counts_all }}</span></a>
+  {% for st in order_statuses %}<a class="ops-fchip{{ ' is-on' if status == st else '' }}" href="{{ url_for('admin.orders', status=st, **args) }}"{% if status == st %} aria-current="true"{% endif %}>{{ st|replace('_',' ')|title }} <span>{{ counts.get(st, 0) }}</span></a>{% endfor %}
+</nav>
+{% if rev %}<p class="ops-note">Showing only orders that count as sales (confirmed and beyond). <a href="{{ url_for('admin.orders', **args_norev) }}">Show all</a></p>{% endif %}
+<div class="ops-order-table">
+<table class="ops-otable">
+  <thead><tr><th class="c-num" scope="col">Order</th><th class="c-cust" scope="col">Customer</th><th class="c-items" scope="col">Items</th><th class="c-pay" scope="col">Payment</th><th class="c-status" scope="col">Status</th><th class="c-total" scope="col">Total</th><th class="c-act" scope="col"><span class="sr">Actions</span></th></tr></thead>
+  <tbody>
+  {% for o in page.items %}{% set addr = o.shipping_address or {} %}{% set url = url_for('admin.order_detail', order_id=o.id) %}
+  <tr class="ops-orow{{ ' is-closed' if o.status in ('cancelled','rejected') else '' }}">
+    <td class="c-num"><a class="ops-orow__link" href="{{ url }}">{{ o.order_number }}</a><small>{{ o.created_at|local_display }}</small></td>
+    <td class="c-cust ops-ocell"><b>{{ addr.get('full_name') or (o.user.name if o.user else 'Customer') }}</b>{% if addr.get('phone') %}<small>{{ addr.get('phone') }}</small>{% endif %}</td>
+    <td class="c-items">{{ ot.thumbs(o, prods) }}</td>
+    <td class="c-pay">{{ ot.pay_chip(o, true) }}</td>
+    <td class="c-status"><span class="schip schip--{{ o.status }}">{{ o.status|replace('_',' ')|title }}</span></td>
+    <td class="c-total">₹{{ '%.2f'|format(o.total) }}</td>
+    <td class="c-act"><a class="ops-orow__view" href="{{ url }}">View</a></td>
+  </tr>
+  {% else %}<tr><td colspan="7"><div class="ops-empty"><strong>No orders found.</strong><p>Try changing your search or status filter.</p></div></td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+<div class="ops-order-list ops-order-list--cards">{% for o in page.items %}{% set addr = o.shipping_address or {} %}<article class="ops-order-card"><div class="ops-order-card__head"><div><a href="{{ url_for('admin.order_detail', order_id=o.id) }}">{{ o.order_number }}</a><small>{{ o.created_at|local_display }}</small></div><strong>₹{{ '%.2f'|format(o.total) }}</strong></div><div class="ops-order-card__meta"><span><small>Customer</small><b>{{ addr.get('full_name') or (o.user.name if o.user else 'Customer') }}</b></span><span><small>Payment</small><b class="{{ 'is-paid' if o.payment_status == 'paid' else 'is-pending' }}">{{ 'Paid' if o.payment_status == 'paid' else o.payment_status|title }}</b></span><span><small>Order status</small><b>{{ o.status|replace('_',' ')|title }}</b></span>{% if o.delivery_date %}<span><small>Delivery slot</small><b>{{ o.delivery_date.strftime('%d %b') }} · {{ o.delivery_slot or 'TBC' }}</b></span>{% endif %}</div><a class="ops-order-open" href="{{ url_for('admin.order_detail', order_id=o.id) }}">View full order details →</a></article>{% else %}<div class="ops-empty"><strong>No orders found.</strong><p>Try changing your search or status filter.</p></div>{% endfor %}</div>
+{{ m.pager(page, 'admin.orders', pager_args) }}
+</div>
 {% endblock %}

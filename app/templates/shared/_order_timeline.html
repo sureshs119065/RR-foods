@@ -1,22 +1,15 @@
-{# Shared order timeline pieces (owner card + customer tracker). Plain HTML, no inline JS or styles. #}
-{% set OT_HINTS = {
-  'placed': 'We have the order',
-  'confirmed': 'Shop accepted it',
-  'packed': 'Packed with care',
-  'shipped': 'Handed to courier',
-  'out_for_delivery': 'On its way',
-  'delivered': 'Enjoy your order'
-} %}
+{# Shared order timeline pieces (owner card, customer tracker, admin list). Plain HTML, no inline JS or styles.
+   Rule: every fact appears once. Steps show only their label, and done steps add their timestamp. #}
 
-{# Stepper: vertical under 600px, full-width horizontal above (CSS only). #}
-{% macro track(steps, current, when, created_at, label='Order progress') -%}
-<ol class="ot" aria-label="{{ label }}">
+{# Stepper: vertical under 600px, full-width horizontal above (CSS only).
+   side=True puts the timestamp beside the label on the vertical (mobile) layout. #}
+{% macro track(steps, current, when, created_at, label='Order progress', side=false) -%}
+<ol class="ot ot--compact{{ ' ot--side' if side else '' }}" aria-label="{{ label }}">
   {%- for key, text in steps %}
   <li class="ot__step{{ ' is-done' if loop.index0 <= current else '' }}{{ ' is-now' if loop.index0 == current else '' }}{{ ' is-final' if loop.last else '' }}"{% if loop.index0 == current %} aria-current="step"{% endif %}>
     <span class="ot__dot" aria-hidden="true"></span>
     <b>{{ text }}</b>
-    <span class="muted small ot__time">{% if when and key in when %}{{ when[key]|local_display }}{% elif key == 'placed' and created_at %}{{ created_at|local_display }}{% elif loop.index0 < current %}Done{% else %}Pending{% endif %}</span>
-    <span class="ot__hint">{{ OT_HINTS.get(key, '') }}</span>
+    {%- if loop.index0 <= current %}{% set stamp = when[key]|local_display if when and key in when else (created_at|local_display if key == 'placed' and created_at else '') %}{% if stamp %}<span class="muted small ot__time">{{ stamp }}</span>{% endif %}{% endif %}
   </li>
   {%- endfor %}
 </ol>
@@ -36,18 +29,35 @@
 </span>
 {%- endmacro %}
 
-{# Info strip: payment, delivery slot, pincode, thumbnails. #}
+{# Thumbnails with the item count beside them: the only place the count is shown. #}
+{% macro items_cell(order, prods) -%}
+{%- set n = order.items|sum(attribute='quantity') -%}
+<span class="ot__cell ot__cell--items">{{ thumbs(order, prods) }}<b>{{ n }} item{{ '' if n == 1 else 's' }}</b></span>
+{%- endmacro %}
+
+{# Payment chip. admin=True uses the admin wording (Pending / Paid / Failed). #}
+{% macro pay_chip(order, admin=false) -%}
+{%- set st = order.payment_status -%}
+{%- set text = ({'paid': 'Paid', 'pending': 'Pending' if admin else 'Not paid', 'failed': 'Failed' if admin else 'Payment failed', 'refunded': 'Refunded'}).get(st, st|replace('_', ' ')|title) -%}
+<span class="pchip pchip--{{ st }}">{{ text }}</span>
+{%- endmacro %}
+
+{# Owner card strip: pincode and items. #}
 {% macro strip(order, addr, prods) -%}
-<div class="ot__strip">
-  <span class="ot__cell"><small>Payment</small><b>{% if order.payment_status == 'paid' %}Paid{% elif order.payment_status == 'refunded' %}Refunded{% else %}Payment pending{% endif %}</b></span>
-  <span class="ot__cell"><small>Delivery slot</small><b>{% if order.delivery_date %}{{ order.delivery_date.strftime('%d %b') }}{% if order.delivery_slot %} · {{ order.delivery_slot }}{% endif %}{% elif order.delivery_slot %}{{ order.delivery_slot }}{% else %}To be scheduled{% endif %}</b></span>
+<div class="ot__strip ot__strip--compact">
   <span class="ot__cell"><small>Pincode</small><b>{{ addr.get('pincode') or '-' }}</b></span>
-  <span class="ot__cell"><small>Items</small>{{ thumbs(order, prods) }}</span>
+  {{ items_cell(order, prods) }}
 </div>
 {%- endmacro %}
 
-{% macro expected(order) -%}
-{%- if order.delivery_date and order.status in ('placed','confirmed','packed','shipped','out_for_delivery') -%}
-<p class="ot__expected">Expected by <b>{{ order.delivery_date.strftime('%A, %d %b') }}</b></p>
-{%- endif -%}
+{# Customer tracker info area (sits above the stepper): expected delivery, payment chip, items. #}
+{% macro info(order, prods) -%}
+{%- set active = order.status in ('placed','confirmed','packed','shipped','out_for_delivery') -%}
+<div class="ot__info">
+  {%- if active %}
+  <span class="ot__cell"><small>Expected delivery</small><b>{% if order.delivery_date %}{{ order.delivery_date.strftime('%d %b') }}{% if order.delivery_slot %} · {{ order.delivery_slot }}{% endif %}{% elif order.delivery_slot %}{{ order.delivery_slot }}{% else %}To be scheduled{% endif %}</b></span>
+  {%- endif %}
+  <span class="ot__cell"><small>Payment</small>{{ pay_chip(order) }}</span>
+  {{ items_cell(order, prods) }}
+</div>
 {%- endmacro %}

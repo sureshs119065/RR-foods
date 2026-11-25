@@ -6,22 +6,33 @@
   <link rel="canonical" href="{{ canonical }}">
 {% endblock %}
 {% block content %}
-<div class="container">
+<div class="container shop-lst">
   {{ s.crumbs(crumbs) }}
-  <div class="lh">
-    <h1 class="lh__t">{{ title }} <span class="muted lh__n">({{ page.total }})</span></h1>
-  </div>
-  {% if not cat %}
-    <nav class="product-quick-filters" aria-label="Product collections">
-      <a class="chip" href="{{ url_for('shop.bestsellers') }}">Bestsellers</a>
-      <a class="chip" href="#category-filters">Categories</a>
-    </nav>
-    <div id="category-filters" class="product-category-filters" aria-label="Browse product categories">
-      {% for c in nav_categories() %}<a class="chip" href="{{ url_for('shop.category_listing', slug=c.slug) }}">{{ c.name }}</a>{% endfor %}
+  <div class="lst-bar">
+    <h1 class="lst-bar__t">{{ title }} <span class="muted lh__n">({{ page.total }})</span></h1>
+    <div class="lst-bar__ctl">
+      <label class="sortbox"><span class="sortbox__l">Sort</span>
+        <select name="sort" form="filter-form" data-autosubmit aria-label="Sort by">
+          {% for k, label in sorts.items() %}
+            {% if k != 'relevance' or f.q %}
+              <option value="{{ k }}" {% if f.sort == k %}selected{% endif %}>{{ label }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      </label>
+      <label class="switch"><input type="checkbox" role="switch" data-avail-toolbar data-autosubmit {% if f.avail %}checked{% endif %}><span class="switch__track" aria-hidden="true"></span><span>In stock</span></label>
+      <button class="btn btn--ghost lst-bar__filters" type="button" data-sheet-open aria-controls="filter-form">
+        {{ s.icon('filter') }} Filters{% if f.active_count() %} ({{ f.active_count() }}){% endif %}
+      </button>
     </div>
-  {% endif %}
+  </div>
+  <nav class="catrow" data-catrow aria-label="Browse by category">
+    <a class="catchip{{ ' catchip--on' if active_chip == 'all' else '' }}" href="{{ url_for('shop.listing') }}"{% if active_chip == 'all' %} aria-current="page"{% endif %}>All <span class="catchip__n">{{ shop_counts.all }}</span></a>
+    <a class="catchip{{ ' catchip--on' if active_chip == 'bestsellers' else '' }}" href="{{ url_for('shop.bestsellers') }}"{% if active_chip == 'bestsellers' %} aria-current="page"{% endif %}>Bestsellers <span class="catchip__n">{{ shop_counts.bestsellers }}</span></a>
+    {% for c in nav_categories() %}<a class="catchip{{ ' catchip--on' if active_chip == c.id else '' }}" href="{{ url_for('shop.category_listing', slug=c.slug) }}"{% if active_chip == c.id %} aria-current="page"{% endif %}>{{ c.name }} <span class="catchip__n">{{ shop_counts.cats.get(c.id, 0) }}</span></a>{% endfor %}
+  </nav>
   {% if subcats %}
-    <ul class="chips2">{% for c in subcats %}<li><a class="chip" href="{{ url_for('shop.category_listing', slug=c.slug) }}">{{ c.name }}</a></li>{% endfor %}</ul>
+    <ul class="chips2 lst-subcats">{% for c in subcats %}<li><a class="chip" href="{{ url_for('shop.category_listing', slug=c.slug) }}">{{ c.name }}</a></li>{% endfor %}</ul>
   {% endif %}
 
   <div class="lay">
@@ -46,24 +57,21 @@
           </div></div></div>
         </div>
 
-
+        {% if diet_opts %}
         <div class="acc" data-open>
-          <button class="acc__h" type="button" aria-expanded="true">Customer rating</button>
+          <button class="acc__h" type="button" aria-expanded="true">Diet</button>
           <div class="acc__p"><div class="acc__i"><div class="acc__b">
-            {% for r in (4, 3, 2) %}
-              <label class="opt"><input type="radio" name="rating" value="{{ r }}" {% if f.rating == r %}checked{% endif %}> {{ r }}★ &amp; up</label>
+            {% for key, label, n in diet_opts %}
+              <label class="opt"><input type="checkbox" name="diet" value="{{ key }}" {% if key in f.diets %}checked{% endif %}> {{ label }} <span class="muted small">({{ n }})</span></label>
             {% endfor %}
-            <label class="opt"><input type="radio" name="rating" value="" {% if not f.rating %}checked{% endif %}> Any</label>
           </div></div></div>
         </div>
+        {% endif %}
 
         <div class="acc" data-open>
-          <button class="acc__h" type="button" aria-expanded="true">Discount</button>
+          <button class="acc__h" type="button" aria-expanded="true">Availability</button>
           <div class="acc__p"><div class="acc__i"><div class="acc__b">
-            {% for d in (10, 20, 30, 50) %}
-              <label class="opt"><input type="radio" name="discount" value="{{ d }}" {% if f.discount == d %}checked{% endif %}> {{ d }}% or more</label>
-            {% endfor %}
-            <label class="opt"><input type="radio" name="discount" value="" {% if not f.discount %}checked{% endif %}> Any</label>
+            <label class="opt"><input type="checkbox" name="avail" value="1" data-avail-field {% if f.avail %}checked{% endif %}> In stock</label>
           </div></div></div>
         </div>
 
@@ -75,21 +83,6 @@
     </form>
 
     <section class="results" aria-label="Products" data-skel-container="listing">
-      <div class="toolbar">
-        <button class="btn btn--ghost" type="button" data-sheet-open aria-controls="filter-form">
-          {{ s.icon('filter') }} Filters{% if f.active_count() %} ({{ f.active_count() }}){% endif %}
-        </button>
-        <label class="sortbox">Sort
-          <select name="sort" form="filter-form" data-autosubmit aria-label="Sort by">
-            {% for k, label in sorts.items() %}
-              {% if k != 'relevance' or f.q %}
-                <option value="{{ k }}" {% if f.sort == k %}selected{% endif %}>{{ label }}</option>
-              {% endif %}
-            {% endfor %}
-          </select>
-        </label>
-        <label class="switch"><input type="checkbox" role="switch" name="avail" value="1" form="filter-form" data-autosubmit {% if f.avail %}checked{% endif %}><span class="switch__track" aria-hidden="true"></span><span>In stock</span></label>
-      </div>
       {% if filter_chips %}
       <div class="active-filters" role="group" aria-label="Active filters">
         <ul class="chips2 chips2--wrap">
