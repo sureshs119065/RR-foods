@@ -373,3 +373,30 @@ html[data-shop] body .shop-lst .results { min-width: 0; }
   html body .sh__actions .rr-action-notifications,
   html body .sh__actions .rr-action-wishlist { width: 36px !important; min-width: 36px !important; flex-basis: 36px !important; }
 }
+
+
+/* ---------- Search panel: a compact top sheet over a dimmed page, not a full-screen takeover ---------- */
+html body .so {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding: 0; background: rgba(20, 34, 26, .45); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+html body .so__sheet {
+  display: flex; flex-direction: column; width: min(100%, 680px); max-height: min(78dvh, 640px);
+  background: #fff; border-radius: 0 0 20px 20px; box-shadow: 0 18px 40px rgba(20, 34, 26, .22); overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  transform: translateY(-12px); transition: transform 200ms ease;
+}
+html body .so.is-open .so__sheet { transform: none; }
+html body .so__sheet .so__bar {
+  width: auto; min-height: 50px; margin: 12px 14px; padding: 4px 6px; gap: 4px;
+  border: 1px solid #d9e2db; border-radius: 999px; background: #f6f8f5; box-shadow: none; flex: none;
+}
+html body .so__sheet .so__bar:focus-within { border-color: var(--c-brand, #245C3A); box-shadow: 0 0 0 3px rgba(36, 92, 58, .14); background: #fff; }
+html body .so__sheet .so__bar input { font-size: 16px; height: 42px; padding: 0 6px; }
+html body .so__sheet .so__body { width: 100%; padding: 0 14px 14px; overflow-y: auto; overscroll-behavior: contain; }
+html body .so__sheet .so__body:not(:has(li, [id="so-recent"]:not([hidden]))) { padding: 0; }
+html body .so__sheet .so__h { font-size: 13px; font-weight: 700; letter-spacing: .02em; color: #5b665e; margin: 4px 0 6px; align-items: center; }
+html body .so__sheet .so__list li { padding: 0; border-bottom: 1px solid #eef2ee; }
+html body .so__sheet .so__list li:last-child { border-bottom: 0; }
+@media (min-width: 901px) { html body .so__sheet { margin-top: 12px; border-radius: 20px; } }
+@media (prefers-reduced-motion: reduce) { html body .so__sheet { transition: none; transform: none; } }

@@ -157,27 +157,6 @@
   <section class="home-bottom__story" aria-labelledby="home-story-heading">
     <div class="home-bottom__story-copy"><h2 id="home-story-heading">Our Story</h2><p>From our farm to your home – fresh, natural and full of goodness.</p><a href="{{ url_for('shop.about') }}">Read the RR FOODS story <span aria-hidden="true">→</span></a></div>
   </section>
-  <section class="home-bottom__shortcuts" aria-labelledby="home-shortcuts-heading">
-    <div class="home-bottom__shortcuts-head">
-      <div><span class="home-bottom__shortcuts-eyebrow">MAKE SHOPPING EASIER</span><h2 id="home-shortcuts-heading">Your shopping shortcuts</h2>
-        <p>Jump straight to what you need, without searching through the whole store.</p></div>
-    </div>
-    <div class="home-bottom__shortcut-grid">
-      <a class="home-bottom__shortcut" href="{{ url_for('shop.listing') }}">
-        <span class="home-bottom__shortcut-icon" aria-hidden="true">▦</span><span><b>Browse all products</b><small>Explore the complete RR FOODS range</small></span><span class="home-bottom__shortcut-arrow" aria-hidden="true">→</span>
-      </a>
-      <a class="home-bottom__shortcut" href="{{ url_for('shop.offers') }}">
-        <span class="home-bottom__shortcut-icon" aria-hidden="true">％</span><span><b>Offers &amp; combo</b><small>Find active deals and value bundles</small></span><span class="home-bottom__shortcut-arrow" aria-hidden="true">→</span>
-      </a>
-      <a class="home-bottom__shortcut" href="{{ url_for('shop.orders') if signed_customer else url_for('auth.login') }}">
-        <span class="home-bottom__shortcut-icon" aria-hidden="true">⌁</span><span><b>Track your order</b><small>Check order status and delivery updates</small></span><span class="home-bottom__shortcut-arrow" aria-hidden="true">→</span>
-      </a>
-      <a class="home-bottom__shortcut" href="#customer-message">
-        <span class="home-bottom__shortcut-icon" aria-hidden="true">♡</span><span><b>Customer support</b><small>Ask our team if you need a hand</small></span><span class="home-bottom__shortcut-arrow" aria-hidden="true">→</span>
-      </a>
-    </div>
-  </section>
-
   <section class="home-bottom__order" aria-labelledby="home-order-heading"><div class="home-bottom__order-copy"><span class="home-bottom__order-icon" aria-hidden="true">🛒</span><div><h2 id="home-order-heading">Ready to order?</h2><p>Get fresh, healthy food delivered to your doorstep.</p></div></div><a href="{{ url_for('shop.listing') }}">Shop Now <span aria-hidden="true">→</span></a></section>
 
 </section>

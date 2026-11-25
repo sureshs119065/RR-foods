@@ -88,7 +88,7 @@
   document.addEventListener("click", function (e) {
     var o = e.target.closest("[data-open]");
     if (o) { e.preventDefault(); var w = o.getAttribute("data-open"); if (w === "drawer" && drawer) open(drawer, o, true); if (w === "search" && searchO) { open(searchO, o, false); renderRecent(); } return; }
-    if (e.target.closest("[data-close]") || e.target === backdrop) { close(); return; }
+    if (e.target.closest("[data-close]") || e.target === backdrop || e.target === searchO) { close(); return; }
     var so = e.target.closest("[data-sheet-open]"); if (so) { var sh = $("#filter-form"); if (sh) open(sh, so, true); return; }
     if (e.target.closest("[data-sheet-close]") || e.target.id === "sheet-backdrop") close();
   });

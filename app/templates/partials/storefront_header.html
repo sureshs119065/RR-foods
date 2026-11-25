@@ -87,6 +87,7 @@
 </aside>
 
 <div class="so" id="search-overlay" role="dialog" aria-modal="true" aria-label="Search" hidden>
+  <div class="so__sheet">
   <form class="so__bar" action="{{ url_for('shop.listing') }}" method="get" role="search">
     <button class="icon-btn" type="button" data-close aria-label="Close search">{{ s.icon('left') }}</button>
     <input type="search" name="q" placeholder="Search for products" aria-label="Search products" autocomplete="off" enterkeyhint="search" id="so-input">
@@ -95,5 +96,6 @@
   <div class="so__body">
     <div id="so-recent" hidden><h2 class="so__h">Recent searches <button type="button" class="linkish" id="so-clear">Clear</button></h2><ul class="so__list" id="so-recent-list"></ul></div>
     <ul class="so__list" id="so-results" aria-live="polite"></ul>
+  </div>
   </div>
 </div>
