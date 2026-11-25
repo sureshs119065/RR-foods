@@ -375,31 +375,69 @@ html[data-shop] body .shop-lst .results { min-width: 0; }
 }
 
 
-/* ---------- Search panel: a compact top sheet over a dimmed page, not a full-screen takeover ---------- */
+/* ---------- Search panel: a floating card over a dimmed page (never a full-page takeover) ----------
+   Older theme files paint .so (the full-screen layer) with an !important solid colour, which made the
+   whole page look covered. The selectors below out-rank them: .so is only a translucent scrim, and the
+   white .so__sheet card holds the search bar and suggestions. Tapping the scrim closes the panel. */
+html[data-shop] body .so,
 html body .so {
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-  padding: 0; background: rgba(20, 34, 26, .45); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+  padding: 0; border: 0;
+  background: rgba(20, 34, 26, .42) !important;
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  overscroll-behavior: contain;
 }
 html body .so__sheet {
-  display: flex; flex-direction: column; width: min(100%, 680px); max-height: min(78dvh, 640px);
-  background: #fff; border-radius: 0 0 20px 20px; box-shadow: 0 18px 40px rgba(20, 34, 26, .22); overflow: hidden;
-  padding-top: env(safe-area-inset-top, 0px);
-  transform: translateY(-12px); transition: transform 200ms ease;
+  display: flex; flex-direction: column; min-height: 0;
+  width: calc(100% - 16px); max-width: 680px;
+  max-height: min(72dvh, 560px);
+  margin-top: calc(env(safe-area-inset-top, 0px) + 8px);
+  background: #fff; color: #252A26;
+  border: 1px solid rgba(20, 34, 26, .06); border-radius: 20px;
+  box-shadow: 0 20px 48px rgba(20, 34, 26, .24), 0 2px 8px rgba(20, 34, 26, .08);
+  overflow: hidden;
+  transform: translateY(-10px); opacity: .98; transition: transform 200ms ease;
 }
-html body .so.is-open .so__sheet { transform: none; }
+html body .so.is-open .so__sheet { transform: none; opacity: 1; }
 html body .so__sheet .so__bar {
-  width: auto; min-height: 50px; margin: 12px 14px; padding: 4px 6px; gap: 4px;
-  border: 1px solid #d9e2db; border-radius: 999px; background: #f6f8f5; box-shadow: none; flex: none;
+  flex: none; width: auto; min-height: 48px; margin: 10px 10px 8px; padding: 3px 4px; gap: 2px;
+  border: 1px solid #d9e2db; border-radius: 999px; background: #f6f8f5; box-shadow: none; outline: 0;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
 }
-html body .so__sheet .so__bar:focus-within { border-color: var(--c-brand, #245C3A); box-shadow: 0 0 0 3px rgba(36, 92, 58, .14); background: #fff; }
-html body .so__sheet .so__bar input { font-size: 16px; height: 42px; padding: 0 6px; }
-html body .so__sheet .so__body { width: 100%; padding: 0 14px 14px; overflow-y: auto; overscroll-behavior: contain; }
+html body .so__sheet .so__bar:focus-within {
+  outline: 0; background: #fff;
+  border-color: var(--c-brand, #245C3A); box-shadow: 0 0 0 3px rgba(36, 92, 58, .16);
+}
+html body .so__sheet .so__bar .icon-btn { width: 40px; height: 40px; min-width: 40px; color: #44524a; border-radius: 50%; }
+html body .so__sheet .so__bar input { font-size: 16px; height: 40px; padding: 0 6px; color: #1f2a24; }
+html body .so__sheet .so__bar input::placeholder { color: #8a948d; }
+html body .so__sheet .so__body {
+  flex: 1 1 auto; min-height: 0; width: 100%; padding: 0 10px 10px;
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin; scrollbar-color: #c9d3cb transparent;
+}
 html body .so__sheet .so__body:not(:has(li, [id="so-recent"]:not([hidden]))) { padding: 0; }
-html body .so__sheet .so__h { font-size: 13px; font-weight: 700; letter-spacing: .02em; color: #5b665e; margin: 4px 0 6px; align-items: center; }
-html body .so__sheet .so__list li { padding: 0; border-bottom: 1px solid #eef2ee; }
-html body .so__sheet .so__list li:last-child { border-bottom: 0; }
-@media (min-width: 901px) { html body .so__sheet { margin-top: 12px; border-radius: 20px; } }
-@media (prefers-reduced-motion: reduce) { html body .so__sheet { transition: none; transform: none; } }
+html body .so__sheet .so__h { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #6b766e; margin: 8px 8px 4px; align-items: center; }
+html body .so__sheet .so__h .linkish { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--c-brand, #245C3A); }
+html body .so__sheet .so__list li { padding: 0; border-bottom: 0; }
+html body .so__sheet .so__list a { min-height: 46px; padding: 6px 8px; gap: 12px; border-radius: 12px; font-size: 15px; font-weight: 500; }
+html body .so__sheet .so__list a:active { background: #eef4ef; }
+html body .so__sheet .so__list img { border-radius: 10px; }
+
+/* suggestion headings and icons (shared by the phone panel and the desktop dropdown) */
+html body .so__list li.sg-h, html body .sugg li.sg-h {
+  padding: 12px 8px 4px; margin: 0; border: 0; min-height: 0;
+  font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #6b766e;
+}
+html body .so__list li.sg-h:first-child, html body .sugg li.sg-h:first-child { padding-top: 4px; }
+html body .so__list li.sg-h:not(:first-child), html body .sugg li.sg-h:not(:first-child) { margin-top: 6px; border-top: 1px solid #eef2ee; padding-top: 14px; }
+html body .so__list .sg-i, html body .sugg .sg-i { flex: none; color: #7d8a81; }
+html body .so__list .sg-tag, html body .sugg .sg-tag { flex: none; padding: 2px 8px; border-radius: 999px; background: #e8f3ea; color: #245C3A; font-size: 11px; font-weight: 700; }
+html body .so__list a b, html body .sugg a b { font-weight: 700; color: #1f2a24; }
+html body .so__list .nomatch { padding: 18px 8px; text-align: center; color: #6b766e; }
+
+@media (min-width: 901px) { html body .so__sheet { margin-top: 16px; } }
+@media (prefers-reduced-motion: reduce) { html body .so__sheet, html body .so__sheet .so__bar { transition: none; transform: none; } }
 
 /* ---------- Product page: customer reviews (approved by the shop) ---------- */
 .pr-reviews__sum { margin: 0 0 12px; font-weight: 700; }
