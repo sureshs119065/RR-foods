@@ -13,13 +13,13 @@ def _guard():
 
 @bp.context_processor
 def _owner_menu():
-    """Number of orders waiting for a decision, shown as a badge in the menu."""
+    """Number of orders and WhatsApp requests waiting for the shop, shown as a badge in the menu."""
     from sqlalchemy import func, select
 
     from ..extensions import db
     from ..models import Order, Product
 
-    pending = db.session.scalar(select(func.count(Order.id)).where(Order.status == "placed")) or 0
+    pending = db.session.scalar(select(func.count(Order.id)).where(Order.status.in_(("pending_whatsapp", "placed")))) or 0
     low_stock = db.session.scalar(select(func.count(Product.id)).where(
         Product.is_deleted.is_(False), Product.stock_qty <= Product.low_stock_threshold
     )) or 0

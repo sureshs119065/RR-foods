@@ -45,6 +45,8 @@
       {{ ot.strip(ord, addr, prods) }}
     {% elif ord.status == 'rejected' %}
       <p class="owner-order-special owner-order-special--rejected"><strong>Order rejected.</strong>{% if ord.rejection_reason %} {{ ord.rejection_reason }}{% else %} The customer has been notified.{% endif %}</p>
+    {% elif ord.status == 'pending_whatsapp' %}
+      <p class="owner-order-special"><strong>Checkout request.</strong> Not an order yet: it becomes one when the customer's WhatsApp message quoting {{ ord.order_number }} reaches you. Press <b>Message received</b> to place it.</p>
     {% else %}
       <p class="owner-order-special">{{ svc.LABELS.get(ord.status, ord.status|replace('_',' ')|title) }} · View order details for return or cancellation actions.</p>
     {% endif %}
@@ -54,6 +56,11 @@
           <form class="inline" method="post" action="{{ url_for('owner.order_status', order_id=ord.id) }}" data-once>
             {{ m.csrf() }}<input type="hidden" name="to" value="{{ nxt }}"><input type="hidden" name="from_status" value="{{ ord.status }}"><input type="hidden" name="next" value="{{ next_url }}">
             <button class="btn btn--sm owner-order-primary" type="submit">{{ svc.ACTION_LABELS[nxt] }}</button>
+          </form>
+        {% endif %}
+        {% if ord.status == 'pending_whatsapp' %}
+          <form class="inline" method="post" action="{{ url_for('owner.order_whatsapp_received', order_id=ord.id) }}" data-once>
+            {{ m.csrf() }}<input type="hidden" name="next" value="{{ next_url }}"><button class="btn btn--sm owner-order-primary" type="submit">Message received · place order</button>
           </form>
         {% endif %}
         {% set wa = wa_customer_link(ord) %}

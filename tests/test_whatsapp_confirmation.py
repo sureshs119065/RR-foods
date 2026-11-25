@@ -79,9 +79,13 @@ def test_request_shows_on_its_own_tab_and_the_shop_confirms_it(cust, session, ca
     post(cust, "/cart/coupon", {"code": "TEN"}, page="/cart")
     checkout(cust, session, cust.user)
     o = session.scalar(select(Order))
-    assert o.order_number not in owner_client.get("/owner/orders").get_data(as_text=True)
+    # the request is listed under "Not confirmed" with a one-tap "Message received" button, so the owner can always find and act on it
+    listing = owner_client.get("/owner/orders").get_data(as_text=True)
+    assert o.order_number in listing and "Message received" in listing
+    assert o.order_number in owner_client.get("/owner/orders?show=not_confirmed").get_data(as_text=True)
+    assert o.order_number not in owner_client.get("/owner/orders?show=confirmed").get_data(as_text=True)
     detail = owner_client.get(f"/owner/orders/{o.id}").get_data(as_text=True)
-    assert "Message received" in detail and "Awaiting WhatsApp" not in owner_client.get("/owner/orders").get_data(as_text=True)
+    assert "Message received" in detail
     assert owner_client.get(f"/owner/orders/{o.id}/packing-slip").status_code == 404
     # the shop cannot skip the WhatsApp step by moving the status forward
     post(owner_client, f"/owner/orders/{o.id}/status", {"to": "confirmed", "from_status": "pending_whatsapp"}, page="/owner/orders")
@@ -278,3 +282,24 @@ def test_rejected_order_also_loses_its_shipment_details(cust, session, catalog, 
     assert o.status == "rejected" and (o.courier_name, o.tracking_id, o.delivery_date) == (None, None, None)
     page = cust.get(f"/account/orders/{o.order_number}").get_data(as_text=True)
     assert "Shipment details" not in page and "Expected delivery" not in page
+
+
+def test_a_replaced_or_cancelled_request_never_shows_in_the_owner_list_as_a_cancelled_order(cust, session, catalog, owner_client):
+    """A request closed before the shop confirmed it (replaced by a newer checkout, cancelled, expired) never became an order."""
+    _, p = catalog
+    add(cust, p, 2)
+    checkout(cust, session, cust.user)
+    first = session.scalar(select(Order))
+    add(cust, p, 1)                                   # changed cart: the first request is replaced
+    checkout(cust, session, cust.user)
+    session.expire_all()
+    second = session.scalar(select(Order).where(Order.status == "pending_whatsapp"))
+    assert session.get(Order, first.id).status == "cancelled"
+    listing = owner_client.get("/owner/orders").get_data(as_text=True)
+    assert second.order_number in listing and first.order_number not in listing
+    # a real order that was placed and then cancelled still shows
+    post(owner_client, f"/owner/orders/{second.id}/whatsapp-received", {}, page="/owner/orders")
+    post(cust, f"/account/orders/{second.order_number}/cancel", {}, page="/", follow=True)
+    session.expire_all()
+    assert session.get(Order, second.id).status == "cancelled"
+    assert second.order_number in owner_client.get("/owner/orders").get_data(as_text=True)

@@ -25,7 +25,7 @@
   {% if order.status == 'return_requested' %}<p class="notice"><b>The customer asked to return this order.</b> See the reason in History below. Accept it (tick “put items back in stock” only if they are resellable) or decline it with a reason.</p>{% endif %}
   {% if order.status == 'returned' %}<p class="notice">Return accepted. Refund the customer (send the money by UPI or bank transfer), then press <b>Mark refunded</b>.</p>{% endif %}
   {% if order.status == 'cancelled' %}
-    <p class="notice">Cancelled by the customer. The items went back into stock.
+    <p class="notice"><b>Cancelled.</b> {{ cancel_note or 'Cancelled by the customer.' }}{% if was_placed %} The items went back into stock.{% else %} It was never confirmed by the shop, so no stock was taken.{% endif %}
     {% if order.payment_status == 'paid' %}<br><b>This order was marked paid. Send the refund to the customer yourself (UPI or bank transfer).</b>{% endif %}</p>
   {% endif %}
   {% if order.gift_message %}<p class="notice"><b>Gift message:</b> {{ order.gift_message }}</p>{% endif %}

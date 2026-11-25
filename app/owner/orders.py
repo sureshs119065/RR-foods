@@ -6,6 +6,7 @@ from ..admin.helpers import page_number
 from ..auth.service import safe_next
 from ..extensions import db, limiter
 from ..models import Order, OrderStatusHistory, User
+from ..models.orders import DRAFT_STATUS
 from ..services import invoice as invoice_svc
 from ..services import order_view
 from ..services import orders as svc
@@ -17,16 +18,26 @@ PER_PAGE = 20
 
 # "Confirmed" = the shop has accepted the order (everything past "placed" that is still alive or completed).
 CONFIRMED_STATUSES = ("confirmed", "packed", "shipped", "out_for_delivery", "delivered", "return_requested", "returned", "refunded")
+# "Not confirmed" = the shop has not accepted it yet: a checkout request waiting for the WhatsApp message to be confirmed, or an order just placed.
+NOT_CONFIRMED_STATUSES = (DRAFT_STATUS, "placed")
 SHOW_FILTERS = ("confirmed", "not_confirmed")
+
+
+def _never_placed():
+    """A request that was closed (replaced by a newer checkout, expired, or cancelled) before the shop ever confirmed its WhatsApp message.
+    It never became an order, so it must not clutter the owner's list as a "Cancelled" order."""
+    return (Order.status == "cancelled") & select(OrderStatusHistory.id).where(
+        OrderStatusHistory.order_id == Order.id, OrderStatusHistory.from_status == DRAFT_STATUS, OrderStatusHistory.to_status == "cancelled").exists()
 
 
 @bp.route("/orders")
 def orders():
     # One consolidated queue: newest orders first, with a Confirmed / Not confirmed chip, search and payment filtering.
-    # Unconfirmed WhatsApp checkout requests are not orders and never appear here.
+    # Checkout requests waiting for the shop's "Message received" step are listed under "Not confirmed" so the owner can act on them;
+    # requests that were closed before ever being confirmed are hidden (they never became orders).
     unpaid = request.args.get("pay") == "pending"
     show = request.args.get("show") if request.args.get("show") in SHOW_FILTERS else "all"
-    where = [Order.status != "pending_whatsapp"]
+    where = [~_never_placed()]
     if unpaid:
         where += [Order.payment_status == "pending", Order.status.notin_(svc.NO_PAYMENT_CHANGE)]
     term = (request.args.get("q") or "").strip().lower()
@@ -42,12 +53,12 @@ def orders():
         select(Order.status, func.count(Order.id)).join(User, User.id == Order.user_id).where(*where).group_by(Order.status)).all())
     status_counts = {"all": sum(by_status.values()),
                      "confirmed": sum(n for st, n in by_status.items() if st in CONFIRMED_STATUSES),
-                     "not_confirmed": by_status.get("placed", 0)}
+                     "not_confirmed": sum(n for st, n in by_status.items() if st in NOT_CONFIRMED_STATUSES)}
     q = select(Order).join(User, User.id == Order.user_id).options(joinedload(Order.user), selectinload(Order.items)).where(*where)
     if show == "confirmed":
         q = q.where(Order.status.in_(CONFIRMED_STATUSES))
     elif show == "not_confirmed":
-        q = q.where(Order.status == "placed")
+        q = q.where(Order.status.in_(NOT_CONFIRMED_STATUSES))
     q = q.order_by(Order.created_at.desc(), Order.id.desc())
     page = db.paginate(q, page=page_number(), per_page=PER_PAGE, error_out=False)
     args = {k: v for k, v in request.args.items() if k != "page" and v}  # keeps show / q / pay across pages
@@ -65,7 +76,9 @@ def order_detail(order_id):
     history = db.session.execute(
         select(OrderStatusHistory, User.name).outerjoin(User, User.id == OrderStatusHistory.changed_by)
         .where(OrderStatusHistory.order_id == order.id).order_by(OrderStatusHistory.created_at, OrderStatusHistory.id)).all()
-    return render_template("owner/order_detail.html", order=order, history=history, svc=svc)
+    cancel_note = next((h.note for h, _ in reversed(history) if h.to_status == "cancelled" and h.note), None)
+    was_placed = any(h.to_status == "placed" for h, _ in history)
+    return render_template("owner/order_detail.html", order=order, history=history, svc=svc, cancel_note=cancel_note, was_placed=was_placed)
 
 
 @bp.get("/orders/<int:order_id>/invoice.pdf")
