@@ -70,3 +70,8 @@ html body .rr-assure svg { flex: none; }
    "Millet Foods" was #ffd21f on a white/pale hero = about 1.4:1. Deep amber is 5.9:1 on white and 5.4:1 on the pale green gradient.
    The red badge (#B3262D) with white text is 6.5:1 and is kept. */
 html body .hero__t span { color: #8A5A00 !important; }
+
+/* ---- Recently viewed and Our Story: one full-width row each, stacked (never side by side) ---- */
+html body .home-bottom.container.home-bottom { display: flex !important; flex-direction: column; gap: 16px; grid-template-areas: none; }
+html body .home-bottom.container.home-bottom > section { width: 100%; max-width: none; grid-area: auto; }
+html body .home-bottom__story { min-height: 0; }

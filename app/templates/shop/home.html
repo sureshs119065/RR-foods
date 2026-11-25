@@ -183,6 +183,25 @@
 
 
 
+<section class="home-bottom container{{ ' home-bottom--no-recent' if not recent }}{{ ' home-bottom--no-reviews' }}" aria-label="More from RR FOODS">
+  {% if recent %}
+  <section class="home-bottom__recent" aria-labelledby="home-recent-heading">
+    <header class="rv__head">
+      <span class="rv__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+      <div class="rv__titles"><h2 id="home-recent-heading">Recently viewed</h2><p>Pick up where you left off.</p></div>
+      <a class="rv__all" href="{{ url_for('shop.listing') }}">Browse all →</a>
+    </header>
+    <ul class="rv__list rv__list--desktop">{% for item in recent[:6] %}{{ s.rcard(item) }}{% endfor %}</ul>
+    <div class="rr-loop rr-loop--recent" data-loop role="region" aria-label="Recently viewed products row" tabindex="0">
+      <ul class="rr-loop__track">{% for item in recent[:6] %}{{ s.rcard(item) }}{% endfor %}</ul>
+    </div>
+  </section>
+  {% endif %}
+  <section class="home-bottom__story" aria-labelledby="home-story-heading">
+    <div class="home-bottom__story-copy"><h2 id="home-story-heading">Our Story</h2><p>From our farm to your home – fresh, natural and full of goodness.</p><a href="{{ url_for('shop.about') }}">Read the RR FOODS story <span aria-hidden="true">→</span></a></div>
+  </section>
+</section>
+
 {% set hf = home_faq() %}
 {% if hf.show %}
 <section class="container sec faq-sec" id="faq" aria-labelledby="home-faq-heading">
