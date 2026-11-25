@@ -43,11 +43,7 @@
     if ($(".error", acc)) set(true);
   });
 
-  /* ---- confirm dialogs for dangerous buttons ---- */
-  document.addEventListener("click", function (e) {
-    var el = e.target.closest("[data-confirm]");
-    if (el && !window.confirm(el.getAttribute("data-confirm"))) e.preventDefault();
-  });
+  /* confirmation questions (data-confirm, delete, block, sign out ...) are handled by confirm-dialog.js */
 
   /* ---- bulk selection ---- */
   var all = $("#select-all"), bar = $("#bulk-form");

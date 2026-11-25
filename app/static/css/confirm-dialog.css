@@ -1,0 +1,16 @@
+/* Confirmation pop-up (Admin and Owner panels). */
+dialog.cd { border: 0; padding: 0; border-radius: 16px; width: min(92vw, 420px); background: #fff; color: #1f2a24; box-shadow: 0 24px 60px rgb(0 0 0 / .35); }
+dialog.cd::backdrop { background: rgb(15 26 20 / .55); }
+.cd__box { margin: 0; padding: 22px 22px 18px; }
+.cd__title { margin: 0 0 8px; font-size: 1.15rem; font-weight: 800; color: #183D2B; }
+.cd__text { margin: 0; font-size: .95rem; line-height: 1.5; color: #44524a; }
+.cd__btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.cd__btn { min-height: 44px; padding: 0 20px; border-radius: 10px; font: inherit; font-weight: 700; cursor: pointer; border: 2px solid transparent; }
+.cd__btn--cancel { background: #fff; color: #183D2B; border-color: #BFD0C3; }
+.cd__btn--cancel:hover { background: #F4F8F1; }
+.cd__btn--ok { background: #B3262D; color: #fff; }
+.cd__btn--ok:hover { background: #8F1C22; }
+.cd__btn--warn { background: #B45309; }
+.cd__btn--warn:hover { background: #8A4007; }
+.cd__btn:focus-visible { outline: 3px solid #F59E0B; outline-offset: 2px; }
+@media (max-width: 480px) { .cd__btns { flex-direction: column-reverse; } .cd__btn { width: 100%; } }
