@@ -41,6 +41,6 @@
 <script src="{{ url_for('static', filename='js/bundle-lines.js') }}" defer></script>
 <label class="check"><input type="checkbox" name="is_active" value="1" {% if item.is_active or not item.id %}checked{% endif %}> Active</label>
 {% endif %}
-<div class="formbar"><a class="btn btn--ghost" href="{{ url_for('admin.' + ('reels' if kind == 'reels' else 'recipes' if kind == 'recipes' else 'bundles')) }}">Cancel</a><button class="btn" type="submit">Save {{ title }}</button></div>
+<div class="formbar"><a class="btn btn--cancel" href="{{ url_for('admin.' + ('reels' if kind == 'reels' else 'recipes' if kind == 'recipes' else 'bundles')) }}">Cancel</a><button class="btn" type="submit">Save {{ title }}</button></div>
 </form>
 {% endblock %}

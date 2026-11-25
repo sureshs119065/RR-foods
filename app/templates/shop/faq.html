@@ -1,0 +1,24 @@
+{% extends "shop/layout.html" %}
+{% block title %}FAQs | RR FOODS{% endblock %}
+{% block head_extra %}
+  <meta name="description" content="Answers about delivery, payment, returns, order tracking, product quality and ordering on WhatsApp from RR FOODS.">
+  <link rel="canonical" href="{{ url_for('shop.faq_page', _external=True) }}">
+  <link rel="stylesheet" href="{{ asset_url('css/faq.css') }}">
+  <script src="{{ asset_url('js/faq.js') }}" defer></script>
+  {% set ld = faq_jsonld(faqs) %}{% if ld %}<script type="application/ld+json">{{ ld|tojson }}</script>{% endif %}
+{% endblock %}
+{% block content %}
+<div class="container narrow2 faq-sec">
+  <header class="pagehead">
+    <p class="eyebrow">Help</p>
+    <h1 class="pg-h">Frequently asked questions</h1>
+    <p class="muted">Quick answers about ordering, delivery and your RR FOODS products.</p>
+  </header>
+  {% if faqs %}
+    {% with items=faqs, faq_id='faq-page' %}{% include "partials/faq_accordion.html" %}{% endwith %}
+  {% else %}
+    <p class="muted">No questions are listed yet.</p>
+  {% endif %}
+  <p class="faq-sec__help">Can’t find your answer? <a href="{{ url_for('shop.help_page') }}">Contact RR FOODS</a>.</p>
+</div>
+{% endblock %}

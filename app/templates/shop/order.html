@@ -1,4 +1,5 @@
 {% extends "shop/layout.html" %}
+{% import "shared/_order_timeline.html" as ot %}
 {% block title %}Order {{ order.order_number }} | RR FOODS{% endblock %}
 {% block robots %}noindex,nofollow{% endblock %}
 {% block content %}
@@ -9,7 +10,6 @@
   <p class="muted">{{ 'Requested' if order.status == 'pending_whatsapp' else 'Received' }} {{ order.created_at|local_display }}</p>
   {% if order.status == 'pending_whatsapp' %}<p class="notice"><b>This order is not placed yet.</b> It is placed only after you send the message on WhatsApp and the shop confirms it arrived. If you never send it, nothing is ordered and nothing is charged.</p>
   {% elif order.status == 'placed' %}<p class="notice"><b>Not confirmed yet.</b> The shop has your WhatsApp message. Your order is confirmed once the shop accepts it and shares the payment details.</p>{% endif %}
-  {% if order.delivery_date and order.status in ('packed', 'shipped', 'out_for_delivery') and order.status not in ('cancelled', 'rejected') %}<p class="notice"><b>Expected delivery:</b> {{ order.delivery_date.strftime('%A, %d %B %Y') }} (as per the courier's schedule)</p>{% endif %}
 
   {% if order.status in ('rejected', 'cancelled') %}
     <div class="alert alert--error" role="status"><b>Order {{ labels[order.status]|lower }}.</b>
@@ -19,14 +19,15 @@
   {% if order.status != 'pending_whatsapp' %}
   <section class="trk" aria-label="Order progress" data-track data-url="{{ url_for('shop.order_status_json', order_number=order.order_number) }}" data-status="{{ order.status }}">
     <div class="trk__head"><span class="ostatus ostatus--{{ order.status }}" data-track-label>{{ labels.get(order.status, order.status) }}</span><span class="muted small trk__live" aria-live="polite" data-track-live>Updates automatically</span></div>
-    <ol class="track track--h">
-      {% for key, label in steps %}
-        <li class="{{ 'is-done' if loop.index0 <= current else '' }} {{ 'is-now' if loop.index0 == current else '' }}" {% if loop.index0 == current %}aria-current="step"{% endif %}>
-          <span class="track__dot" aria-hidden="true"></span><b>{{ label }}</b>
-          <span class="muted small">{% if key in when %}{{ when[key]|local_display }}{% elif loop.index0 > current %}Pending{% else %}&nbsp;{% endif %}</span>
-        </li>
-      {% endfor %}
-    </ol>
+    {{ ot.track(steps, current, when, order.created_at) }}
+    {{ ot.strip(order, addr, item_products) }}
+    {{ ot.expected(order) }}
+    {% if order.status == 'delivered' %}
+    <div class="ot__actions">
+      <form method="post" action="{{ url_for('shop.order_reorder', order_number=order.order_number) }}">{{ s.csrf() }}<button class="btn" type="submit">Reorder</button></form>
+      <a class="btn btn--ghost" href="{{ url_for('shop.help_page') }}">Help with this order</a>
+    </div>
+    {% endif %}
   </section>
   {% if order.status in ('cancelled', 'rejected', 'returned', 'return_requested', 'refunded') %}
     <ol class="track track--h track--terminal" aria-label="Order final status"><li class="is-done"><span class="track__dot" aria-hidden="true"></span><b>Order received</b><span class="muted small">{{ order.created_at|local_display }}</span></li><li class="is-now"><span class="track__dot" aria-hidden="true"></span><b>{{ labels.get(order.status, order.status|title) }}</b><span class="muted small">Current status</span></li></ol>
@@ -95,8 +96,8 @@
   {% endif %}
 
   <div class="actions">
-    {% if can_invoice %}<a class="btn" download href="{{ url_for('shop.order_invoice', order_number=order.order_number) }}">&#11015; Download invoice (PDF)</a>{% endif %}
-    <form method="post" action="{{ url_for('shop.order_reorder', order_number=order.order_number) }}">{{ s.csrf() }}<button class="btn" type="submit">Reorder</button></form>
+    {% if can_invoice %}<a class="btn btn--info" download href="{{ url_for('shop.order_invoice', order_number=order.order_number) }}">&#11015; Download invoice (PDF)</a>{% endif %}
+    {% if order.status != 'delivered' %}<form method="post" action="{{ url_for('shop.order_reorder', order_number=order.order_number) }}">{{ s.csrf() }}<button class="btn" type="submit">Reorder</button></form>{% endif %}
     {% if can_cancel %}
     <form method="post" action="{{ url_for('shop.order_cancel', order_number=order.order_number) }}" data-once>{{ s.csrf() }}<button class="btn btn--danger" type="submit" data-confirm="Cancel order {{ order.order_number }}? This cannot be undone.">Cancel order</button></form>
     {% endif %}

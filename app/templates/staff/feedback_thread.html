@@ -1,0 +1,15 @@
+{% set layout = 'admin/layout.html' if portal == 'admin' else 'owner/layout.html' %}
+{% extends layout %}
+{% block title %}Feedback{% endblock %}
+{% block heading %}Questions &amp; Feedback{% endblock %}
+{% block content %}
+<div class="qf">
+  <nav class="qf__tabs" aria-label="Questions and feedback">
+    <a class="qf__tab" href="{{ url_for(portal ~ '.questions') }}">Questions{% if counts.questions %}<span class="qf__n" aria-label="{{ counts.questions }} waiting">{{ counts.questions if counts.questions < 100 else '99+' }}</span>{% endif %}</a>
+    <a class="qf__tab is-on" href="{{ url_for(portal ~ '.questions', tab='feedback') }}" aria-current="page">Feedback{% if counts.feedback %}<span class="qf__n" aria-label="{{ counts.feedback }} need a reply">{{ counts.feedback if counts.feedback < 100 else '99+' }}</span>{% endif %}</a>
+  </nav>
+  <div class="pagehead sec__row"><div><h2>{{ thread.subject }}</h2><p class="muted">{{ thread.customer.name }} · {{ thread.customer.email or 'Customer' }} · {{ thread.customer.phone or '' }}</p></div><a class="btn btn--ghost" href="{{ url_for(portal ~ '.questions', tab='feedback') }}">Back to feedback</a></div>
+  <div class="inbox-thread qf__thread">{% for msg in thread.messages %}<article class="inbox-message {{ 'inbox-message--mine' if msg.sender_id == current_user.id else 'inbox-message--staff' }}"><div class="inbox-message__meta"><b>{{ msg.sender.name }}{% if msg.sender.role == 'user' %} · Customer{% else %} · {{ msg.sender.role|title }}{% endif %}</b><time>{{ msg.created_at|local_display }}</time></div><p>{{ msg.body }}</p></article>{% endfor %}</div>
+  <form method="post" class="inbox-form card"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Reply to customer<textarea name="body" rows="4" maxlength="4000" required placeholder="Write a helpful response..."></textarea></label><div class="inbox-actions"><button class="btn btn--accent" type="submit">Send reply</button></div></form>
+</div>
+{% endblock %}

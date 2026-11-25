@@ -7,7 +7,7 @@ Rules
   is told the current number (StaleStock), so a stale page cannot wipe out an order's deduction.
 - The functions here never commit. The caller commits, so a whole bulk update is all-or-nothing.
 """
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ..extensions import db
 from ..models import InventoryLog, Notification, Product, ProductVariant, User
@@ -127,6 +127,28 @@ def stock_state(qty: int, threshold: int) -> str:
     if qty <= 0:
         return "out"
     return "low" if qty <= threshold else "ok"
+
+
+# Sort choices shared by the owner Inventory page and the admin Stock alerts page.
+STOCK_SORTS = {
+    "stock_asc": (Product.stock_qty.asc(), Product.name.asc()),
+    "stock_desc": (Product.stock_qty.desc(), Product.name.asc()),
+    "name": (func.lower(Product.name).asc(),),
+    "updated": (Product.updated_at.desc(),),
+}
+
+
+def level_clause(level: str):
+    """WHERE condition for a stock level: out, low, in (healthy) or attention (out or low). None means no filter."""
+    if level == "out":
+        return Product.stock_qty == 0
+    if level == "low":
+        return (Product.stock_qty > 0) & (Product.stock_qty <= Product.low_stock_threshold)
+    if level == "attention":
+        return Product.stock_qty <= Product.low_stock_threshold
+    if level == "in":
+        return Product.stock_qty > Product.low_stock_threshold
+    return None
 
 
 def restore_order_stock(order, reason: str, actor_id: int | None) -> int:

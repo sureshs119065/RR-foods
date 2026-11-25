@@ -3,7 +3,7 @@ from sqlalchemy import func, or_, select
 
 from ..extensions import db
 from ..models import Category, InventoryLog, Offer, Product, ProductImage, ProductVariant
-from ..uploads import MAX_FILE_BYTES, UploadError, copy_file, delete_files, save_image
+from ..uploads import MAX_FILE_BYTES, UploadError, delete_files, save_image
 from ..services.inventory import notify_admin_stock_transition
 from . import bp
 from .helpers import log, page_number, unique_slug
@@ -64,13 +64,18 @@ def _categories():
     return out
 
 
+def archived_count() -> int:
+    """How many products are in the archive (shown on the "Show archived" button)."""
+    return db.session.scalar(select(func.count(Product.id)).where(Product.is_deleted.is_(True))) or 0
+
+
 @bp.route("/products")
 def products():
     page = db.paginate(_list_query(), page=page_number(), per_page=PER_PAGE, error_out=False)
     args = {k: v for k, v in request.args.items() if k not in ("page", "undo") and v}
     undo = [int(x) for x in request.args.get("undo", "").split(",") if x.isdigit()][:200]
     return render_template("admin/products.html", page=page, args=args, cats=_categories(), undo=undo,
-                           status=request.args.get("status", ""))
+                           status=request.args.get("status", ""), archived_count=archived_count())
 
 
 # ---------------------------------------------------------------- create / edit
@@ -239,7 +244,7 @@ def image_delete(product_id, image_id):
     return redirect(url_for("admin.product_edit", product_id=product.id))
 
 
-# ---------------------------------------------------------------- archive / restore / delete / duplicate
+# ---------------------------------------------------------------- archive / restore / delete
 @bp.post("/products/<int:product_id>/archive")
 def product_archive(product_id):
     product = db.session.get(Product, product_id) or abort(404)
@@ -256,6 +261,9 @@ def product_restore(product_id):
     log("product.restore", "product", product.id, after={"is_deleted": False})
     db.session.commit()
     flash(f"“{product.name}” is back in your product list.", "success")
+    # restoring from the archived view keeps you there while there is still something archived
+    if request.form.get("view") == "archived" and archived_count():
+        return redirect(url_for("admin.products", status="archived"))
     return redirect(url_for("admin.products"))
 
 
@@ -279,45 +287,3 @@ def product_delete(product_id):
     db.session.commit()
     flash(f"“{name}” was deleted permanently.", "success")
     return redirect(url_for("admin.products", status="archived"))
-
-
-def _unique_sku(base: str) -> str:
-    n = 1
-    while True:
-        sku = f"{base}-COPY" if n == 1 else f"{base}-COPY{n}"
-        if not db.session.scalar(select(Product.id).where(func.upper(Product.sku) == sku.upper())) \
-                and not db.session.scalar(select(ProductVariant.id).where(func.upper(ProductVariant.sku).like(f"{sku.upper()}%"))):
-            return sku[:60]
-        n += 1
-
-
-def duplicate_product(src: Product) -> Product:
-    sku = _unique_sku(src.sku)
-    new = Product(sku=sku, slug=unique_slug(Product, f"{src.name} copy"), name=f"{src.name} (Copy)", brand=src.brand,
-                  short_description=src.short_description, description=src.description, category_id=src.category_id,
-                  subcategory_id=src.subcategory_id, pack_size=src.pack_size, mrp=src.mrp, discount_type=src.discount_type,
-                  discount_value=src.discount_value, final_price=src.final_price, stock_qty=0, low_stock_threshold=src.low_stock_threshold,
-                  tags=list(src.tags or []), specifications=dict(src.specifications or {}), ingredients=src.ingredients,
-                  nutrition=dict(src.nutrition or {}), how_to_use=src.how_to_use, fssai=src.fssai, video_id=src.video_id,
-                  is_active=False)  # hidden until the admin checks it
-    db.session.add(new)
-    db.session.flush()
-    for img in src.images:
-        new.images.append(ProductImage(url=copy_file(img.url), thumb_url=copy_file(img.thumb_url), alt=new.name,
-                                       sort_order=img.sort_order, is_primary=img.is_primary))
-    for n, v in enumerate(src.variants, 1):
-        new.variants.append(ProductVariant(option_name=v.option_name, option_value=v.option_value, sku=f"{sku}-{n}",
-                                           mrp=v.mrp, price=v.price, stock_qty=0))
-    new.offers = list(src.offers)
-    new.related = list(src.related)
-    return new
-
-
-@bp.post("/products/<int:product_id>/duplicate")
-def product_duplicate(product_id):
-    src = db.session.get(Product, product_id) or abort(404)
-    new = duplicate_product(src)
-    log("product.duplicate", "product", new.id, before={"source_id": src.id}, after=snapshot(new))
-    db.session.commit()
-    flash("Copy created. It is hidden and has no stock yet. Check it and switch it on when ready.", "success")
-    return redirect(url_for("admin.product_edit", product_id=new.id))

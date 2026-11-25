@@ -1,0 +1,15 @@
+{% extends "admin/layout.html" %}
+{% block title %}{{ 'Edit' if item else 'Add' }} FAQ{% endblock %}{% block heading %}{{ 'Edit' if item else 'Add' }} FAQ{% endblock %}
+{% block content %}
+<div class="pagehead"><h2>{{ 'Edit question' if item else 'Add a question' }}</h2></div>
+<form method="post" class="form panel" novalidate>
+  {{ m.csrf() }}
+  {{ m.field("question", "Question", values.question, errors=errors, required=true, maxlength=max_question) }}
+  {{ m.textarea("answer", "Answer", values.answer, errors=errors, rows=6, maxlength=max_answer, hint="Plain text. A blank line starts a new paragraph.") }}
+  {{ m.checkbox("is_active", "Show this question to customers", values.is_active) }}
+  <div class="formbar">
+    <a class="btn btn--cancel" href="{{ url_for('admin.faqs') }}">Cancel</a>
+    <button class="btn" type="submit">Save question</button>
+  </div>
+</form>
+{% endblock %}

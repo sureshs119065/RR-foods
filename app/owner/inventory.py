@@ -17,12 +17,7 @@ from ..admin.helpers import clean, page_number, to_int
 PER_PAGE = 30
 MAX_BULK = 200
 MAX_THRESHOLD = 100_000
-SORTS = {
-    "stock_asc": (Product.stock_qty.asc(), Product.name.asc()),
-    "stock_desc": (Product.stock_qty.desc(), Product.name.asc()),
-    "name": (func.lower(Product.name).asc(),),
-    "updated": (Product.updated_at.desc(),),
-}
+SORTS = stock.STOCK_SORTS
 
 
 def _wants_json() -> bool:
@@ -56,15 +51,9 @@ def inventory():
     cat = request.args.get("category", "")
     if cat.isdigit():
         q = q.where(or_(Product.category_id == int(cat), Product.subcategory_id == int(cat)))
-    level = request.args.get("stock", "")
-    if level == "out":
-        q = q.where(Product.stock_qty == 0)
-    elif level == "low":
-        q = q.where(Product.stock_qty > 0, Product.stock_qty <= Product.low_stock_threshold)
-    elif level == "attention":
-        q = q.where(Product.stock_qty <= Product.low_stock_threshold)
-    elif level == "in":
-        q = q.where(Product.stock_qty > Product.low_stock_threshold)
+    clause = stock.level_clause(request.args.get("stock", ""))
+    if clause is not None:
+        q = q.where(clause)
     sort = request.args.get("sort", "stock_asc")
     q = q.order_by(*SORTS.get(sort, SORTS["stock_asc"]), Product.id)
 

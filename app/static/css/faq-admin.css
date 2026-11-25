@@ -1,0 +1,7 @@
+/* Admin > FAQ list. Reuses .sortable from admin.css; these rules stop it looking draggable and keep long text inside 360px. */
+.faq-admin li { cursor: default; align-items: flex-start; }
+.faq-admin .pcell { flex: 1 1 14rem; min-width: 0; }
+.faq-admin .pcell b, .faq-admin .pcell .hint { display: block; overflow-wrap: anywhere; }
+.faq-admin .row { display: flex; flex-wrap: wrap; gap: var(--sp-2); width: 100%; }
+.faq-admin .btn--sm { min-width: 2.75rem; min-height: 2.75rem; }
+.faq-admin .btn[disabled] { opacity: .45; cursor: not-allowed; }

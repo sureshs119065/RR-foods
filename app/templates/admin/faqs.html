@@ -1,0 +1,45 @@
+{% extends "admin/layout.html" %}
+{% block title %}FAQ{% endblock %}{% block heading %}FAQ{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/faq-admin.css', v='1') }}">{% endblock %}
+{% block content %}
+<div class="pagehead">
+  <h2>Customer FAQ</h2>
+  <a class="btn" href="{{ url_for('admin.faq_form') }}">Add question</a>
+</div>
+
+<section class="panel" aria-labelledby="faq-settings-h">
+  <h3 id="faq-settings-h">Home page display</h3>
+  <form method="post" action="{{ url_for('admin.faq_settings') }}" class="form">
+    {{ m.csrf() }}
+    <label class="check"><input type="checkbox" name="enabled" value="1" {% if cfg.enabled %}checked{% endif %}> <span>Show FAQ on home page</span></label>
+    <label class="field">
+      <span>Number of questions on home page</span>
+      <input type="number" name="max_count" min="{{ min_count }}" max="{{ max_count }}" step="1" inputmode="numeric" value="{{ cfg.max_count }}" required aria-describedby="faq-count-hint">
+      <small class="hint" id="faq-count-hint">From {{ min_count }} to {{ max_count }}. The first questions in the list below are shown; the rest are on the “View all FAQs” page.</small>
+    </label>
+    <button class="btn" type="submit">Save display settings</button>
+  </form>
+</section>
+
+<p class="hint">{{ live }} of {{ items|length }} question{{ '' if items|length == 1 else 's' }} shown to customers. Use Up and Down to change the order.</p>
+<ul class="sortable faq-admin">
+  {% for f in items %}
+  <li id="faq-{{ f.id }}">
+    <div class="pcell">
+      <span><b>{{ f.question }}</b>
+        <span class="hint">{{ f.answer|truncate(120, true) }}</span></span>
+    </div>
+    <span class="badge {{ 'badge--ok' if f.is_active else 'badge--warn' }}">{{ 'Shown' if f.is_active else 'Hidden' }}</span>
+    <div class="row">
+      <form class="inline" method="post" action="{{ url_for('admin.faq_move', faq_id=f.id) }}">{{ m.csrf() }}<input type="hidden" name="direction" value="up"><button class="btn btn--ghost btn--sm" type="submit" aria-label="Move “{{ f.question }}” up" {% if loop.first %}disabled{% endif %}>Up</button></form>
+      <form class="inline" method="post" action="{{ url_for('admin.faq_move', faq_id=f.id) }}">{{ m.csrf() }}<input type="hidden" name="direction" value="down"><button class="btn btn--ghost btn--sm" type="submit" aria-label="Move “{{ f.question }}” down" {% if loop.last %}disabled{% endif %}>Down</button></form>
+      <form class="inline" method="post" action="{{ url_for('admin.faq_toggle', faq_id=f.id) }}">{{ m.csrf() }}<button class="btn btn--ghost btn--sm" type="submit" aria-label="{{ 'Hide' if f.is_active else 'Show' }} “{{ f.question }}”">{{ 'Hide' if f.is_active else 'Show' }}</button></form>
+      <a class="btn btn--sm" href="{{ url_for('admin.faq_form', faq_id=f.id) }}" aria-label="Edit “{{ f.question }}”">Edit</a>
+      <form class="inline" method="post" action="{{ url_for('admin.faq_delete', faq_id=f.id) }}">{{ m.csrf() }}<button class="btn btn--danger btn--sm" type="submit" data-confirm="Delete this question? This cannot be undone." aria-label="Delete “{{ f.question }}”">Delete</button></form>
+    </div>
+  </li>
+  {% else %}
+  <li><span class="hint">No questions yet. Add your first one to get started.</span></li>
+  {% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,10 @@
+{# Accessible FAQ accordion. Needs `items` (Faq rows) and `faq_id` (unique id prefix when a page has two).
+   Without JavaScript every answer is open and readable; static/js/faq.js adds .faq--js, closes them and makes it one-open-at-a-time. #}
+<div class="faq" data-faq>
+  {% for f in items %}
+  <div class="faq__item" id="{{ faq_id }}-{{ f.id }}">
+    <h3 class="faq__q"><button class="faq__btn" type="button" id="{{ faq_id }}-q{{ f.id }}" aria-expanded="true" aria-controls="{{ faq_id }}-a{{ f.id }}"><span class="faq__qt">{{ f.question }}</span><span class="faq__icon" aria-hidden="true"></span></button></h3>
+    <div class="faq__a" id="{{ faq_id }}-a{{ f.id }}"><div class="faq__a-in"><p>{{ f.answer }}</p></div></div>
+  </div>
+  {% endfor %}
+</div>

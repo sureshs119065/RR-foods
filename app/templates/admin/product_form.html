@@ -22,7 +22,7 @@
 {% endmacro %}
 
 {% block content %}
-{% if product and product.is_deleted %}<div class="notice">This product is archived and hidden from customers. <form class="inline" method="post" action="{{ url_for('admin.product_restore', product_id=product.id) }}">{{ m.csrf() }}<button class="btn btn--sm" type="submit">Restore</button></form></div>{% endif %}
+{% if product and product.is_deleted %}<div class="notice">This product is archived and hidden from customers. <form class="inline" method="post" action="{{ url_for('admin.product_restore', product_id=product.id) }}">{{ m.csrf() }}<button class="btn btn--restore btn--sm" type="submit">Restore</button></form></div>{% endif %}
 {% if errors %}<div class="alert alert--error" role="alert">Please fix the highlighted fields ({{ errors|length }}). Nothing was saved.</div>{% endif %}
 
 <form method="post" enctype="multipart/form-data" novalidate id="product-form">
@@ -154,7 +154,6 @@
 <section class="panel">
   <h2>More actions</h2>
   <div class="row">
-    <form class="inline" method="post" action="{{ url_for('admin.product_duplicate', product_id=product.id) }}">{{ m.csrf() }}<button class="btn btn--ghost" type="submit">Duplicate</button></form>
     {% if not product.is_deleted %}<form class="inline" method="post" action="{{ url_for('admin.product_archive', product_id=product.id) }}">{{ m.csrf() }}<button class="btn btn--warn" type="submit">Archive (can be undone)</button></form>{% endif %}
   </div>
 </section>

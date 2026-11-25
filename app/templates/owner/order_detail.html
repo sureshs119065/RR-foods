@@ -7,7 +7,7 @@
 {% set addr = order.shipping_address or {} %}
 {% set nxt = svc.next_step(order.status) %}
 <p class="row"><a href="{{ url_for('owner.orders') }}">&larr; All orders</a></p>
-{% if order.status not in ('pending_whatsapp', 'placed', 'rejected', 'cancelled') %}<p><a class="btn btn--block" href="{{ url_for('owner.order_invoice', order_id=order.id) }}" download>&#11015; Download invoice (PDF)</a></p>{% endif %}
+{% if order.status not in ('pending_whatsapp', 'placed', 'rejected', 'cancelled') %}<p><a class="btn btn--info btn--block" href="{{ url_for('owner.order_invoice', order_id=order.id) }}" download>&#11015; Download invoice (PDF)</a></p>{% endif %}
 
 <section class="panel">
   <div class="row">{{ o.status_badge(order.status) }}{{ o.pay_badge(order) }}<span class="hint">Placed {{ order.created_at|local_display }}</span></div>
@@ -15,7 +15,7 @@
     <p class="notice"><b>This is a checkout request, not an order yet.</b> No stock is held and it is not counted in your sales. When the customer's WhatsApp message quoting <b>{{ order.order_number }}</b> reaches you, press <b>Message received</b>. If it never arrives, close the request.</p>
     <div class="row">
       <form method="post" action="{{ url_for('owner.order_whatsapp_received', order_id=order.id) }}" data-once>{{ m.csrf() }}<button class="btn" type="submit">Message received · place order</button></form>
-      <form method="post" action="{{ url_for('owner.order_discard_request', order_id=order.id) }}" data-once>{{ m.csrf() }}<input type="hidden" name="next" value="{{ url_for('owner.orders', tab='awaiting') }}"><button class="btn btn--danger" type="submit">Close request</button></form>
+      <form method="post" action="{{ url_for('owner.order_discard_request', order_id=order.id) }}" data-once>{{ m.csrf() }}<input type="hidden" name="next" value="{{ url_for('owner.orders') }}"><button class="btn btn--danger" type="submit">Close request</button></form>
     </div>
   {% endif %}
   {% if order.status == 'rejected' %}

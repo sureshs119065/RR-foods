@@ -16,6 +16,9 @@ redis>=5,<7   # rate-limit storage (RATELIMIT_STORAGE_URI=redis://...)
 Pillow>=13.0,<14   # 13.0 fixes the 12.x security advisories (image uploads)
 tzdata>=2024.1
 reportlab>=4.2,<5
+# Excel exports and imports (styled .xlsx); defusedxml makes openpyxl safe against hostile XML in uploaded files
+openpyxl>=3.1,<4
+defusedxml>=0.7,<1
 
 # Production server (used by Render / Docker / systemd)
 gunicorn>=22.0

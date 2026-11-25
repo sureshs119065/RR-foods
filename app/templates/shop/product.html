@@ -112,8 +112,8 @@
         </div>
         <div class="buybar" id="buybar">
           <p class="buybar__price" aria-hidden="true"><span class="muted small">Price</span><b id="bar-price">{{ s.inr(p.final_price) }}</b></p>
-          <button class="btn btn--ghost" type="submit" {% if not variants and stock <= 0 %}disabled{% endif %} data-add>Add to cart</button>
-          <button class="btn" type="submit" formaction="{{ url_for('shop.buy_now') }}" {% if not variants and stock <= 0 %}disabled{% endif %} data-buy>Buy now</button>
+          <button class="btn btn--cart" type="submit" {% if not variants and stock <= 0 %}disabled{% endif %} data-add>Add to cart</button>
+          <button class="btn btn--buy" type="submit" formaction="{{ url_for('shop.buy_now') }}" {% if not variants and stock <= 0 %}disabled{% endif %} data-buy>Buy now</button>
         </div>
       </form>
       {% if stock <= 0 %}

@@ -30,7 +30,7 @@
       <td class="cell-actions">
         <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.category_edit', cat_id=c.id) }}">Edit</a>
         {% if c.is_deleted %}
-          <form class="inline" method="post" action="{{ url_for('admin.category_restore', cat_id=c.id) }}">{{ m.csrf() }}<button class="btn btn--sm" type="submit">Restore</button></form>
+          <form class="inline" method="post" action="{{ url_for('admin.category_restore', cat_id=c.id) }}">{{ m.csrf() }}<button class="btn btn--restore btn--sm" type="submit">Restore</button></form>
           <form class="inline row" method="post" action="{{ url_for('admin.category_delete', cat_id=c.id) }}">{{ m.csrf() }}
             <label class="check"><input type="checkbox" name="confirm" value="1"> <span>I understand</span></label>
             <button class="btn btn--danger btn--sm" type="submit" data-confirm="Delete “{{ c.name }}” permanently? This cannot be undone.">Delete permanently</button></form>

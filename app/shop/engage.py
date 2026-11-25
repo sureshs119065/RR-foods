@@ -261,7 +261,7 @@ def ask_question(slug):
         return done(False, "You already have questions waiting for an answer on this product.", 409)
     db.session.add(ProductQuestion(product_id=p.id, user_id=g.user.id, question=q))
     for oid in db.session.scalars(select(User.id).where(User.role == "owner", User.is_deleted.is_(False), User.is_blocked.is_(False))):
-        notify(oid, "question", f"New question about {p.name}", q[:200], link="/owner/questions")
+        notify(oid, "question", f"New question about {p.name}", q[:200], link="/owner/questions?tab=questions")
     db.session.commit()
     if wants_json:
         return jsonify(ok=True, message="Your question was sent successfully.")
@@ -276,8 +276,11 @@ inbox_roles = roles_required("user", "owner")
 @bp.get("/notifications")
 @inbox_roles
 def notifications():
-    q = select(Notification).where(Notification.user_id == g.user.id, Notification.channel == "in_app").order_by(Notification.id.desc())
-    return render_template("shop/notifications.html", page=db.paginate(q, page=page_number(), per_page=20, error_out=False),
+    from ..services.notification_view import clean_filter, decorate, notification_page
+
+    filt = clean_filter(request.args.get("f"))
+    page, counts = notification_page(g.user.id, filt, page_number())
+    return render_template("shop/notifications.html", page=page, items=decorate(page.items), filt=filt, counts=counts,
                            layout="owner/layout.html" if g.user.role == "owner" else "shop/layout.html")
 
 
@@ -307,7 +310,9 @@ def notification_go(nid):
 @bp.post("/notifications/read-all")
 @inbox_roles
 def notifications_read_all():
-    db.session.execute(Notification.__table__.update().where(Notification.user_id == g.user.id, Notification.channel == "in_app", Notification.is_read.is_(False)).values(is_read=True))
+    from ..services.notification_view import mark_all_read
+
+    mark_all_read(g.user.id)
     db.session.commit()
     flash("All notifications marked as read.", "success")
     return redirect(url_for("shop.notifications"))

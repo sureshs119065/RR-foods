@@ -7,6 +7,7 @@ from ..auth.service import safe_next
 from ..extensions import db, limiter
 from ..models import Order, OrderStatusHistory, User
 from ..services import invoice as invoice_svc
+from ..services import order_view
 from ..services import orders as svc
 from ..services import tracking as tracking_svc
 from . import bp
@@ -14,29 +15,44 @@ from . import bp
 PER_PAGE = 20
 
 
+# "Confirmed" = the shop has accepted the order (everything past "placed" that is still alive or completed).
+CONFIRMED_STATUSES = ("confirmed", "packed", "shipped", "out_for_delivery", "delivered", "return_requested", "returned", "refunded")
+SHOW_FILTERS = ("confirmed", "not_confirmed")
+
+
 @bp.route("/orders")
 def orders():
-    # One consolidated queue: newest orders first, with search and payment filtering.
-    q = select(Order).join(User, User.id == Order.user_id).options(joinedload(Order.user), selectinload(Order.items))
+    # One consolidated queue: newest orders first, with a Confirmed / Not confirmed chip, search and payment filtering.
+    # Unconfirmed WhatsApp checkout requests are not orders and never appear here.
     unpaid = request.args.get("pay") == "pending"
-    # Checkout requests whose WhatsApp message the shop has not confirmed are not orders: they live on their own tab.
-    awaiting_tab = request.args.get("tab") == "awaiting"
-    q = q.where(Order.status == "pending_whatsapp") if awaiting_tab else q.where(Order.status != "pending_whatsapp")
-    awaiting_total = db.session.scalar(select(func.count(Order.id)).where(Order.status == "pending_whatsapp")) or 0
+    show = request.args.get("show") if request.args.get("show") in SHOW_FILTERS else "all"
+    where = [Order.status != "pending_whatsapp"]
     if unpaid:
-        q = q.where(Order.payment_status == "pending", Order.status.notin_(svc.NO_PAYMENT_CHANGE))
+        where += [Order.payment_status == "pending", Order.status.notin_(svc.NO_PAYMENT_CHANGE)]
     term = (request.args.get("q") or "").strip().lower()
     if term:
-        q = q.where(or_(
+        where.append(or_(
             func.lower(Order.order_number).contains(term, autoescape=True),
             func.lower(User.name).contains(term, autoescape=True),
             func.lower(func.coalesce(Order.shipping_address["full_name"].as_string(), "")).contains(term, autoescape=True),
             func.coalesce(Order.shipping_address["phone"].as_string(), "").contains(term.replace(" ", ""), autoescape=True),
         ))
+    # Chip counts follow the same search / payment filter, so a chip always matches the list it opens.
+    by_status = dict(db.session.execute(
+        select(Order.status, func.count(Order.id)).join(User, User.id == Order.user_id).where(*where).group_by(Order.status)).all())
+    status_counts = {"all": sum(by_status.values()),
+                     "confirmed": sum(n for st, n in by_status.items() if st in CONFIRMED_STATUSES),
+                     "not_confirmed": by_status.get("placed", 0)}
+    q = select(Order).join(User, User.id == Order.user_id).options(joinedload(Order.user), selectinload(Order.items)).where(*where)
+    if show == "confirmed":
+        q = q.where(Order.status.in_(CONFIRMED_STATUSES))
+    elif show == "not_confirmed":
+        q = q.where(Order.status == "placed")
     q = q.order_by(Order.created_at.desc(), Order.id.desc())
     page = db.paginate(q, page=page_number(), per_page=PER_PAGE, error_out=False)
-    args = {k: v for k, v in request.args.items() if k != "page" and v}
-    return render_template("owner/orders.html", page=page, args=args, svc=svc, unpaid=unpaid, awaiting_tab=awaiting_tab, awaiting_total=awaiting_total,
+    args = {k: v for k, v in request.args.items() if k != "page" and v}  # keeps show / q / pay across pages
+    return render_template("owner/orders.html", page=page, args=args, svc=svc, unpaid=unpaid, status_filter=show, status_counts=status_counts,
+                           whens=order_view.step_times(page.items), prods=order_view.item_products(page.items),
                            next_url=request.full_path.rstrip("?"))
 
 
@@ -104,7 +120,7 @@ def order_whatsapp_received(order_id):
 @bp.post("/orders/<int:order_id>/discard-request")
 def order_discard_request(order_id):
     """The WhatsApp message never arrived: close the request. Nothing was taken for it, so nothing is given back."""
-    back = safe_next(request.form.get("next"), url_for("owner.orders", tab="awaiting"))
+    back = safe_next(request.form.get("next"), url_for("owner.orders"))
     try:
         order = svc.discard_request(order_id, g.user)
         db.session.commit()

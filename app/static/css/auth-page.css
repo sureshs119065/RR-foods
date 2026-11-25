@@ -1,10 +1,71 @@
-/* Sign in, create account and password recovery: a single centred card, no site header or footer. */
-html body main.auth-page { display: grid; place-items: center; box-sizing: border-box; width: 100%; min-height: 100vh; min-height: 100dvh; margin: 0; padding: clamp(1rem, 4vw, 2rem); }
-html body .auth-wrap { display: grid; justify-items: center; gap: 1rem; width: 100%; max-width: 28rem; }
+/* Sign in, create account and password recovery.
+   Mobile first: compact gradient brand band, then the form card. Desktop (900px+): two panels. No site header or footer. */
+html body main.auth-page { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; box-sizing: border-box; width: 100%; min-height: 100vh; min-height: 100dvh; margin: 0; padding: 0; overflow-x: clip; background: radial-gradient(40rem 26rem at 100% 0, rgb(36 92 58 / .09), transparent 60%), radial-gradient(34rem 24rem at 0 100%, rgb(255 210 31 / .12), transparent 60%), var(--c-soft, #f4f8f5); }
+
+/* Brand band (mobile) / brand panel (desktop) */
+html body .auth-brand { position: relative; isolation: isolate; overflow: hidden; box-sizing: border-box; padding: 1rem 1rem 3.25rem; color: #fff; background: linear-gradient(135deg, #183d2b 0%, #245c3a 60%, #2f7a4c 100%); }
+html body .auth-brand__in { position: relative; z-index: 2; box-sizing: border-box; max-width: 28rem; margin-inline: auto; }
+html body .auth-brand__top { display: flex; align-items: center; gap: .75rem; }
+html body .auth-logo { display: inline-flex; flex: none; padding: 4px; border-radius: 16px; background: #fff; box-shadow: 0 2px 10px rgb(0 0 0 / .18); }
+html body .auth-logo img { display: block; width: auto; height: 44px; }
+html body .auth-logo:focus-visible { outline: 3px solid #ffd21f; outline-offset: 3px; }
+html body .auth-brand__txt { flex: 1 1 auto; min-width: 0; }
+html body .auth-brand__name { margin: 0; font-family: var(--font-display, inherit); font-size: 1.2rem; font-weight: 800; letter-spacing: .04em; color: #fff; }
+html body .auth-brand__tag { margin: .1rem 0 0; font-size: .875rem; line-height: 1.35; color: rgb(255 255 255 / .94); }
+html body .auth-benefits, html body .auth-hero { display: none; }
+
+/* Staff accent badge */
+html body .auth-badge { order: 3; flex: none; margin-left: auto; padding: .3rem .75rem; border-radius: 999px; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; line-height: 1.2; }
+html body .auth-badge--owner { background: #ffd21f; color: #3b2f00; }
+html body .auth-badge--admin { background: #fff; color: #183d2b; box-shadow: inset 0 0 0 2px #7fb6ff; }
+html body .auth-page[data-portal="owner"] .auth-wrap > .card { border-top: 4px solid #e0b400; }
+html body .auth-page[data-portal="admin"] .auth-wrap > .card { border-top: 4px solid #2b6cb0; }
+
+/* Decorative shapes: transform-only animation, one shape on mobile */
+html body .auth-bg { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+html body .auth-bg i { position: absolute; border-radius: 50%; background: radial-gradient(circle at 35% 35%, rgb(255 210 31 / .32), rgb(255 210 31 / 0) 70%); }
+html body .auth-bg i:nth-child(1) { width: 11rem; height: 11rem; top: -4rem; right: -3rem; }
+html body .auth-bg i:nth-child(n+2) { display: none; }
+
+/* Form column */
+html body .auth-wrap { position: relative; z-index: 1; display: grid; justify-items: center; gap: 1rem; box-sizing: border-box; width: 100%; max-width: 28rem; margin: -1.75rem auto 0; padding: 0 1rem 2rem; }
 html body .auth-wrap > .card, html body .auth-wrap > .alert { width: 100%; box-sizing: border-box; margin: 0; }
-html body .auth-logo { display: inline-flex; border-radius: 16px; }
-html body .auth-logo img { display: block; width: auto; height: 72px; }
-html body .auth-logo:focus-visible { outline: 3px solid #ffd21f; outline-offset: 4px; }
+html body .auth-wrap > .card { box-shadow: 0 10px 30px rgb(24 61 43 / .14); }
+html body .auth-wrap .field input { min-height: 2.75rem; }
+
+/* 44px tap area for inline links without changing the text flow */
+html body .auth-wrap .muted a, html body .otp__link, html body .otp__create { display: inline-block; padding: .65rem .35rem; margin: -.65rem -.35rem; }
+
+@media (prefers-reduced-motion: no-preference) {
+  html body .auth-bg i { will-change: transform; animation: auth-float 22s ease-in-out infinite alternate; }
+  html body .auth-bg i:nth-child(2) { animation-duration: 28s; animation-delay: -6s; }
+  html body .auth-bg i:nth-child(3) { animation-duration: 34s; animation-delay: -12s; }
+}
+@keyframes auth-float { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(-1.5rem, 2rem, 0) scale(1.12); } }
+
+@media (min-width: 900px) {
+  html body main.auth-page { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-content: stretch; }
+  html body .auth-brand { position: sticky; top: 0; align-self: start; display: flex; align-items: center; height: 100vh; height: 100dvh; padding: clamp(2rem, 4vw, 4rem); }
+  html body .auth-hero { display: block; position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 70%; }
+  html body .auth-brand::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgb(24 61 43 / .95) 0%, rgb(24 61 43 / .88) 55%, rgb(36 92 58 / .62) 100%); }
+  html body .auth-brand__in { width: 100%; max-width: 30rem; margin: 0; }
+  html body .auth-brand__top { flex-direction: column; align-items: flex-start; gap: 1rem; }
+  html body .auth-logo img { height: 72px; }
+  html body .auth-badge { order: 0; margin-left: 0; }
+  html body .auth-brand__txt { flex: none; }
+  html body .auth-brand__name { font-size: 1rem; letter-spacing: .14em; color: #ffd21f; }
+  html body .auth-brand__tag { margin-top: .5rem; font-family: var(--font-display, inherit); font-size: clamp(1.6rem, 2.6vw, 2.25rem); font-weight: 800; line-height: 1.15; }
+  html body .auth-benefits { display: grid; gap: 1rem; margin: 2rem 0 0; padding: 0; list-style: none; }
+  html body .auth-benefits li { display: flex; align-items: center; gap: .85rem; }
+  html body .auth-benefits__ic { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; border-radius: 50%; background: rgb(255 255 255 / .16); color: #ffd21f; }
+  html body .auth-benefits strong { display: block; font-size: 1.05rem; color: #fff; }
+  html body .auth-benefits small { display: block; font-size: .9rem; color: rgb(255 255 255 / .92); }
+  html body .auth-bg i:nth-child(1) { width: 20rem; height: 20rem; top: -6rem; right: -6rem; }
+  html body .auth-bg i:nth-child(2) { display: block; width: 15rem; height: 15rem; bottom: 6%; left: -5rem; background: radial-gradient(circle at 35% 35%, rgb(255 255 255 / .2), rgb(255 255 255 / 0) 70%); }
+  html body .auth-bg i:nth-child(3) { display: block; width: 8rem; height: 8rem; top: 48%; right: 10%; }
+  html body .auth-wrap { align-self: center; justify-self: center; max-width: 30rem; margin: 0; padding: clamp(2rem, 4vw, 3rem) 2rem; }
+  html body .auth-wrap > .card { box-shadow: 0 16px 44px rgb(24 61 43 / .14); }
+}
 
 /* Customer email-code sign in */
 html body .otp h1 { margin-top: 0; }
@@ -19,7 +80,7 @@ html body .otp__link:disabled { color: #8a9a90; text-decoration: none; cursor: n
 html body .otp__link:focus-visible { outline: 3px solid #ffd21f; outline-offset: 2px; }
 html body .otp__resend { text-align: center; }
 html body .otp__skip { display: block; margin: .75rem auto 0; }
-@media (max-width: 380px) { html body .otp__box { width: 2.5rem; height: 3.1rem; } html body .otp__boxes { gap: .35rem; } }
+@media (max-width: 380px) { html body .otp__box { width: 2.75rem; height: 3.1rem; } html body .otp__boxes { gap: .3rem; } }
 
 /* Sign-in method tabs: only one panel is visible at a time */
 html body .otp__tabs { display: grid; grid-template-columns: 1fr 1fr; gap: .25rem; margin: 1rem 0; padding: .25rem; border-radius: 12px; background: #eaf2ec; }
@@ -34,7 +95,7 @@ html body .otp__create { font-weight: 700; color: var(--c-brand, #0f7b3e); }
 /* Show / hide password (eye) */
 html body .pw { position: relative; display: block; width: 100%; }
 html body .pw input { padding-right: 3rem; }
-html body .pw__eye { position: absolute; top: 50%; right: .35rem; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; padding: 0; border: 0; border-radius: 10px; background: transparent; color: #55705f; cursor: pointer; }
+html body .pw__eye { position: absolute; top: 50%; right: .15rem; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; padding: 0; border: 0; border-radius: 10px; background: transparent; color: #55705f; cursor: pointer; }
 html body .pw__eye:hover { color: var(--c-brand, #0f7b3e); background: rgb(15 123 62 / .08); }
 html body .pw__eye:focus-visible { outline: 3px solid #ffd21f; outline-offset: 1px; }
 
@@ -44,3 +105,5 @@ html body .otp__code::placeholder { color: #b6c4bb; }
 html body .otp__code:focus { border-color: var(--c-brand, #0f7b3e); outline: none; box-shadow: 0 0 0 3px rgb(27 94 59 / .2); }
 html body .field--error .otp__code { border-color: #b3261e; }
 html body .auth-wrap > .card form.otp__resend { margin: .75rem 0 0; text-align: center; }
+
+@media (prefers-reduced-motion: reduce) { html body .otp__tab { transition: none; } }

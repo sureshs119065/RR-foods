@@ -7,6 +7,6 @@
   <p class="hint">The owner signs in at <code>/owner/login</code>. A temporary password is shown once after you save. Ask them to change it after signing in.</p>
   {{ m.field("name", "Name", f.name, errors=errors, required=true, maxlength="120", autocomplete="off") }}
   {{ m.field("email", "Email", f.email, "email", errors, required=true, inputmode="email") }}
-  <div class="formbar"><button class="btn" type="submit">Create owner</button><a class="btn btn--ghost" href="{{ url_for('admin.users') }}">Cancel</a></div>
+  <div class="formbar"><button class="btn" type="submit">Create owner</button><a class="btn btn--cancel" href="{{ url_for('admin.users') }}">Cancel</a></div>
 </form>
 {% endblock %}

@@ -144,6 +144,18 @@ class Combo(TimestampMixin, db.Model):
     bundle = relationship("Bundle")
 
 
+class Faq(TimestampMixin, db.Model):
+    """Customer FAQ shown on the home page (first N active ones) and on /faq (all active ones). Plain text answers."""
+    __tablename__ = "faqs"
+    __table_args__ = (Index("ix_faqs_active_order", "is_active", "sort_order"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    question: Mapped[str] = mapped_column(String(300))
+    answer: Mapped[str] = mapped_column(Text)
+    sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+
+
 class PointsLedger(db.Model):
     __tablename__ = "points_ledger"
     id: Mapped[int] = mapped_column(primary_key=True)

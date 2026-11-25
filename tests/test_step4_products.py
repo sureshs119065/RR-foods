@@ -211,7 +211,7 @@ def test_image_routes_reject_images_of_other_products(admin, session, cat):
     assert post(admin, f"/admin/products/{two.id}/images/{one.images[0].id}/delete", page="/admin/products").status_code == 404
 
 
-# ---------------- archive / undo / delete / duplicate ----------------
+# ---------------- archive / undo / delete ----------------
 def test_archive_undo_and_permanent_delete(admin, session, cat, app):
     post(admin, "/admin/products/new", pdata(cat), files={"images": [img()]})
     p = get_product(session)
@@ -229,27 +229,6 @@ def test_archive_undo_and_permanent_delete(admin, session, cat, app):
     assert get_product(session) is not None
     post(admin, f"/admin/products/{p.id}/delete", {"confirm": "1"}, page="/admin/products")
     assert get_product(session) is None and not any(os.path.exists(x) for x in urls)
-
-
-def test_duplicate_is_hidden_has_copied_files_and_own_skus(admin, session, cat, app):
-    rows = {"variant_id": [""], "variant_option_name": ["Size"], "variant_option_value": ["500 g"], "variant_sku": [""], "variant_mrp": [""],
-            "variant_price": ["300"], "variant_stock": ["4"]}
-    post(admin, "/admin/products/new", pdata(cat, **rows), files={"images": [img()]})
-    src = get_product(session)
-    r = post(admin, f"/admin/products/{src.id}/duplicate", page="/admin/products")
-    assert r.status_code == 302
-    session.expire_all()
-    copy = session.scalar(select(Product).where(Product.id != src.id))
-    assert copy.name == "Ragi Cookies (Copy)" and copy.sku == "P100-COPY" and not copy.is_active and copy.stock_qty == 0
-    assert copy.images[0].url != src.images[0].url and admin.get(copy.images[0].url).status_code == 200
-    assert copy.variants[0].sku != src.variants[0].sku and copy.variants[0].stock_qty == 0
-    # deleting the copy must not break the original
-    post(admin, f"/admin/products/{copy.id}/archive", page="/admin/products")
-    post(admin, f"/admin/products/{copy.id}/delete", {"confirm": "1"}, page="/admin/products")
-    assert admin.get(src.images[0].url).status_code == 200
-    # a second copy gets its own SKU
-    post(admin, f"/admin/products/{src.id}/duplicate", page="/admin/products")
-    assert session.scalar(select(Product).where(Product.sku == "P100-COPY")) is not None
 
 
 # ---------------- list, search, filters ----------------
@@ -361,7 +340,8 @@ def test_export_escapes_formula_injection_and_roundtrips(admin, session, cat):
     session.commit()
     r = admin.get("/admin/products/export.csv")
     assert r.mimetype == "text/csv" and "attachment" in r.headers["Content-Disposition"]
-    rows = list(csv.DictReader(io.StringIO(r.get_data(as_text=True))))
+    assert r.get_data()[:3] == b"\xef\xbb\xbf"                                  # UTF-8 byte order mark, so Excel reads ₹ and accents
+    rows = list(csv.DictReader(io.StringIO(r.get_data().decode("utf-8-sig"))))
     names = {x["sku"]: x["name"] for x in rows}
     assert names["X1"].startswith("'=") and names["X2"] == "'@cmd"
 

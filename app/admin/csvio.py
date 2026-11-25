@@ -1,11 +1,13 @@
-"""CSV export and import for products.
+"""CSV and Excel export, and CSV / Excel import, for products.
 
 Export protects against spreadsheet formula injection (a cell starting with = + - @ would run as a formula in Excel).
+Both formats have the same columns, so a file exported from here can be imported again.
 Import checks every row first and changes nothing unless the whole file is valid.
 """
 import csv
 import io
 import re
+import zipfile
 from decimal import Decimal
 
 from flask import g
@@ -15,6 +17,7 @@ from ..extensions import db
 from ..services.inventory import notify_admin_stock_transition
 from ..models import Category, InventoryLog, Product, ProductImage
 from ..seed import slugify
+from ..services.xlsx_export import INT, MONEY, NUMBER, TEXT, Sheet, build_workbook
 from .helpers import to_decimal, to_int, unique_slug
 
 COLUMNS = ["sku", "name", "category", "subcategory", "brand", "pack_size", "mrp", "discount_type", "discount_value", "stock_qty",
@@ -24,6 +27,9 @@ ALIASES = {"id": "sku", "price": "mrp", "weight": "pack_size", "shortdescription
            "videoid": "video_id", "image": "image_urls", "images": "image_urls", "instock": "in_stock"}
 MAX_ROWS = 2000
 MAX_BYTES = 2 * 1024 * 1024
+MAX_XLSX_UNPACKED = 40 * 1024 * 1024      # guards against a tiny .xlsx that unpacks to gigabytes
+XLSX_MAGIC = b"PK\x03\x04"                 # an .xlsx file is a zip archive
+COLUMN_KINDS = {"mrp": MONEY, "discount_value": NUMBER, "stock_qty": INT, "low_stock_threshold": INT}
 URL_OK = re.compile(r"^(/uploads/|/images/|/static/img/products/|https://)[^\s]+$")
 
 
@@ -34,17 +40,35 @@ def safe_cell(value):
     return text
 
 
+def unsafe_cell(text: str) -> str:
+    """Undoes safe_cell on the way back in, so exporting and importing again does not add a quote to the name."""
+    if len(text) > 1 and text[0] == "'" and text[1] in ("=", "+", "-", "@", "\t", "\r"):
+        return text[1:]
+    return text
+
+
+def product_row(p) -> list:
+    """One product as the list of cells for COLUMNS. Used by both the CSV and the Excel export."""
+    return [p.sku, p.name, p.category.name, p.subcategory.name if p.subcategory else "", p.brand, p.pack_size, p.mrp, p.discount_type,
+            p.discount_value, p.stock_qty, p.low_stock_threshold, p.short_description, p.description, p.ingredients, p.how_to_use,
+            p.fssai, p.video_id, ", ".join(p.tags or []), "yes" if p.is_active else "no", "yes" if p.is_bestseller else "no",
+            "|".join(i.url for i in p.images)]
+
+
 def export_csv(products) -> str:
+    """UTF-8 with a byte order mark, so Excel opens ₹ and accented text correctly. The importer reads the mark too."""
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\n")
     w.writerow(COLUMNS)
     for p in products:
-        w.writerow([safe_cell(x) for x in [
-            p.sku, p.name, p.category.name, p.subcategory.name if p.subcategory else "", p.brand, p.pack_size, p.mrp, p.discount_type,
-            p.discount_value, p.stock_qty, p.low_stock_threshold, p.short_description, p.description, p.ingredients, p.how_to_use,
-            p.fssai, p.video_id, ", ".join(p.tags or []), "yes" if p.is_active else "no", "yes" if p.is_bestseller else "no",
-            "|".join(i.url for i in p.images)]])
-    return buf.getvalue()
+        w.writerow([safe_cell(x) for x in product_row(p)])
+    return "\ufeff" + buf.getvalue()
+
+
+def export_xlsx(products) -> bytes:
+    """Styled Excel file: one sheet, the same columns as the CSV."""
+    kinds = [COLUMN_KINDS.get(c, TEXT) for c in COLUMNS]
+    return build_workbook([Sheet("Products", list(COLUMNS), kinds, [product_row(p) for p in products])], clean=safe_cell)
 
 
 def _truthy(value: str, default=True) -> bool:
@@ -60,17 +84,63 @@ class ImportResult:
         self.created = self.updated = 0
 
 
+def _xlsx_text(value) -> str:
+    """A cell value read from Excel, as the text the CSV importer would have seen."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return str(int(value)) if value.is_integer() else format(Decimal(repr(value)), "f")
+    if isinstance(value, Decimal):
+        return format(value, "f")
+    return str(value)
+
+
+def _read_xlsx(raw: bytes) -> tuple[list[list[str]] | None, str | None]:
+    """First sheet of an .xlsx file as rows of text. Returns (rows, None) or (None, problem)."""
+    from openpyxl import load_workbook
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            if sum(i.file_size for i in archive.infolist()) > MAX_XLSX_UNPACKED:
+                return None, "The Excel file is too large once opened. Import at most 2000 products at a time."
+        book = load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
+        try:
+            rows: list[list[str]] = []
+            for cells in book.worksheets[0].iter_rows(values_only=True):
+                rows.append([_xlsx_text(c) for c in cells])
+                if len(rows) > MAX_ROWS + 1000:          # empty formatted rows at the bottom are fine, a real flood is not
+                    return None, f"Too many rows. Import at most {MAX_ROWS} products at a time."
+        finally:
+            book.close()
+    except Exception:                                    # a damaged or non-Excel file: say so, never crash
+        return None, "That file could not be read as an Excel workbook. Save it as .xlsx or CSV UTF-8 and try again."
+    while rows and not any(c.strip() for c in rows[-1]):
+        rows.pop()
+    return rows, None
+
+
 def import_csv(raw: bytes, *, create_categories: bool, default_stock: int) -> ImportResult:
+    """Despite the name this reads a CSV file or an .xlsx file (it looks at the file itself, not at its name)."""
     res = ImportResult()
     if len(raw) > MAX_BYTES:
         res.errors.append("The file is larger than 2 MB.")
         return res
-    try:
-        text = raw.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        res.errors.append("The file is not UTF-8 text. In Excel choose “CSV UTF-8” when saving.")
-        return res
-    rows = list(csv.reader(io.StringIO(text)))
+    if raw[:4] == XLSX_MAGIC:
+        rows, problem = _read_xlsx(raw)
+        if problem:
+            res.errors.append(problem)
+            return res
+    else:
+        try:
+            text = raw.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            res.errors.append("The file is not UTF-8 text. In Excel choose “CSV UTF-8” when saving.")
+            return res
+        rows = list(csv.reader(io.StringIO(text)))
+    rows = [[unsafe_cell(c) for c in cells] for cells in rows]
     if not rows or len(rows) < 2:
         res.errors.append("The file has no product rows.")
         return res

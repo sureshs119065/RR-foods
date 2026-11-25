@@ -1,11 +1,31 @@
-{# Standalone layout for sign in, create account and password recovery: no storefront header or footer. #}
+{# Standalone layout for sign in, create account and password recovery: no storefront header or footer.
+   Desktop: brand panel (left) + form card (right). Mobile: compact brand band above the form. #}
 {% extends "base.html" %}
 {% block head %}<link rel="stylesheet" href="{{ asset_url('css/auth-page.css') }}">{% endblock %}
 {% block topbar %}{% endblock %}
 {% block main %}
-<main id="main" class="auth-page">
+{% set staff = portal is defined and portal in ('admin', 'owner') %}
+<main id="main" class="auth-page"{% if staff %} data-portal="{{ portal }}"{% endif %}>
+  <aside class="auth-brand" aria-label="About RR FOODS">
+    <img class="auth-hero" src="{{ url_for('static', filename='img/auth-hero.webp') }}" width="640" height="857" alt="" loading="lazy" decoding="async">
+    <span class="auth-bg" aria-hidden="true"><i></i><i></i><i></i></span>
+    <div class="auth-brand__in">
+      <div class="auth-brand__top">
+        <a class="auth-logo" href="{{ url_for('shop.home') }}" aria-label="RR FOODS home"><img src="{{ url_for('static', filename='img/rr-foods-logo-144.webp') }}" width="72" height="72" alt=""></a>
+        {% if staff %}<span class="auth-badge auth-badge--{{ portal }}">{{ portal|capitalize }}</span>{% endif %}
+        <div class="auth-brand__txt">
+          <p class="auth-brand__name">RR FOODS</p>
+          <p class="auth-brand__tag">Wholesome millet foods, made fresh and delivered to your door.</p>
+        </div>
+      </div>
+      <ul class="auth-benefits">
+        <li><span class="auth-benefits__ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.9-5.5 5-7"/></svg></span><span><strong>Fresh millet foods</strong><small>Small batches, no shortcuts.</small></span></li>
+        <li><span class="auth-benefits__ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span><span><strong>Fast delivery</strong><small>Packed and on its way quickly.</small></span></li>
+        <li><span class="auth-benefits__ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span><span><strong>Secure payments</strong><small>Your details stay protected.</small></span></li>
+      </ul>
+    </div>
+  </aside>
   <div class="auth-wrap">
-    <a class="auth-logo" href="{{ url_for('shop.home') }}" aria-label="RR FOODS home"><img src="{{ url_for('static', filename='img/rr-foods-logo-144.webp') }}" width="72" height="72" alt="RR FOODS"></a>
     {% from 'shared/_flash.html' import flashes %}{{ flashes() }}
     {% block content %}{% endblock %}
   </div>

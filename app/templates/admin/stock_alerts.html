@@ -2,26 +2,62 @@
 {% import "admin/_macros.html" as m %}
 {% block title %}Stock alerts{% endblock %}{% block heading %}Stock alerts{% endblock %}
 {% block content %}
-<section class="ops-hero"><div><span class="ops-eyebrow">INVENTORY CONTROL</span><h2>Restock before you run out.</h2><p>Review products that have reached their stock threshold and update quantities in one step.</p></div><a class="btn btn--ghost" href="{{ url_for('admin.products') }}">All products</a></section>
-<nav class="ops-tabs" aria-label="Stock alert filter"><a class="{{ 'is-active' if level == 'attention' else '' }}" href="{{ url_for('admin.stock_alerts', level='attention') }}">All alerts</a><a class="{{ 'is-active' if level == 'low' else '' }}" href="{{ url_for('admin.stock_alerts', level='low') }}">Low stock</a><a class="{{ 'is-active' if level == 'out' else '' }}" href="{{ url_for('admin.stock_alerts', level='out') }}">Out of stock</a></nav>
-<form class="ops-search" method="get" role="search"><input type="hidden" name="level" value="{{ level }}"><input type="search" name="q" value="{{ request.args.get('q','') }}" placeholder="Search product or SKU" aria-label="Search stock alerts"><button class="btn" type="submit">Search</button></form>
-<div class="ops-product-grid">
-{% for p in page.items %}
-<article class="ops-product-card" data-stock-card>
-  <div class="ops-product-card__top">{% set im = p.primary_image %}{% if im %}<img src="{{ im.thumb_url or im.url }}" alt="{{ p.name }}" loading="lazy">{% else %}<span class="ops-product-placeholder">RR</span>{% endif %}
-    <div class="ops-product-card__name"><h3>{{ p.name }}</h3><p>{{ p.sku }} · {{ p.category.name if p.category else 'Uncategorised' }}</p></div>
-    {% if p.stock_qty == 0 %}<span class="ops-state ops-state--out">Out of stock</span>{% else %}<span class="ops-state ops-state--low">Low stock</span>{% endif %}
-  </div>
-  <div class="ops-stock-summary"><div><small>Current stock</small><strong>{{ p.stock_qty }}</strong></div><div><small>Alert threshold</small><strong>{{ p.low_stock_threshold }}</strong></div><div><small>Price</small><strong>₹{{ p.final_price }}</strong></div></div>
-  <form class="ops-stock-form" method="post" action="{{ url_for('admin.stock_alert_update', product_id=p.id) }}" data-stock-stepper>
-    {{ m.csrf() }}<input type="hidden" name="expected" value="{{ p.stock_qty }}"><input type="hidden" name="level" value="{{ level }}">
-    <label for="stock-{{ p.id }}">New quantity</label><div class="ops-stepper"><button type="button" data-step="-1" aria-label="Decrease stock">−</button><input id="stock-{{ p.id }}" name="qty" type="number" min="0" max="1000000" step="1" value="{{ p.stock_qty }}" inputmode="numeric" required><button type="button" data-step="1" aria-label="Increase stock">+</button></div>
-    <button class="btn" type="submit">Save stock</button>
-  </form>
-  <a class="ops-product-edit" href="{{ url_for('admin.product_edit', product_id=p.id) }}">Edit product details →</a>
-</article>
-{% else %}<div class="ops-empty"><strong>You're all caught up.</strong><p>No products match this stock alert filter.</p></div>{% endfor %}
+<div class="pagehead">
+  <h2>Stock <span class="hint">({{ page.total }} product{{ '' if page.total == 1 else 's' }})</span></h2>
+  <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.products') }}">All products</a>
 </div>
-{{ m.pager(page, 'admin.stock_alerts', {'level': level, 'q': request.args.get('q','')}) }}
-<script src="{{ url_for('static', filename='js/admin-operations.js') }}" defer></script>
+
+<nav class="chips" aria-label="Filter by stock status">
+  {% for key, text in chips %}
+    <a class="chip {{ 'chip--on' if level == key else '' }}" href="{{ url_for('admin.stock_alerts', level=key, **keep) }}" {% if level == key %}aria-current="true"{% endif %}>{{ text }} <span class="chip__n">{{ counts[key] }}</span></a>
+  {% endfor %}
+</nav>
+
+<form class="filters" method="get" role="search">
+  <input type="hidden" name="level" value="{{ level }}">
+  <input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Search name, SKU or brand" aria-label="Search products" inputmode="search">
+  <select name="category" aria-label="Category">
+    <option value="">All categories</option>
+    {% for c in cats %}<option value="{{ c.id }}" {% if request.args.get('category') == c.id|string %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+  </select>
+  <select name="sort" aria-label="Sort">
+    {% for val, text in [("stock_asc", "Lowest stock first"), ("stock_desc", "Highest stock first"), ("name", "Name A to Z"), ("updated", "Recently changed")] %}
+      <option value="{{ val }}" {% if sort == val %}selected{% endif %}>{{ text }}</option>{% endfor %}
+  </select>
+  <button class="btn" type="submit">Apply</button>
+</form>
+
+<div class="table-wrap">
+<table class="table table--stock" data-stock-labels="short">
+  <thead><tr>
+    <th scope="col">Product</th><th scope="col">Stock</th><th scope="col">Alert at</th><th scope="col">Status</th><th scope="col">Actions</th>
+  </tr></thead>
+  <tbody>
+  {% for p in page.items %}
+    <tr data-product="{{ p.id }}" data-threshold="{{ p.low_stock_threshold }}">
+      <td class="cell-main">
+        <div class="pcell">
+          {% set im = p.primary_image %}
+          {% if im %}<img class="thumb" src="{{ im.thumb_url or im.url }}" alt="" loading="lazy" width="48" height="48">{% else %}<span class="thumb" aria-hidden="true"></span>{% endif %}
+          <span><a href="{{ url_for('admin.product_edit', product_id=p.id) }}"><b>{{ p.name }}</b></a><span class="hint">{{ p.sku }}{% if p.pack_size %} · {{ p.pack_size }}{% endif %}{% if p.category %} · {{ p.category.name }}{% endif %}{% if not p.is_active %} · hidden from shop{% endif %}</span></span>
+        </div>
+      </td>
+      <td data-label="Stock">
+        <form class="qty" method="post" action="{{ url_for('admin.stock_alert_update', product_id=p.id) }}" data-inline="stock">
+          {{ m.csrf() }}<input type="hidden" name="next" value="{{ next_url }}"><input type="hidden" name="expected" value="{{ p.stock_qty }}">
+          <input type="number" name="qty" value="{{ p.stock_qty }}" min="0" max="1000000" step="1" inputmode="numeric" required aria-label="Stock of {{ p.name }}">
+          <button class="btn btn--sm" type="submit">Save</button>
+        </form>
+      </td>
+      <td data-label="Alert at">{{ p.low_stock_threshold }}</td>
+      <td data-label="Status">{{ m.stock_chip(p.stock_qty, p.low_stock_threshold) }}</td>
+      <td class="cell-actions"><a class="btn btn--ghost btn--sm" href="{{ url_for('admin.product_edit', product_id=p.id) }}">Edit product</a></td>
+    </tr>
+  {% else %}
+    <tr><td class="cell-main" colspan="5">{% if level in ('attention', 'out', 'low') and not request.args.get('q') and not request.args.get('category') %}<strong>You're all caught up.</strong> No products need restocking.{% else %}No products match. Change the filters.{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ m.pager(page, 'admin.stock_alerts', args) }}
 {% endblock %}

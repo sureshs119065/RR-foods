@@ -20,7 +20,10 @@
     </form>
   </div>
 
-  <p><a class="btn btn--ghost" href="{{ url_for('owner.analytics_csv', range=request.args.get('range'), start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}">Download CSV</a></p>
+  <p class="row">
+    <a class="btn btn--info" href="{{ url_for('owner.analytics_xlsx', range=request.args.get('range'), start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}">Download Excel</a>
+    <a class="btn btn--ghost" href="{{ url_for('owner.analytics_csv', range=request.args.get('range'), start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}">Download CSV</a>
+  </p>
   <div class="sa-metrics">
     <article class="sa-metric sa-metric--primary">
       <span class="sa-metric-label" id="sa-sales-label">{{ sales_analytics.sales_label }}</span>
@@ -65,7 +68,7 @@
     <article class="sa-chart-card">
       <div class="sa-chart-head"><div><h3>Sales by category</h3><p>Share of product sales value</p></div></div>
       <div class="sa-donut-wrap">
-        <div class="sa-chart sa-chart--donut" id="sa-category-chart" role="img" aria-label="Sales by product category donut chart"></div>
+        <div class="sa-chart sa-chart--categories" id="sa-category-chart" role="img" aria-label="Sales by product category bar chart"></div>
         <div class="sa-legend" id="sa-category-legend" aria-label="Category chart legend"></div>
       </div>
     </article>

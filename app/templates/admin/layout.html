@@ -14,10 +14,15 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/sales-analytics.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-foods-white-ui.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-dashboard.css', v='20261112-icons-final3') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/stock-ui.css', v='1') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dash-polish.css', v='1') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-polish-final.css', v='2') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-inbox.css', v='1') }}">
   <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/dash-polish.js', v='1') }}" defer></script>
-  <script src="{{ url_for('static', filename='js/sales-analytics.js', v='20261112-range-final3') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/sales-analytics.js', v='20261124-cat-colours') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/stock-inline.js', v='1') }}" defer></script>
+  {% block head_extra %}{% endblock %}
 </head>
 <body>
 {% set here = request.endpoint %}
@@ -38,10 +43,10 @@
         <li><a href="{{ url_for('admin.offers') }}" {% if here and (here.startswith('admin.offer') or here.startswith('admin.combo') or here.startswith('admin.coupon') or here.startswith('admin.bundle')) %}aria-current="page"{% endif %}>{{ m.icon('tag') }}<span class="label">Offers</span></a></li>
         {{ nav_item('admin.categories', 'Categories', 'grid', 'admin.categor') }}
         {{ nav_item('admin.reels', 'Reels', 'video', 'admin.reel') }}
-        {{ nav_item('admin.recipes', 'Recipes', 'book-open', 'admin.recipe') }}
+        {{ nav_item('admin.faqs', 'FAQ', 'faq', 'admin.faq') }}
         {{ nav_item('admin.banners', 'Header banners', 'image', 'admin.banner') }}
         {{ nav_item('admin.reviews', 'Reviews', 'log', 'admin.review') }}
-        <li><a href="{{ url_for('admin.inbox') }}" {% if here and here.startswith('admin.inbox') %}aria-current="page"{% endif %}>{{ m.icon('message-circle') }}<span class="label">Customer Inbox</span></a></li>
+        <li><a href="{{ url_for('admin.questions') }}" {% if here in ('admin.questions', 'admin.feedback_thread', 'admin.question_answer') %}aria-current="page"{% endif %}>{{ m.icon('message-circle') }}<span class="label">Questions &amp; Feedback</span>{% if feedback_count %}<span class="nav__count" aria-label="{{ feedback_count }} waiting">{{ feedback_count if feedback_count < 100 else '99+' }}</span>{% endif %}</a></li>
         {{ nav_item('admin.users', 'Users', 'users', 'admin.user') }}
         {{ nav_item('admin.audit', 'Audit log', 'log', 'admin.audit') }}
         <li class="nav__sep" role="separator"></li>
@@ -73,6 +78,7 @@
   <a href="{{ url_for('admin.products') }}" class="{% if here and here.startswith('admin.product') %}is-current{% endif %}" {% if here and here.startswith('admin.product') %}aria-current="page"{% endif %}>{{ m.icon('box') }}<span>Products</span></a>
   <a href="{{ url_for('admin.notifications') }}" class="{% if here and here.startswith('admin.notification') %}is-current{% endif %}" {% if here and here.startswith('admin.notification') %}aria-current="page"{% endif %}>{{ m.icon('bell') }}<span>Alerts{% if admin_unread_count %}<i>{{ admin_unread_count if admin_unread_count < 100 else '99+' }}</i>{% endif %}</span></a>
 </nav>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 {% block after %}{% endblock %}
 </body>
 </html>

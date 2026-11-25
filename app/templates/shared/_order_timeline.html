@@ -1,0 +1,53 @@
+{# Shared order timeline pieces (owner card + customer tracker). Plain HTML, no inline JS or styles. #}
+{% set OT_HINTS = {
+  'placed': 'We have the order',
+  'confirmed': 'Shop accepted it',
+  'packed': 'Packed with care',
+  'shipped': 'Handed to courier',
+  'out_for_delivery': 'On its way',
+  'delivered': 'Enjoy your order'
+} %}
+
+{# Stepper: vertical under 600px, full-width horizontal above (CSS only). #}
+{% macro track(steps, current, when, created_at, label='Order progress') -%}
+<ol class="ot" aria-label="{{ label }}">
+  {%- for key, text in steps %}
+  <li class="ot__step{{ ' is-done' if loop.index0 <= current else '' }}{{ ' is-now' if loop.index0 == current else '' }}{{ ' is-final' if loop.last else '' }}"{% if loop.index0 == current %} aria-current="step"{% endif %}>
+    <span class="ot__dot" aria-hidden="true"></span>
+    <b>{{ text }}</b>
+    <span class="muted small ot__time">{% if when and key in when %}{{ when[key]|local_display }}{% elif key == 'placed' and created_at %}{{ created_at|local_display }}{% elif loop.index0 < current %}Done{% else %}Pending{% endif %}</span>
+    <span class="ot__hint">{{ OT_HINTS.get(key, '') }}</span>
+  </li>
+  {%- endfor %}
+</ol>
+{%- endmacro %}
+
+{# Up to 3 item thumbnails plus "+N". prods = {product_id: Product}. #}
+{% macro thumbs(order, prods) -%}
+{%- set items = order.items|list -%}
+<span class="ot__thumbs" role="img" aria-label="{{ items|length }} item{{ '' if items|length == 1 else 's' }} in this order">
+  {%- for it in items[:3] -%}
+    {%- set p = prods.get(it.product_id) if prods and it.product_id else none -%}
+    {%- set src = product_image_src(p.primary_image, p, thumbnail=True) if p else none -%}
+    {%- if src %}<img class="ot__thumb" src="{{ src }}" alt="" loading="lazy" decoding="async" width="32" height="32">
+    {%- else %}<span class="ot__thumb ot__thumb--ph" aria-hidden="true">{{ (it.name or '?')[:1] }}</span>{% endif -%}
+  {%- endfor -%}
+  {%- if items|length > 3 %}<span class="ot__more">+{{ items|length - 3 }}</span>{% endif -%}
+</span>
+{%- endmacro %}
+
+{# Info strip: payment, delivery slot, pincode, thumbnails. #}
+{% macro strip(order, addr, prods) -%}
+<div class="ot__strip">
+  <span class="ot__cell"><small>Payment</small><b>{% if order.payment_status == 'paid' %}Paid{% elif order.payment_status == 'refunded' %}Refunded{% else %}Payment pending{% endif %}</b></span>
+  <span class="ot__cell"><small>Delivery slot</small><b>{% if order.delivery_date %}{{ order.delivery_date.strftime('%d %b') }}{% if order.delivery_slot %} · {{ order.delivery_slot }}{% endif %}{% elif order.delivery_slot %}{{ order.delivery_slot }}{% else %}To be scheduled{% endif %}</b></span>
+  <span class="ot__cell"><small>Pincode</small><b>{{ addr.get('pincode') or '-' }}</b></span>
+  <span class="ot__cell"><small>Items</small>{{ thumbs(order, prods) }}</span>
+</div>
+{%- endmacro %}
+
+{% macro expected(order) -%}
+{%- if order.delivery_date and order.status in ('placed','confirmed','packed','shipped','out_for_delivery') -%}
+<p class="ot__expected">Expected by <b>{{ order.delivery_date.strftime('%A, %d %b') }}</b></p>
+{%- endif -%}
+{%- endmacro %}

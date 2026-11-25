@@ -12,7 +12,7 @@ def create_thread(customer, subject: str, body: str):
     # A shared inbox: both Admin and Shop Owner can see and reply to every customer conversation.
     staff = db.session.scalars(select(User).where(User.role.in_(("admin", "owner")), User.is_blocked.is_(False), User.is_deleted.is_(False))).all()
     for person in staff:
-        db.session.add(Notification(user_id=person.id, kind="customer_message", title="New customer message", body=f"{customer.name}: {subject}"[:500], link=f"/{'admin' if person.role == 'admin' else 'owner'}/inbox/{thread.id}"))
+        db.session.add(Notification(user_id=person.id, kind="customer_message", title="New customer message", body=f"{customer.name}: {subject}"[:500], link=f"/{'admin' if person.role == 'admin' else 'owner'}/feedback/{thread.id}"))
     return thread
 
 
@@ -23,6 +23,6 @@ def add_reply(thread, sender, body: str):
     if sender.role == "user":
         staff = db.session.scalars(select(User).where(User.role.in_(("admin", "owner")), User.is_blocked.is_(False), User.is_deleted.is_(False))).all()
         for person in staff:
-            db.session.add(Notification(user_id=person.id, kind="customer_message", title="Customer replied", body=f"{sender.name}: {thread.subject}"[:500], link=f"/{'admin' if person.role == 'admin' else 'owner'}/inbox/{thread.id}"))
+            db.session.add(Notification(user_id=person.id, kind="customer_message", title="Customer replied", body=f"{sender.name}: {thread.subject}"[:500], link=f"/{'admin' if person.role == 'admin' else 'owner'}/feedback/{thread.id}"))
     else:
         db.session.add(Notification(user_id=thread.user_id, kind="message_reply", title="RR FOODS replied to your message", body=thread.subject, link=f"/account/messages/{thread.id}"))

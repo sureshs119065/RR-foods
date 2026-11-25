@@ -1,0 +1,47 @@
+/* Shared stock UI: status chips, inline quantity editor, toast and the stacked stock table.
+   Loaded by the owner panel (Inventory) and the admin panel (Stock alerts), so both look and behave the same. */
+
+/* status tabs: scroll sideways inside their own row, never the page */
+.chips { display: flex; gap: var(--sp-2); overflow-x: auto; padding-bottom: var(--sp-2); margin-bottom: var(--sp-3); scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.chip { display: inline-flex; align-items: center; gap: .4rem; flex: none; min-height: var(--tap); padding: 0 var(--sp-4); border: 2px solid var(--c-line); border-radius: 999px; background: #fff; color: var(--c-ink); font: inherit; font-weight: 700; text-decoration: none; white-space: nowrap; cursor: pointer; transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+.chip:hover { border-color: var(--c-brand); }
+.chip--on { background: var(--c-brand); border-color: var(--c-brand); color: #fff; }
+.chip__n { min-width: 1.4rem; padding: 0 .35rem; border-radius: 999px; background: rgb(0 0 0 / .08); font-size: .8rem; text-align: center; }
+.chip--on .chip__n { background: rgb(255 255 255 / .25); }
+
+/* inline number editor */
+.qty { display: inline-flex; flex-wrap: nowrap; gap: var(--sp-2); align-items: center; }
+.qty input[type=number] { width: 5.25rem; min-width: 0; min-height: var(--tap); padding: 0 var(--sp-2); border: 2px solid var(--c-line); border-radius: var(--radius); font-size: 1rem; text-align: center; background: #fff; color: var(--c-ink); }
+.qty input[type=number]:focus { border-color: var(--c-brand); outline: none; box-shadow: 0 0 0 3px rgb(27 94 59 / .2); }
+.qty .btn { padding: 0 var(--sp-3); }
+.qty--busy { opacity: .6; pointer-events: none; }
+.qty--saved input[type=number] { border-color: var(--c-brand); background: #eef6f0; }
+.qty--failed input[type=number] { border-color: var(--c-danger); background: #fdecef; }
+.js .qty .btn:disabled { visibility: hidden; }
+
+/* toast */
+.toast { position: fixed; left: 50%; bottom: calc(var(--sp-5) + var(--safe-bottom)); z-index: 90; transform: translate(-50%, 1rem); width: max-content; max-width: min(32rem, 92vw); padding: var(--sp-3) var(--sp-4); border-radius: var(--radius); background: var(--c-ink); color: #fff; text-align: center; box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease); }
+.toast--show { opacity: 1; transform: translate(-50%, 0); }
+.toast--error { background: var(--c-danger); }
+.toast[hidden] { display: block; visibility: hidden; }
+.toast--show[hidden] { visibility: visible; }
+
+/* The stock table becomes readable stacked records on narrow screens.
+   The longer selector makes it win over the generic admin card layout, so both panels get the same result. */
+@media (max-width: 767px) {
+  .toast { bottom: calc(5.2rem + env(safe-area-inset-bottom, 0px)); }
+  .table-wrap .table.table--stock, .table-wrap .table.table--stock tbody { display:block; width:100%; }
+  .table-wrap .table.table--stock thead { display:block; position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .table-wrap .table.table--stock tbody { display:grid; gap:.85rem; }
+  .table-wrap .table.table--stock tbody tr { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:.65rem .75rem; padding:.9rem; border:1px solid var(--c-line); border-radius:var(--radius); background:#fff; box-shadow:0 2px 8px rgb(0 0 0 / .04); }
+  .table-wrap .table.table--stock tbody tr td { display:block; min-width:0; padding:0; border:0; text-align:left; font-size:inherit; }
+  .table-wrap .table.table--stock tbody tr td.cell-check { grid-column:1 / -1; }
+  .table-wrap .table.table--stock tbody tr td.cell-main { grid-column:1 / -1; }
+  .table-wrap .table.table--stock tbody tr td[data-label]::before { content:attr(data-label); display:block; margin-bottom:.25rem; color:var(--c-muted); font-size:.76rem; font-weight:700; }
+  .table-wrap .table.table--stock tbody tr td[data-label="Stock"] { grid-column:1 / -1; }
+  .table-wrap .table.table--stock tbody tr td[data-label="Stock"] .qty,
+  .table-wrap .table.table--stock tbody tr td[data-label="Alert at"] .qty { justify-content:flex-start; }
+  .table-wrap .table.table--stock tbody tr td.cell-actions { grid-column:1 / -1; display:flex; border-top:0; padding-top:0; }
+  .table-wrap .table.table--stock tbody tr.vline { margin-left:.65rem; border-left:3px solid var(--c-brand); background:#f8faf7; }
+  .table-wrap .table.table--stock tbody tr td[colspan] { grid-column:1 / -1; }
+}

@@ -10,6 +10,7 @@ from ..extensions import db, limiter
 from ..models import Address, Order, OrderStatusHistory, Product, Review, PushSubscription
 from ..models.base import utcnow
 from ..services import invoice as invoice_svc
+from ..services import order_view
 from ..services import orders as order_svc
 from ..services import reviews as rv_svc
 from ..services import tracking as tracking_svc
@@ -73,7 +74,7 @@ def order_detail(order_number):
         pids = {it.product_id for it in order.items if it.product_id}
         products = {p.id: p for p in db.session.scalars(select(Product).where(Product.id.in_(pids or {0}), Product.is_deleted.is_(False)))}
         my_reviews = {r.product_id: r for r in db.session.scalars(select(Review).where(Review.user_id == g.user.id, Review.product_id.in_(pids or {0}), Review.is_deleted.is_(False)))}
-    return render_template("shop/order.html", order=order, steps=STEPS, when=when, current=current, labels=order_svc.LABELS,
+    return render_template("shop/order.html", order=order, steps=STEPS, when=when, current=current, labels=order_svc.LABELS, item_products=order_view.item_products([order]),
                            reviewable=reviewable, review_products=products, my_reviews=my_reviews, moderation=rv_svc.moderation_on(),
                            can_cancel=order.status in order_svc.CANCELLABLE,
                            can_return=False, can_invoice=order.status not in invoice_svc.NOT_INVOICEABLE,

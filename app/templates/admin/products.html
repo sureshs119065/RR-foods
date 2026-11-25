@@ -10,13 +10,20 @@
     {% for i in undo %}<input type="hidden" name="ids" value="{{ i }}">{% endfor %}
     <button class="btn btn--sm" type="submit">Undo</button>
   </form>
+  <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.products', status='archived') }}">View archived</a>
 </div>
 {% endif %}
 
 <div class="pagehead">
-  <h2>Products <span class="hint">({{ page.total }})</span></h2>
+  <h2>{{ 'Archived products' if status == 'archived' else 'Products' }} <span class="hint">({{ page.total }})</span></h2>
   <div class="row">
-    <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.products_import') }}">Import CSV</a>
+    {% if status == 'archived' %}
+      <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.products') }}">← Back to products</a>
+    {% else %}
+      <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.products', status='archived') }}">Show archived <span class="badge{{ ' badge--warn' if archived_count }}">{{ archived_count }}</span></a>
+    {% endif %}
+    <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.products_import') }}">Import</a>
+    <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.products_export_xlsx', **args) }}">Export Excel</a>
     <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.products_export', **args) }}">Export CSV</a>
     <a class="btn" href="{{ url_for('admin.product_new') }}">Add product</a>
   </div>
@@ -76,9 +83,8 @@
       </td>
       <td class="cell-actions">
         <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.product_edit', product_id=p.id) }}">Edit</a>
-        <form class="inline" method="post" action="{{ url_for('admin.product_duplicate', product_id=p.id) }}">{{ m.csrf() }}<button class="btn btn--ghost btn--sm" type="submit">Duplicate</button></form>
         {% if p.is_deleted %}
-          <form class="inline" method="post" action="{{ url_for('admin.product_restore', product_id=p.id) }}">{{ m.csrf() }}<button class="btn btn--sm" type="submit">Restore</button></form>
+          <form class="inline" method="post" action="{{ url_for('admin.product_restore', product_id=p.id) }}">{{ m.csrf() }}<input type="hidden" name="view" value="archived"><button class="btn btn--restore btn--sm" type="submit">Restore</button></form>
           <form class="inline row" method="post" action="{{ url_for('admin.product_delete', product_id=p.id) }}">{{ m.csrf() }}
             <label class="check"><input type="checkbox" name="confirm" value="1"> <span>I understand</span></label>
             <button class="btn btn--danger btn--sm" type="submit" data-confirm="Delete “{{ p.name }}” permanently? This cannot be undone.">Delete permanently</button></form>
@@ -88,7 +94,7 @@
       </td>
     </tr>
   {% else %}
-    <tr><td class="cell-main" colspan="7">No products match. <a href="{{ url_for('admin.product_new') }}">Add a product</a> or change the filters.</td></tr>
+    <tr><td class="cell-main" colspan="7">{% if status == 'archived' %}Nothing is archived. <a href="{{ url_for('admin.products') }}">Back to products</a>.{% else %}No products match. <a href="{{ url_for('admin.product_new') }}">Add a product</a> or change the filters.{% endif %}</td></tr>
   {% endfor %}
   </tbody>
 </table>

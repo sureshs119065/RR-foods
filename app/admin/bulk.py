@@ -2,11 +2,13 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from flask import Response, abort, flash, redirect, render_template, request, url_for
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload, selectinload
 
 from ..extensions import db
 from ..models import Category, Product
+from ..services.xlsx_export import XLSX_MIMETYPE
 from . import bp
-from .csvio import MAX_BYTES, export_csv, import_csv
+from .csvio import MAX_BYTES, export_csv, export_xlsx, import_csv
 from .helpers import checked, log, to_decimal, to_int
 from .products import _list_query, permanently_delete, snapshot
 
@@ -117,13 +119,27 @@ def products_bulk():
     return redirect(back)
 
 
+def _export_rows(fmt: str) -> list[Product]:
+    """The products the list is showing right now (same search and filters), loaded together so a big export stays fast."""
+    rows = db.session.scalars(_list_query().options(
+        joinedload(Product.category), joinedload(Product.subcategory), selectinload(Product.images))).all()
+    log("product.export", "product", None, after={"count": len(rows), "format": fmt})
+    db.session.commit()
+    return rows
+
+
 @bp.get("/products/export.csv")
 def products_export():
-    rows = db.session.scalars(_list_query()).all()
-    log("product.export", "product", None, after={"count": len(rows)})
-    db.session.commit()
+    rows = _export_rows("csv")
     return Response(export_csv(rows), mimetype="text/csv", headers={
         "Content-Disposition": "attachment; filename=products.csv", "Cache-Control": "no-store"})
+
+
+@bp.get("/products/export.xlsx")
+def products_export_xlsx():
+    rows = _export_rows("xlsx")
+    return Response(export_xlsx(rows), mimetype=XLSX_MIMETYPE, headers={
+        "Content-Disposition": "attachment; filename=products.xlsx", "Cache-Control": "no-store"})
 
 
 @bp.route("/products/import", methods=["GET", "POST"])
@@ -134,7 +150,7 @@ def products_import():
         errs: dict = {}
         stock = to_int(request.form.get("default_stock"), "s", errs, min_=0, max_=100000, required=False, default=0)
         if not upload or not upload.filename:
-            flash("Choose a CSV file first.", "error")
+            flash("Choose a CSV or Excel file first.", "error")
         elif errs:
             flash("Starting stock must be a whole number.", "error")
         else:

@@ -80,15 +80,15 @@ def test_request_shows_on_its_own_tab_and_the_shop_confirms_it(cust, session, ca
     checkout(cust, session, cust.user)
     o = session.scalar(select(Order))
     assert o.order_number not in owner_client.get("/owner/orders").get_data(as_text=True)
-    tab = owner_client.get("/owner/orders?tab=awaiting").get_data(as_text=True)
-    assert o.order_number in tab and "Message received" in tab and "Not an order yet" in tab
+    detail = owner_client.get(f"/owner/orders/{o.id}").get_data(as_text=True)
+    assert "Message received" in detail and "Awaiting WhatsApp" not in owner_client.get("/owner/orders").get_data(as_text=True)
     assert owner_client.get(f"/owner/orders/{o.id}/packing-slip").status_code == 404
     # the shop cannot skip the WhatsApp step by moving the status forward
     post(owner_client, f"/owner/orders/{o.id}/status", {"to": "confirmed", "from_status": "pending_whatsapp"}, page="/owner/orders")
     session.expire_all()
     assert session.get(Order, o.id).status == "pending_whatsapp"
     # message received -> a real order
-    r = post(owner_client, f"/owner/orders/{o.id}/whatsapp-received", {}, page="/owner/orders?tab=awaiting")
+    r = post(owner_client, f"/owner/orders/{o.id}/whatsapp-received", {}, page="/owner/orders")
     assert r.status_code == 302
     session.expire_all()
     o = session.get(Order, o.id)
@@ -124,7 +124,7 @@ def test_shop_can_close_a_request_that_never_arrived(cust, session, catalog, own
     add(cust, p)
     checkout(cust, session, cust.user)
     o = session.scalar(select(Order))
-    post(owner_client, f"/owner/orders/{o.id}/discard-request", {}, page="/owner/orders?tab=awaiting")
+    post(owner_client, f"/owner/orders/{o.id}/discard-request", {}, page="/owner/orders")
     session.expire_all()
     assert session.get(Order, o.id).status == "cancelled"
     untouched(session, p)

@@ -41,6 +41,17 @@ def delivered(session, cust, product, qty=2, status="delivered", number="NK-D1")
     return o
 
 
+def raise_return(session, cust, order_number, data):
+    """Customers cannot raise a return from the site any more (policy), so these tests start the return through the service layer."""
+    from app.services import orders as order_svc
+    o = session.scalar(select(Order).where(Order.order_number == order_number))
+    try:
+        order_svc.request_return(o.id, cust.user, data.get("reason", ""), data.get("note"))
+        session.commit()
+    except order_svc.OrderError:
+        session.rollback()
+
+
 def second_customer(app, session, email="two@x.com"):
     make_user(session, "user", email)
     c = app.test_client()
@@ -430,10 +441,12 @@ def test_return_request_and_owner_accepts_with_restock_then_refunds(app, cust, s
     ow = staff(app, session, "owner")
     o = delivered(session, cust, p, qty=2)
     stock = session.get(Product, p.id).stock_qty
-    assert "Return this order" in cust.get(f"/account/orders/{o.order_number}").get_data(as_text=True)
-    post(cust, f"/account/orders/{o.order_number}/return", {"reason": "Not a real reason"}, page="/")
+    assert "Return this order" not in cust.get(f"/account/orders/{o.order_number}").get_data(as_text=True)   # no customer button (policy)
+    post(cust, f"/account/orders/{o.order_number}/return", {"reason": "Damaged or leaking"}, page="/")
     session.expire_all(); assert session.get(Order, o.id).status == "delivered"
-    post(cust, f"/account/orders/{o.order_number}/return", {"reason": "Damaged or leaking", "note": "Box was wet"}, page="/")
+    raise_return(session, cust, o.order_number, {"reason": "Not a real reason"})
+    session.expire_all(); assert session.get(Order, o.id).status == "delivered"
+    raise_return(session, cust, o.order_number, {"reason": "Damaged or leaking", "note": "Box was wet"})
     session.expire_all()
     assert session.get(Order, o.id).status == "return_requested"
     h = session.scalar(select(OrderStatusHistory).where(OrderStatusHistory.to_status == "return_requested"))
@@ -442,7 +455,7 @@ def test_return_request_and_owner_accepts_with_restock_then_refunds(app, cust, s
     assert "Return requested" in ow.get("/owner/orders?tab=returns").get_data(as_text=True) and o.order_number in ow.get("/owner/orders?tab=returns").get_data(as_text=True)
     page = ow.get(f"/owner/orders/{o.id}").get_data(as_text=True)
     assert "Box was wet" in page and "Put the items back in stock" in page and "Decline return" in page
-    post(cust, f"/account/orders/{o.order_number}/return", {"reason": "Damaged or leaking"}, page="/")            # twice: ignored
+    raise_return(session, cust, o.order_number, {"reason": "Damaged or leaking"})            # twice: ignored
     post(ow, f"/owner/orders/{o.id}/status", {"to": "returned", "from_status": "return_requested", "restock": "1"}, page="/owner/orders")
     session.expire_all()
     assert session.get(Order, o.id).status == "returned" and session.get(Product, p.id).stock_qty == stock + 2
@@ -461,7 +474,7 @@ def test_return_without_restock_leaves_stock_alone(app, cust, session, catalog):
     ow = staff(app, session, "owner")
     o = delivered(session, cust, p)
     before = session.get(Product, p.id).stock_qty
-    post(cust, f"/account/orders/{o.order_number}/return", {"reason": "Wrong item received"}, page="/")
+    raise_return(session, cust, o.order_number, {"reason": "Wrong item received"})
     post(ow, f"/owner/orders/{o.id}/status", {"to": "returned", "from_status": "return_requested"}, page="/owner/orders")
     session.expire_all()
     assert session.get(Order, o.id).status == "returned" and session.get(Product, p.id).stock_qty == before
@@ -475,7 +488,7 @@ def test_owner_can_decline_a_return_with_a_reason(app, cust, session, catalog):
     session.expire_all()
     sales = session.get(Product, p.id).sales_count
     assert sales == 2
-    post(cust, f"/account/orders/{o.order_number}/return", {"reason": "Ordered by mistake"}, page="/")
+    raise_return(session, cust, o.order_number, {"reason": "Ordered by mistake"})
     post(ow, f"/owner/orders/{o.id}/status", {"to": "delivered", "from_status": "return_requested", "reason": ""}, page="/owner/orders")
     session.expire_all(); assert session.get(Order, o.id).status == "return_requested"                # reason is required
     post(ow, f"/owner/orders/{o.id}/status", {"to": "delivered", "from_status": "return_requested", "reason": "Opened food cannot be returned"}, page="/owner/orders")
@@ -490,15 +503,15 @@ def test_return_window_and_state_rules(app, cust, session, catalog):
     session.execute(OrderStatusHistory.__table__.update().where(OrderStatusHistory.order_id == o.id, OrderStatusHistory.to_status == "delivered").values(created_at=utcnow() - timedelta(days=9)))
     session.commit()
     assert "Return this order" not in cust.get(f"/account/orders/{o.order_number}").get_data(as_text=True)
-    post(cust, f"/account/orders/{o.order_number}/return", {"reason": "Damaged or leaking"}, page="/")
+    raise_return(session, cust, o.order_number, {"reason": "Damaged or leaking"})
     session.expire_all(); assert session.get(Order, o.id).status == "delivered"
     session.add(SiteSetting(key="return_window_days", value=30))                                         # the shop can widen the window
     session.commit()
-    post(cust, f"/account/orders/{o.order_number}/return", {"reason": "Damaged or leaking"}, page="/")
+    raise_return(session, cust, o.order_number, {"reason": "Damaged or leaking"})
     session.expire_all(); assert session.get(Order, o.id).status == "return_requested"
     for status in ("placed", "shipped", "cancelled", "rejected"):
         x = mk_order(session, cust.user, p, status=status, number=f"NK-W{status}")
-        post(cust, f"/account/orders/{x.order_number}/return", {"reason": "Damaged or leaking"}, page="/")
+        raise_return(session, cust, x.order_number, {"reason": "Damaged or leaking"})
         session.expire_all(); assert session.get(Order, x.id).status == status
     other = second_customer(app, session)
     assert post(other, f"/account/orders/{o.order_number}/return", {"reason": "Damaged or leaking"}, page="/").status_code == 404
@@ -510,7 +523,7 @@ def test_cod_refund_marks_payment_refunded(app, cust, session, catalog):
     o = mk_order(session, cust.user, p, status="shipped", number="NK-F1")
     post(ow, f"/owner/orders/{o.id}/status", {"to": "delivered", "from_status": "shipped"}, page="/owner/orders")   # cash collected
     session.expire_all(); assert session.get(Order, o.id).payment_status == "paid"
-    post(cust, f"/account/orders/{o.order_number}/return", {"reason": "Quality not as expected"}, page="/")
+    raise_return(session, cust, o.order_number, {"reason": "Quality not as expected"})
     for to, frm in (("returned", "return_requested"), ("refunded", "returned")):
         post(ow, f"/owner/orders/{o.id}/status", {"to": to, "from_status": frm}, page="/owner/orders")
     session.expire_all()

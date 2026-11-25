@@ -126,7 +126,8 @@ def test_loop_region_is_labelled_and_clones_are_inert(app, many):
     if m:  # the New Arrivals row only renders when products exist
         assert 'role="region"' in m.group(0) and 'aria-label="New arrivals product row"' in m.group(0)
         # step 2.5: the server sends each card once; the script adds aria-hidden + inert clones only while the row loops
-        assert 'aria-hidden="true" inert' not in html
+        no_drawer = re.sub(r'<aside class="drawer"[^>]*>', "", html)   # the closed menu drawer is legitimately aria-hidden + inert
+        assert 'aria-hidden="true" inert' not in no_drawer
         js = (JS_DIR / "home-loop.js").read_text(encoding="utf-8")
         assert "setAttribute('aria-hidden', 'true')" in js and "setAttribute('inert', '')" in js
 

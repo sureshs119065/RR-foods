@@ -18,6 +18,6 @@
     {{ m.field("per_user_limit", "Uses per customer", f.per_user_limit, "number", errors, inputmode="numeric") }}
     <div>{{ m.checkbox("is_active", "Active", f.is_active) }}</div>
   </div>
-  <div class="formbar"><button class="btn" type="submit">Save coupon</button><a class="btn btn--ghost" href="{{ url_for('admin.coupons') }}">Cancel</a></div>
+  <div class="formbar"><button class="btn" type="submit">Save coupon</button><a class="btn btn--cancel" href="{{ url_for('admin.coupons') }}">Cancel</a></div>
 </form>
 {% endblock %}

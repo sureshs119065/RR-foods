@@ -12,7 +12,7 @@ def _guard():
 
 
 # Importing the modules registers their routes on `bp`.
-from . import account, dashboard, categories, products, bulk, banners, users, audit, reviews, content, offers, coupons, combos, bundles, inbox, operations  # noqa: E402,F401
+from . import account, dashboard, categories, products, bulk, banners, users, audit, reviews, content, offers, coupons, combos, bundles, questions, operations, faqs  # noqa: E402,F401
 
 @bp.context_processor
 def _admin_alert_counts():
@@ -24,4 +24,5 @@ def _admin_alert_counts():
     if getattr(g, "user", None) is not None:
         unread = db.session.scalar(select(func.count(Notification.id)).where(
             Notification.user_id == g.user.id, Notification.channel == "in_app", Notification.is_read.is_(False))) or 0
-    return {"admin_unread_count": unread}
+    from ..services.feedback_hub import counts
+    return {"admin_unread_count": unread, "feedback_count": counts()["total"] if getattr(g, "user", None) is not None else 0}

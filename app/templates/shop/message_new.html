@@ -7,7 +7,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Subject<input name="subject" maxlength="160" minlength="3" required placeholder="e.g. Question about my order"></label>
     <label>Your message<textarea name="body" rows="7" maxlength="4000" minlength="5" required placeholder="Tell us how we can help..."></textarea></label>
-    <div class="inbox-actions"><a class="btn btn--ghost" href="{{ url_for('shop.messages') }}">Cancel</a><button class="btn btn--accent" type="submit">Send message</button></div>
+    <div class="inbox-actions"><a class="btn btn--cancel" href="{{ url_for('shop.messages') }}">Cancel</a><button class="btn btn--accent" type="submit">Send message</button></div>
   </form>
 </section>
 {% endblock %}

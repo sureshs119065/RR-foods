@@ -1,11 +1,12 @@
 """Admin operational screens: inventory alerts, orders, FAQs and notifications."""
-from flask import abort, flash, g, redirect, render_template, request, url_for
+from flask import abort, flash, g, jsonify, redirect, render_template, request, url_for
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import joinedload, selectinload
 
+from ..auth.service import safe_next
 from ..extensions import db, limiter
 from ..services import tracking as tracking_svc
-from ..models import Notification, Order, OrderStatusHistory, Product, User
+from ..models import Category, Notification, Order, OrderStatusHistory, Product, User
 from ..services import inventory as stock
 from ..services.inventory import MAX_QTY, StockError
 from ..services.stock_alerts import notify_restocked
@@ -13,31 +14,62 @@ from . import bp
 from .helpers import page_number
 
 PER_PAGE = 24
+STOCK_LEVELS = ("attention", "out", "low", "in", "all")
+STOCK_CHIPS = (("attention", "Needs attention"), ("out", "Out"), ("low", "Low"), ("in", "Healthy"), ("all", "All"))
+
+
+def _stock_reply(ok: bool, message: str, code: int = 200, **extra):
+    """JSON for the inline editor, flash + redirect for a plain form post (works without JavaScript)."""
+    if request.accept_mimetypes.best == "application/json":
+        return jsonify(ok=ok, message=message, **extra), code
+    flash(message, "success" if ok else "error")
+    return redirect(safe_next(request.form.get("next"), url_for("admin.stock_alerts")))
 
 
 @bp.get("/stock-alerts")
 def stock_alerts():
     level = request.args.get("level", "attention")
+    if level not in STOCK_LEVELS:
+        level = "attention"
     term = (request.args.get("q") or "").strip().lower()
     product_id = None
-    if term.startswith("stock-id-") and term[9:].isdigit():
+    if term.startswith("stock-id-") and term[9:].isdigit():       # links from notifications open one product
         product_id = int(term[9:])
         term = ""
-    q = select(Product).where(Product.is_deleted.is_(False))
-    if product_id is not None:
-        q = q.where(Product.id == product_id)
         level = "all"
-    if level == "out":
-        q = q.where(Product.stock_qty == 0)
-    elif level == "low":
-        q = q.where(Product.stock_qty > 0, Product.stock_qty <= Product.low_stock_threshold)
-    elif level != "all":
-        q = q.where(Product.stock_qty <= Product.low_stock_threshold)
+
+    # search and category narrow everything, including the chip counts; the status chip then picks a slice of that
+    scope = [Product.is_deleted.is_(False)]
+    if product_id is not None:
+        scope.append(Product.id == product_id)
     if term:
-        q = q.where(or_(func.lower(Product.name).contains(term, autoescape=True),
-                        func.lower(Product.sku).contains(term, autoescape=True)))
-    page = db.paginate(q.order_by(Product.stock_qty.asc(), Product.name.asc()), page=page_number(), per_page=PER_PAGE, error_out=False)
-    return render_template("admin/stock_alerts.html", page=page, level=level)
+        scope.append(or_(func.lower(Product.name).contains(term, autoescape=True),
+                         func.lower(Product.sku).contains(term, autoescape=True),
+                         func.lower(func.coalesce(Product.brand, "")).contains(term, autoescape=True)))
+    cat = request.args.get("category", "")
+    if cat.isdigit():
+        scope.append(or_(Product.category_id == int(cat), Product.subcategory_id == int(cat)))
+
+    out, low, ok, total = db.session.execute(select(
+        func.count(Product.id).filter(stock.level_clause("out")),
+        func.count(Product.id).filter(stock.level_clause("low")),
+        func.count(Product.id).filter(stock.level_clause("in")),
+        func.count(Product.id)).where(*scope)).one()
+    counts = {"attention": out + low, "out": out, "low": low, "in": ok, "all": total}
+
+    q = select(Product).where(*scope).options(joinedload(Product.category))
+    clause = stock.level_clause(level)
+    if clause is not None:
+        q = q.where(clause)
+    sort = request.args.get("sort", "stock_asc")
+    q = q.order_by(*stock.STOCK_SORTS.get(sort, stock.STOCK_SORTS["stock_asc"]), Product.id)
+    page = db.paginate(q, page=page_number(), per_page=PER_PAGE, error_out=False)
+
+    cats = db.session.scalars(select(Category).where(Category.is_deleted.is_(False), Category.parent_id.is_(None))
+                              .order_by(Category.sort_order, Category.name)).all()
+    keep = {k: v for k, v in (("q", request.args.get("q", "").strip()), ("category", cat), ("sort", sort if sort != "stock_asc" else "")) if v}
+    return render_template("admin/stock_alerts.html", page=page, level=level, counts=counts, chips=STOCK_CHIPS, cats=cats,
+                           sort=sort, keep=keep, args={**keep, "level": level}, next_url=request.full_path.rstrip("?"))
 
 
 @bp.post("/stock-alerts/<int:product_id>/update")
@@ -48,30 +80,28 @@ def stock_alert_update(product_id):
         if str(qty) != raw or qty < 0 or qty > MAX_QTY:
             raise ValueError
     except ValueError:
-        flash(f"Enter a whole number from 0 to {MAX_QTY:,}.", "error")
-        return redirect(url_for("admin.stock_alerts"))
+        return _stock_reply(False, f"Enter a whole number from 0 to {MAX_QTY:,}.", 422)
     product = stock.lock_product(product_id)
     if product is None:
-        abort(404)
+        return _stock_reply(False, "That product no longer exists. Reload the page.", 404)
     old = product.stock_qty
     expected_raw = (request.form.get("expected") or str(old)).strip()
     if not expected_raw.isdigit():
-        flash("Reload the page and try the stock update again.", "error")
-        return redirect(url_for("admin.stock_alerts"))
+        db.session.rollback()
+        return _stock_reply(False, "Reload the page and try the stock update again.", 422)
     try:
         stock.set_quantity(product, qty, "admin stock alert update", g.user.id, expected=int(expected_raw))
         db.session.commit()
     except stock.StaleStock as exc:
         db.session.rollback()
-        flash(str(exc), "error")
-        return redirect(url_for("admin.stock_alerts"))
+        return _stock_reply(False, str(exc), 409, current=exc.current)
     except StockError as exc:
         db.session.rollback()
-        flash(str(exc), "error")
-        return redirect(url_for("admin.stock_alerts"))
+        return _stock_reply(False, str(exc), 422)
     notify_restocked()
-    flash(f"Stock updated successfully — {product.name}: {old} → {qty}.", "success")
-    return redirect(url_for("admin.stock_alerts", level=request.form.get("level", "attention")))
+    state = stock.stock_state(qty, product.low_stock_threshold)
+    return _stock_reply(True, f"Stock updated successfully — {product.name}: {old} → {qty}.",
+                        qty=qty, state=state, label={"out": "Out", "low": "Low", "ok": "Healthy"}[state])
 
 
 @bp.get("/orders")
@@ -103,12 +133,24 @@ def order_detail(order_id):
 
 @bp.get("/notifications")
 def notifications():
-    unread = db.session.scalar(select(func.count(Notification.id)).where(
-        Notification.user_id == g.user.id, Notification.channel == "in_app", Notification.is_read.is_(False))) or 0
-    rows = db.session.scalars(select(Notification).where(
-        Notification.user_id == g.user.id, Notification.channel == "in_app").order_by(
-        Notification.created_at.desc(), Notification.id.desc()).limit(100)).all()
-    return render_template("admin/notifications.html", rows=rows, unread=unread)
+    from ..services.notification_view import clean_filter, decorate, notification_page
+
+    filt = clean_filter(request.args.get("f"))
+    page, counts = notification_page(g.user.id, filt, page_number())
+    return render_template("admin/notifications.html", page=page, items=decorate(page.items), filt=filt, counts=counts)
+
+
+@bp.get("/notifications/<int:notification_id>/go")
+def notification_go(notification_id):
+    """Open a notification: marks it read, then goes to its link (same-site links only)."""
+    row = db.session.scalar(select(Notification).where(
+        Notification.id == notification_id, Notification.user_id == g.user.id, Notification.channel == "in_app"))
+    if row is None:
+        abort(404)
+    if not row.is_read:
+        row.is_read = True
+        db.session.commit()
+    return redirect(safe_next(row.link, url_for("admin.notifications")))
 
 
 @bp.post("/notifications/<int:notification_id>/read")
@@ -120,13 +162,14 @@ def notification_read(notification_id):
     row.is_read = True
     db.session.commit()
     flash("Notification marked as read.", "success")
-    return redirect(url_for("admin.notifications"))
+    return redirect(safe_next(request.form.get("next"), url_for("admin.notifications")))
 
 
 @bp.post("/notifications/read-all")
 def notifications_read_all():
-    db.session.query(Notification).filter_by(user_id=g.user.id, channel="in_app", is_read=False).update(
-        {"is_read": True}, synchronize_session=False)
+    from ..services.notification_view import mark_all_read
+
+    mark_all_read(g.user.id)
     db.session.commit()
     flash("All notifications marked as read.", "success")
     return redirect(url_for("admin.notifications"))

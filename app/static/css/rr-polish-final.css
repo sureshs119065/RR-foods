@@ -1,0 +1,163 @@
+/* RR Foods: final polish. Loaded LAST in base, admin and owner layouts.
+   1) Semantic button colours   2) Category chart palette (colourblind-friendly)
+   Buttons are driven by --b-* variables so one rule paints every state.
+   `:not(#rr)` lifts specificity above the older !important button rules. */
+
+:root {
+  --rr-green: #1e7b3c;  --rr-green-h: #176232;  --rr-green-a: #124e27;
+  --rr-orange: #d9480f; --rr-orange-h: #bf3f0b; --rr-orange-a: #a03409;
+  --rr-amber: #f59f00;  --rr-amber-h: #e08f00;  --rr-amber-a: #c77f00;  --rr-amber-ink: #2b1b00;
+  --rr-red: #c62828;    --rr-red-h: #a81f1f;    --rr-red-a: #8c1818;
+  --rr-warn-line: #b45309; --rr-warn-ink: #8a4308; --rr-warn-wash: #fef3c7; --rr-warn-wash-a: #fde68a;
+  --rr-blue: #1565c0;   --rr-blue-h: #0f4e99;   --rr-blue-a: #0b3d7a;
+  --rr-neutral-line: #6b7280; --rr-neutral-ink: #374151; --rr-neutral-wash: #f3f4f6; --rr-neutral-wash-a: #e5e7eb;
+  --rr-wa: #25d366;     --rr-wa-h: #1fb858;     --rr-wa-a: #1a9f4d;     --rr-wa-ink: #062e15;
+  --rr-teal: #0f766e;   --rr-teal-h: #0b5f58;   --rr-teal-a: #094c46;
+  --rr-red-wash: #fdecea; --rr-red-wash-a: #f9d3cf;
+  --rr-disabled-bg: #e5e7eb; --rr-disabled-ink: #6b7280; --rr-disabled-line: #d1d5db;
+
+  /* 10 colourblind-friendly category colours (Okabe-Ito + Tol). Same order everywhere. */
+  --rr-cat-0: #0072b2; --rr-cat-1: #e69f00; --rr-cat-2: #009e73; --rr-cat-3: #d55e00;
+  --rr-cat-4: #cc79a7; --rr-cat-5: #56b4e9; --rr-cat-6: #882255; --rr-cat-7: #999933;
+  --rr-cat-8: #44aa99; --rr-cat-9: #6a3d9a;
+}
+
+/* ---- Variables per button purpose (default = primary green) ---- */
+.btn {
+  --b-bg: var(--rr-green); --b-bg-h: var(--rr-green-h); --b-bg-a: var(--rr-green-a);
+  --b-fg: #fff; --b-bd: var(--rr-green);
+}
+.btn--ghost { /* Edit / Back: neutral outline */
+  --b-bg: #fff; --b-bg-h: var(--rr-neutral-wash); --b-bg-a: var(--rr-neutral-wash-a);
+  --b-fg: var(--rr-neutral-ink); --b-bd: var(--rr-neutral-line);
+}
+.btn--warn { /* Archive / Warning: amber outline */
+  --b-bg: #fff; --b-bg-h: var(--rr-warn-wash); --b-bg-a: var(--rr-warn-wash-a);
+  --b-fg: var(--rr-warn-ink); --b-bd: var(--rr-warn-line);
+}
+.btn--danger { /* Reject / Delete */
+  --b-bg: var(--rr-red); --b-bg-h: var(--rr-red-h); --b-bg-a: var(--rr-red-a); --b-fg: #fff; --b-bd: var(--rr-red);
+}
+.btn--cancel { /* Cancel: red outline */
+  --b-bg: #fff; --b-bg-h: var(--rr-red-wash); --b-bg-a: var(--rr-red-wash-a);
+  --b-fg: var(--rr-red-h); --b-bd: var(--rr-red);
+}
+.btn--buy { /* Buy now / Checkout: orange */
+  --b-bg: var(--rr-orange); --b-bg-h: var(--rr-orange-h); --b-bg-a: var(--rr-orange-a); --b-fg: #fff; --b-bd: var(--rr-orange);
+}
+.btn--cart { /* Add to cart: amber */
+  --b-bg: var(--rr-amber); --b-bg-h: var(--rr-amber-h); --b-bg-a: var(--rr-amber-a); --b-fg: var(--rr-amber-ink); --b-bd: var(--rr-amber-h);
+}
+.btn--info { /* View details / Download / Export: blue */
+  --b-bg: var(--rr-blue); --b-bg-h: var(--rr-blue-h); --b-bg-a: var(--rr-blue-a); --b-fg: #fff; --b-bd: var(--rr-blue);
+}
+.btn--restore { /* Restore: teal */
+  --b-bg: var(--rr-teal); --b-bg-h: var(--rr-teal-h); --b-bg-a: var(--rr-teal-a); --b-fg: #fff; --b-bd: var(--rr-teal);
+}
+.btn--wa, .btn.wa-btn { /* WhatsApp */
+  --b-bg: var(--rr-wa); --b-bg-h: var(--rr-wa-h); --b-bg-a: var(--rr-wa-a); --b-fg: var(--rr-wa-ink); --b-bd: var(--rr-wa);
+}
+.btn--primary, .btn--accent { /* Save / Confirm / Mark packed: green */
+  --b-bg: var(--rr-green); --b-bg-h: var(--rr-green-h); --b-bg-a: var(--rr-green-a); --b-fg: #fff; --b-bd: var(--rr-green);
+}
+/* Existing markup without a purpose class: pick the colour from what the button does. */
+:root .btn[data-buy], :root a.btn[href*="/checkout"], :root form[action*="buy"] .btn { --b-bg: var(--rr-orange); --b-bg-h: var(--rr-orange-h); --b-bg-a: var(--rr-orange-a); --b-fg: #fff; --b-bd: var(--rr-orange); }
+:root .btn[data-add], :root .btn.pc__btn--primary { --b-bg: var(--rr-amber); --b-bg-h: var(--rr-amber-h); --b-bg-a: var(--rr-amber-a); --b-fg: var(--rr-amber-ink); --b-bd: var(--rr-amber-h); }
+:root form[action*="restore"] .btn:not(.btn--danger) { --b-bg: var(--rr-teal); --b-bg-h: var(--rr-teal-h); --b-bg-a: var(--rr-teal-a); --b-fg: #fff; --b-bd: var(--rr-teal); }
+:root form[action*="delete"] .btn, :root form[action*="reject"] .btn { --b-bg: var(--rr-red); --b-bg-h: var(--rr-red-h); --b-bg-a: var(--rr-red-a); --b-fg: #fff; --b-bd: var(--rr-red); }
+:root a.btn[download], :root a.btn[href*="invoice"], :root a.btn[href*="export"], :root a.btn[href*="csv"] { --b-bg: var(--rr-blue); --b-bg-h: var(--rr-blue-h); --b-bg-a: var(--rr-blue-a); --b-fg: #fff; --b-bd: var(--rr-blue); }
+:root a.btn[href*="wa.me"], :root a.btn[href*="whatsapp"] { --b-bg: var(--rr-wa); --b-bg-h: var(--rr-wa-h); --b-bg-a: var(--rr-wa-a); --b-fg: var(--rr-wa-ink); --b-bd: var(--rr-wa); }
+
+/* ---- Shared shape + states ---- */
+:root .btn:not(#rr) {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4em;
+  min-height: 44px; min-width: 44px; padding: 0 1.1rem;
+  border: 1px solid var(--b-bd) !important; border-radius: 10px;
+  background: var(--b-bg) !important; color: var(--b-fg) !important;
+  font-weight: 700; line-height: 1.2; text-decoration: none; text-align: center;
+  box-shadow: none !important; cursor: pointer; touch-action: manipulation;
+  transition: background-color .15s ease, border-color .15s ease, transform .1s ease;
+}
+:root .btn.btn--sm:not(#rr), :root .btn.btn--small:not(#rr) { min-height: 44px; padding: 0 .85rem; font-size: .85rem; }
+:root .btn.btn--lg:not(#rr) { min-height: 52px; padding: 0 1.4rem; font-size: 1.05rem; }
+:root .btn.btn--block:not(#rr) { width: 100%; }
+:root .btn:hover:not(#rr):not(:disabled):not([aria-disabled="true"]) { background: var(--b-bg-h) !important; color: var(--b-fg) !important; text-decoration: none; }
+:root .btn:active:not(#rr):not(:disabled):not([aria-disabled="true"]) { background: var(--b-bg-a) !important; transform: scale(.98); }
+:root .btn:focus-visible:not(#rr) { outline: 3px solid #1565c0 !important; outline-offset: 2px; }
+:root .btn:disabled:not(#rr), :root .btn[disabled]:not(#rr), :root .btn[aria-disabled="true"]:not(#rr) {
+  background: var(--rr-disabled-bg) !important; color: var(--rr-disabled-ink) !important;
+  border-color: var(--rr-disabled-line) !important; cursor: not-allowed; transform: none; opacity: 1;
+}
+:root a.btn[aria-disabled="true"]:not(#rr) { pointer-events: none; }
+
+/* Different purposes side by side stay visually distinct (row gap for wrapped phone layouts). */
+.formbar, .owner-order-card__actions, .inbox-actions { gap: 10px; }
+
+/* ---- Sales by category: rounded bars, fixed palette, legend dots ---- */
+.sa-cat-0 { --cat: var(--rr-cat-0); } .sa-cat-1 { --cat: var(--rr-cat-1); }
+.sa-cat-2 { --cat: var(--rr-cat-2); } .sa-cat-3 { --cat: var(--rr-cat-3); }
+.sa-cat-4 { --cat: var(--rr-cat-4); } .sa-cat-5 { --cat: var(--rr-cat-5); }
+.sa-cat-6 { --cat: var(--rr-cat-6); } .sa-cat-7 { --cat: var(--rr-cat-7); }
+.sa-cat-8 { --cat: var(--rr-cat-8); } .sa-cat-9 { --cat: var(--rr-cat-9); }
+
+.sa-chart--categories { display: grid; gap: 12px; padding: 6px 0 2px; }
+.sa-cat-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; align-items: center; }
+.sa-cat-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #405448; font-size: .8rem; }
+.sa-cat-value { color: #244a34; font-size: .78rem; font-variant-numeric: tabular-nums; }
+.sa-cat-track { grid-column: 1 / -1; height: 14px; border-radius: 999px; background: #edf3ee; overflow: hidden; }
+.sa-cat-fill { display: block; height: 100%; min-width: 6px; border-radius: 999px; background: var(--cat); transform-origin: left center; animation: sa-cat-grow .5s ease-out both; }
+@keyframes sa-cat-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.sa-donut-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.sa-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; padding-top: 12px; border-top: 1px solid #e8efea; }
+.sa-legend-item { display: inline-flex; align-items: center; gap: 7px; min-height: 24px; font-size: .75rem; color: #506157; }
+.sa-legend-swatch { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--cat); }
+.sa-legend-label { overflow: visible; text-overflow: clip; white-space: normal; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .btn:active, .sa-cat-fill { transition: none !important; animation: none !important; transform: none !important; }
+}
+
+/* ===== Order timeline (owner card + customer tracker) =====
+   Vertical stepper under 600px, full-width horizontal from 600px up. CSS only. */
+.ot { list-style: none; margin: 1rem 0 .75rem; padding: 0; display: grid; gap: 0; }
+.ot__step { position: relative; display: grid; gap: 1px; padding: 0 0 1rem 2.4rem; min-width: 0; color: #6b7280; }
+.ot__step:last-child { padding-bottom: .25rem; }
+.ot__step::before { content: ""; position: absolute; left: .95rem; top: 1.7rem; bottom: -.1rem; width: 3px; background: #d8e0da; border-radius: 3px; }
+.ot__step:last-child::before { display: none; }
+.ot__step.is-done::before { background: var(--rr-green); }
+.ot__dot { position: absolute; left: .35rem; top: .1rem; display: grid; place-items: center; width: 1.45rem; height: 1.45rem; border-radius: 50%; background: #fff; border: 3px solid #cfd8d1; color: #fff; font-size: .78rem; line-height: 1; }
+.ot__step.is-done .ot__dot { background: var(--rr-green); border-color: var(--rr-green); }
+.ot__step.is-done .ot__dot::after { content: "\2713"; font-weight: 800; }
+.ot__step.is-done { color: #1f2933; }
+.ot__step b { font-size: .95rem; line-height: 1.3; }
+.ot__step.is-now b { color: var(--rr-green); }
+.ot__time { font-size: .78rem; overflow-wrap: anywhere; }
+.ot__hint { font-size: .78rem; color: #6b7280; line-height: 1.35; }
+.ot__step.is-now .ot__dot { animation: ot-pulse 1.8s ease-out infinite; }
+@keyframes ot-pulse { 0% { box-shadow: 0 0 0 0 rgb(30 123 60 / .5); } 100% { box-shadow: 0 0 0 .75rem rgb(30 123 60 / 0); } }
+
+.ot__strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; margin: .75rem 0; padding: .75rem; border: 1px solid #e3e9e5; border-radius: 12px; background: #f7faf8; }
+.ot__cell { display: grid; gap: 2px; min-width: 0; align-content: start; }
+.ot__cell small { font-size: .7rem; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; }
+.ot__cell b { font-size: .88rem; overflow-wrap: anywhere; }
+.ot__thumbs { display: inline-flex; align-items: center; gap: 4px; }
+.ot__thumb { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; border: 1px solid #dfe6e1; background: #fff; }
+.ot__thumb--ph { display: inline-grid; place-items: center; font-weight: 800; font-size: .8rem; color: #245c3a; background: #e8f1ea; text-transform: uppercase; }
+.ot__more { display: inline-grid; place-items: center; min-width: 32px; height: 32px; padding: 0 .4rem; border-radius: 8px; background: #eef2ef; font-size: .78rem; font-weight: 700; color: #374151; }
+.ot__expected { margin: .5rem 0 0; font-size: .9rem; color: #1f2933; }
+.ot__actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .9rem; }
+.ot__actions form { margin: 0; }
+.ot-chips { margin-bottom: .6rem; }
+.ot-chips .chip { min-height: 44px; }
+
+@media (min-width: 600px) {
+  .ot { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; margin-top: 1.5rem; }
+  .ot__step { padding: 2.3rem .4rem 0; text-align: center; justify-items: center; align-content: start; }
+  .ot__step::before { left: calc(-50% + .9rem); right: calc(50% + .9rem); top: .75rem; bottom: auto; width: auto; height: 3px; }
+  .ot__step:first-child::before { display: none; }
+  .ot__step:last-child::before { display: block; }
+  .ot__dot { left: calc(50% - .725rem); top: 0; }
+  .ot__strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .ot__step.is-now .ot__dot { animation: none; } }

@@ -7,6 +7,11 @@
   <script type="application/ld+json">{{ [{"@context": "https://schema.org", "@type": "Organization", "name": "RR FOODS", "url": request.host_url.rstrip('/'), "logo": url_for('static', filename='img/rr-foods-brand-logo.png', _external=True)},
     {"@context": "https://schema.org", "@type": "WebSite", "name": "RR FOODS", "url": request.host_url.rstrip('/')}]|tojson }}</script>
   <script src="{{ asset_url('js/header-carousel.js') }}" defer></script>
+  {% set hf = home_faq() %}{% if hf.show %}
+  <link rel="stylesheet" href="{{ asset_url('css/faq.css') }}">
+  <script src="{{ asset_url('js/faq.js') }}" defer></script>
+  <script type="application/ld+json">{{ faq_jsonld(hf['items'])|tojson }}</script>
+  {% endif %}
   {% if carousel.banners and (carousel.banners[0].mobile_image or carousel.banners[0].desktop_image) %}<link rel="preload" as="image" href="{{ carousel.banners[0].mobile_image or carousel.banners[0].desktop_image }}" fetchpriority="high" media="(max-width: 767px)">{% endif %}
 {% endblock %}
 {% block content %}
@@ -173,6 +178,17 @@
   <section class="home-bottom__order" aria-labelledby="home-order-heading"><div class="home-bottom__order-copy"><span class="home-bottom__order-icon" aria-hidden="true">🛒</span><div><h2 id="home-order-heading">Ready to order?</h2><p>Get fresh, healthy food delivered to your doorstep.</p></div></div><a href="{{ url_for('shop.listing') }}">Shop Now <span aria-hidden="true">→</span></a></section>
 
 </section>
+
+{% set hf = home_faq() %}
+{% if hf.show %}
+<section class="container sec faq-sec" id="faq" aria-labelledby="home-faq-heading">
+  <div class="sec__row">
+    <div><h2 id="home-faq-heading" class="sec__h">Frequently asked questions</h2><p class="sec__sub">Quick answers about delivery, payment and ordering.</p></div>
+    <a class="faq-sec__more" href="{{ url_for('shop.faq_page') }}">View all FAQs <span aria-hidden="true">→</span></a>
+  </div>
+  {% with items=hf['items'], faq_id='faq-home' %}{% include "partials/faq_accordion.html" %}{% endwith %}
+</section>
+{% endif %}
 
 <section class="home-contact-section" id="customer-message" aria-labelledby="customer-message-title">
   <div class="container narrow2">

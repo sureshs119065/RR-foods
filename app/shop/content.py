@@ -9,6 +9,17 @@ from ..models import Bundle, CartItem, Product, RecipeVideo
 from ..services.storefront import active_variants
 from . import bp
 
+@bp.app_context_processor
+def _faq_helpers():
+    """Callables, so only pages that show FAQs touch the FAQ settings or list."""
+    from ..services import faqs
+    return {"home_faq": faqs.home_section, "faq_jsonld": faqs.jsonld}
+
+@bp.get("/faq")
+def faq_page():
+    from ..services import faqs
+    return render_template("shop/faq.html", faqs=faqs.active_faqs())
+
 @bp.get("/about")
 def about():
     quality_stages = [

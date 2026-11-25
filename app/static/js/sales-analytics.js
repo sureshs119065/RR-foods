@@ -132,40 +132,52 @@
     });
   }
 
-  function renderDonut(id, legendId, items) {
+  // Each category keeps one colour everywhere: it comes from the category name, not its rank.
+  // Colours live in rr-polish-final.css (--rr-cat-0..9, colourblind-friendly) and are applied by class.
+  const CAT_COLOURS = 10;
+  const categoryIndexes = (items) => {
+    const taken = new Set(), map = new Map();
+    items.map((item) => String(item.label || '')).sort((x, y) => x.localeCompare(y)).forEach((label) => {
+      let hash = 2166136261;
+      for (const ch of label.trim().toLowerCase()) { hash ^= ch.charCodeAt(0); hash = Math.imul(hash, 16777619) >>> 0; }
+      let idx = hash % CAT_COLOURS;
+      for (let n = 0; n < CAT_COLOURS && taken.has(idx) && taken.size < CAT_COLOURS; n++) idx = (idx + 1) % CAT_COLOURS;
+      taken.add(idx); map.set(label, idx);
+    });
+    return map;
+  };
+
+  function renderCategories(id, legendId, items) {
     const el = clear(id), legend = clear(legendId);
     if (!el || !legend) return;
     const total = (items || []).reduce((sum, item) => sum + Number(item.value || 0), 0);
     if (!items || !items.length || total <= 0) { empty(el); return; }
-    const size = 220, center = 110, radius = 76, circumference = 2 * Math.PI * radius;
-    const svg = svgNode('svg', { viewBox: `0 0 ${size} ${size}`, role: 'presentation' });
-    svg.append(svgNode('circle', { cx: center, cy: center, r: radius, fill: 'none', stroke: '#E8F0EA', 'stroke-width': 28 }));
-    let offset = 0;
-    items.forEach((item, index) => {
-      const length = Number(item.value || 0) / total * circumference;
-      const circle = svgNode('circle', {
-        cx: center, cy: center, r: radius, fill: 'none', stroke: colors[index % colors.length],
-        'stroke-width': 28, 'stroke-dasharray': `${length} ${circumference - length}`,
-        'stroke-dashoffset': -offset, transform: `rotate(-90 ${center} ${center})`,
-      });
-      const tip = svgNode('title'); tip.textContent = `${item.label}: ${money(item.value)} (${(Number(item.value) / total * 100).toFixed(1)}%)`;
-      circle.append(tip); svg.append(circle); offset += length;
-      const row = document.createElement('div'); row.className = 'sa-legend-item';
-      const swatch = document.createElement('span'); swatch.className = 'sa-legend-swatch'; swatch.style.background = colors[index % colors.length];
-      const label = document.createElement('span'); label.className = 'sa-legend-label'; label.textContent = item.label;
-      const value = document.createElement('strong'); value.textContent = `${(Number(item.value) / total * 100).toFixed(1)}%`;
-      row.append(swatch, label, value); legend.append(row);
+    const indexes = categoryIndexes(items);
+    const max = Math.max(...items.map((item) => Number(item.value || 0)), 1);
+    el.classList.add('sa-chart--categories');
+    items.forEach((item) => {
+      const cls = `sa-cat-${indexes.get(String(item.label || ''))}`;
+      const pct = `${(Number(item.value || 0) / total * 100).toFixed(1)}%`;
+      const row = document.createElement('div'); row.className = 'sa-cat-row';
+      row.title = `${item.label}: ${money(item.value)} (${pct})`;
+      const name = document.createElement('span'); name.className = 'sa-cat-name'; name.textContent = item.label;
+      const value = document.createElement('span'); value.className = 'sa-cat-value'; value.textContent = `${money(item.value)} · ${pct}`;
+      const track = document.createElement('span'); track.className = 'sa-cat-track';
+      const fill = document.createElement('span'); fill.className = `sa-cat-fill ${cls}`;
+      fill.style.width = `${Math.max(2, Number(item.value || 0) / max * 100)}%`;
+      track.append(fill); row.append(name, value, track); el.append(row);
+      const li = document.createElement('div'); li.className = `sa-legend-item ${cls}`;
+      const swatch = document.createElement('span'); swatch.className = 'sa-legend-swatch'; swatch.setAttribute('aria-hidden', 'true');
+      const label = document.createElement('span'); label.className = 'sa-legend-label'; label.textContent = `${item.label} (${pct})`;
+      li.append(swatch, label); legend.append(li);
     });
-    const centerLabel = svgNode('text', { x: center, y: center - 2, class: 'sa-donut-total', 'text-anchor': 'middle' }); centerLabel.textContent = money(total);
-    const centerSub = svgNode('text', { x: center, y: center + 19, class: 'sa-donut-caption', 'text-anchor': 'middle' }); centerSub.textContent = 'Product sales';
-    svg.append(centerLabel, centerSub); el.append(svg);
   }
 
   function renderAll() {
     renderVerticalBars('sa-monthly-chart', data.monthly_sales);
     renderLine('sa-daily-chart', data.daily_sales);
     renderProducts('sa-products-chart', data.top_products);
-    renderDonut('sa-category-chart', 'sa-category-legend', data.categories);
+    renderCategories('sa-category-chart', 'sa-category-legend', data.categories);
   }
 
   function updateMetrics() {

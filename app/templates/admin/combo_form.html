@@ -16,6 +16,6 @@
     <div>{{ m.checkbox('is_active','Active on storefront',f.is_active) }}</div>
     <div>{{ m.field('diwali_end_at','Diwali countdown ends (shop local time)',f.diwali_end_at,'datetime-local',errors,hint='This date controls the countdown shown on the Offers page.') }}</div>
   </div>
-  <div class="formbar"><button class="btn" type="submit">Save combo</button><a class="btn btn--ghost" href="{{ url_for('admin.combos') }}">Cancel</a></div>
+  <div class="formbar"><button class="btn" type="submit">Save combo</button><a class="btn btn--cancel" href="{{ url_for('admin.combos') }}">Cancel</a></div>
 </form>
 {% endblock %}

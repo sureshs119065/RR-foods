@@ -341,8 +341,12 @@ def test_every_product_image_has_dimensions_and_alt(app, session, many_products)
 
 
 def test_cards_offer_a_400_and_800_srcset(app, session, many_products):
+    # a product whose slug matches a bundled photo gets that photo (and its 400/800 px copies); the neutral placeholder has none
+    make_product(session, category=many_products[0].category, sku="PHOTO1", slug="multi-millet-noodles", name="Multi Millet Noodles",
+                 stock_qty=5, final_price=Decimal("80"), mrp=Decimal("100"))
+    session.commit()
     html = app.test_client().get("/shop").get_data(as_text=True)
-    tag = product_imgs(html)[0]
+    tag = next(t for t in product_imgs(html) if "img/products/multi-millet-noodles" in t)
     m = re.search(r'srcset="([^"]+)"', tag)
     assert m and "sizes=" in tag
     parts = [p.strip().rsplit(" ", 1) for p in m.group(1).split(",")]

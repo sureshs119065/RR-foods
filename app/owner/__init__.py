@@ -20,12 +20,13 @@ def _owner_menu():
     from ..models import Order, Product
 
     pending = db.session.scalar(select(func.count(Order.id)).where(Order.status == "placed")) or 0
-    awaiting = db.session.scalar(select(func.count(Order.id)).where(Order.status == "pending_whatsapp")) or 0
     low_stock = db.session.scalar(select(func.count(Product.id)).where(
         Product.is_deleted.is_(False), Product.stock_qty <= Product.low_stock_threshold
     )) or 0
-    return {"pending_count": pending, "low_stock_count": low_stock, "awaiting_whatsapp_count": awaiting}
+    from ..services.feedback_hub import counts
+
+    return {"pending_count": pending, "low_stock_count": low_stock, "feedback_count": counts()["total"]}
 
 
 # Importing the modules registers their routes on `bp`.
-from . import account, dashboard, inventory, orders, questions, inbox  # noqa: E402,F401
+from . import account, dashboard, inventory, orders, questions  # noqa: E402,F401
