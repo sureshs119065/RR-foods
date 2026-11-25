@@ -1,4 +1,4 @@
-"""Questions for staff (the customer-message Feedback tab was removed).
+"""Questions for staff: product questions plus customer messages (home contact form / My messages), answered in one place.
 Admin and Owner use exactly the same queries and actions."""
 from __future__ import annotations
 
@@ -22,7 +22,8 @@ def _needs_reply_clause():
 
 def counts() -> dict:
     waiting = db.session.scalar(select(func.count(ProductQuestion.id)).where(ProductQuestion.is_deleted.is_(False), ProductQuestion.answer.is_(None))) or 0
-    return {"questions": waiting, "feedback": 0, "total": waiting}
+    messages = db.session.scalar(select(func.count(CustomerMessageThread.id)).where(_needs_reply_clause())) or 0
+    return {"questions": waiting, "messages": messages, "feedback": messages, "total": waiting + messages}
 
 
 def questions_page(show: str):

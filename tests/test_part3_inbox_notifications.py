@@ -1,4 +1,4 @@
-"""Part 3: one Questions & Feedback page (two tabs) in both panels, old /inbox URLs redirect, and the redesigned notification pages."""
+"""Part 3: one Questions page (product questions + customer messages) in both panels, old /inbox URLs redirect, and the redesigned notification pages."""
 from datetime import timedelta
 
 import pytest
@@ -71,7 +71,7 @@ def test_admin_notification_centre_same_design_and_open_marks_read(app, session)
     assert session.get(Notification, n.id).is_read
 
 
-def test_questions_page_has_no_feedback_tab_in_both_panels(app, cust, session, catalog):
+def test_customer_messages_reach_questions_in_both_panels(app, cust, session, catalog):
     _, p = catalog
     thread = customer_inbox.create_thread(cust.user, "Where is my parcel", "Please help")
     session.add(ProductQuestion(product_id=p.id, user_id=cust.user.id, question="Is this suitable for kids?"))
@@ -79,12 +79,31 @@ def test_questions_page_has_no_feedback_tab_in_both_panels(app, cust, session, c
     for role in ("owner", "admin"):
         c = staff(app, session, role)
         html = c.get(f"/{role}/questions").get_data(as_text=True)
-        assert "Is this suitable for kids?" in html and "Feedback" not in html and "Customer Inbox" not in html
-        assert "Where is my parcel" not in c.get(f"/{role}/questions?tab=feedback").get_data(as_text=True)
+        assert "Is this suitable for kids?" in html and "Customer messages" in html and "Feedback" not in html and "Customer Inbox" not in html
+        assert "Where is my parcel" in c.get(f"/{role}/questions?view=messages").get_data(as_text=True)
+        assert "Where is my parcel" in c.get(f"/{role}/questions/messages/{thread.id}").get_data(as_text=True)
         assert "Feedback" not in c.get(f"/{role}/").get_data(as_text=True)
-        for old in (f"/{role}/inbox", f"/{role}/inbox/{thread.id}", f"/{role}/feedback/{thread.id}"):
+        r = c.get(f"/{role}/inbox")
+        assert r.status_code == 301 and "view=messages" in r.headers["Location"] and f"/{role}/questions" in r.headers["Location"]
+        for old in (f"/{role}/inbox/{thread.id}", f"/{role}/feedback/{thread.id}"):
             r = c.get(old)
-            assert r.status_code == 301 and r.headers["Location"].endswith(f"/{role}/questions")
+            assert r.status_code == 301 and r.headers["Location"].endswith(f"/{role}/questions/messages/{thread.id}")
+
+
+def test_staff_reply_from_questions_reaches_customer(app, cust, session):
+    from app.models import CustomerMessage
+    ad = staff(app, session, "admin")
+    thread = customer_inbox.create_thread(cust.user, "Where is my parcel", "Please help")
+    session.commit()
+    notes = session.scalars(select(Notification).where(Notification.kind == "customer_message")).all()
+    assert notes and all("/questions/messages/" in n.link for n in notes)
+    r = post(ad, f"/admin/questions/messages/{thread.id}", {"body": "It ships tomorrow."}, page=f"/admin/questions/messages/{thread.id}")
+    assert r.status_code == 302
+    session.expire_all()
+    assert [m.body for m in session.scalars(select(CustomerMessage).where(CustomerMessage.thread_id == thread.id).order_by(CustomerMessage.id))][-1] == "It ships tomorrow."
+    assert session.scalar(select(Notification).where(Notification.user_id == cust.user.id, Notification.kind == "message_reply")) is not None
+    assert "Where is my parcel" not in ad.get("/admin/questions?view=messages").get_data(as_text=True)   # replied: no longer waiting
+    assert "Where is my parcel" in ad.get("/admin/questions?view=messages&show=all").get_data(as_text=True)
 
 
 def test_admin_can_answer_a_question(app, cust, session, catalog):

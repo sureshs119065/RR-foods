@@ -5,11 +5,22 @@
 {% block heading %}Questions{% endblock %}
 {% block content %}
 <div class="qf">
-  <nav class="qf__tabs" aria-label="Questions and feedback">
-    <a class="qf__tab{% if tab == 'questions' %} is-on{% endif %}" href="{{ url_for(portal ~ '.questions') }}" {% if tab == 'questions' %}aria-current="page"{% endif %}>Questions{% if counts.questions %}<span class="qf__n" aria-label="{{ counts.questions }} waiting">{{ counts.questions if counts.questions < 100 else '99+' }}</span>{% endif %}</a>
+  <nav class="qf__tabs" aria-label="Questions and customer messages">
+    <a class="qf__tab{% if view == 'questions' %} is-on{% endif %}" href="{{ url_for(portal ~ '.questions') }}" {% if view == 'questions' %}aria-current="page"{% endif %}>Product questions{% if counts.questions %}<span class="qf__n" aria-label="{{ counts.questions }} waiting">{{ counts.questions if counts.questions < 100 else '99+' }}</span>{% endif %}</a>
+    <a class="qf__tab{% if view == 'messages' %} is-on{% endif %}" href="{{ url_for(portal ~ '.questions', view='messages') }}" {% if view == 'messages' %}aria-current="page"{% endif %}>Customer messages{% if counts.messages %}<span class="qf__n" aria-label="{{ counts.messages }} waiting for a reply">{{ counts.messages if counts.messages < 100 else '99+' }}</span>{% endif %}</a>
   </nav>
 
-  {% if tab == 'questions' %}
+  {% if view == 'messages' %}
+  <nav class="qf__filters" aria-label="Filter customer messages">
+    <a class="nt__chip{% if show == 'needs' %} is-on{% endif %}" href="{{ url_for(portal ~ '.questions', view='messages') }}" {% if show == 'needs' %}aria-current="true"{% endif %}>Waiting for a reply</a>
+    <a class="nt__chip{% if show == 'all' %} is-on{% endif %}" href="{{ url_for(portal ~ '.questions', view='messages', show='all') }}" {% if show == 'all' %}aria-current="true"{% endif %}>All messages</a>
+  </nav>
+  <div class="inbox-list">
+    {% for item in page.items %}<a class="inbox-list__item" href="{{ url_for(portal ~ '.message_thread', thread_id=item.id) }}"><span><b>{{ item.subject }}</b><small>{{ item.customer.name }} · {{ item.last_message_at|local_display }}</small></span><span class="badge">{{ 'Needs reply' if waiting[item.id] else 'Replied' }}</span></a>
+    {% else %}<div class="qf__empty"><h2>{{ 'No messages waiting for a reply' if show == 'needs' else 'No customer messages yet' }}</h2><p>Messages from the home page form and the customer Inbox will appear here.</p></div>{% endfor %}
+  </div>
+  {{ m.pager(page, portal ~ '.questions', {'view': 'messages', 'show': show}) }}
+  {% else %}
   <nav class="qf__filters" aria-label="Filter questions">
     <a class="nt__chip{% if show == 'open' %} is-on{% endif %}" href="{{ url_for(portal ~ '.questions') }}" {% if show == 'open' %}aria-current="true"{% endif %}>Waiting for an answer</a>
     <a class="nt__chip{% if show == 'answered' %} is-on{% endif %}" href="{{ url_for(portal ~ '.questions', show='answered') }}" {% if show == 'answered' %}aria-current="true"{% endif %}>Answered</a>
@@ -36,7 +47,6 @@
   <div class="qf__empty"><h2>{{ 'No questions waiting' if show == 'open' else 'No answered questions yet' }}</h2><p>{{ 'Customer questions from product pages will appear here.' if show == 'open' else 'Answers you publish will be listed here.' }}</p></div>
   {% endfor %}
   {{ m.pager(page, portal ~ '.questions', {'show': show}) }}
-
   {% endif %}
 </div>
 <script src="{{ url_for('static', filename='js/feedback.js', v='1') }}" defer></script>
