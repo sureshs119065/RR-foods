@@ -8,9 +8,9 @@ REVIEWABLE_ORDER_STATUSES = ("delivered", "return_requested", "returned", "refun
 
 
 def moderation_on() -> bool:
-    """Site setting `review_moderation` (admin > Reviews). Off by default: reviews go live at once. On: they wait for the admin to approve."""
+    """Site setting `review_moderation` (admin > Reviews). On by default: a new review waits for the admin to approve it before it is shown. Off: reviews go live at once."""
     from .storefront import setting
-    return str(setting("review_moderation", "0")).lower() in ("1", "true", "on", "yes")
+    return str(setting("review_moderation", "1")).lower() in ("1", "true", "on", "yes")
 
 
 def purchase_for(user_id: int, product_id: int, order_item_id: int | None = None) -> OrderItem | None:

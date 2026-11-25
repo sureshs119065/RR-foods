@@ -328,13 +328,21 @@
   </section>
   {% endif %}
 
-  <section class="sec" id="qa" aria-labelledby="qa-h"><h2 id="qa-h" class="sec__h">Questions &amp; answers</h2>
-    {% if questions %}<ul class="qa">{% for q in questions %}<li><p><b>Q:</b> {{ q.question }}</p><p><b>A:</b> {{ q.answer }}</p></li>{% endfor %}</ul>{% else %}<p class="muted">No questions answered yet.</p>{% endif %}
-    {% if shopper %}
-    <form method="post" action="{{ url_for('shop.ask_question', slug=p.slug) }}" class="form qa-form" data-support-form data-success-title="Question sent" data-success-note="We will answer soon. Your question will appear here once it is answered." novalidate>{{ s.csrf() }}
-      <div class="field"><label for="qa-question">Ask a question about this product</label><textarea id="qa-question" name="question" rows="2" minlength="10" maxlength="500" required data-label="question" aria-describedby="qa-err-question"></textarea><span class="sf-err" id="qa-err-question" data-err="question" role="alert" hidden></span></div>
-      <button class="btn btn--ghost" type="submit">Ask</button></form>
-    {% elif not current_user %}<p class="muted small"><a href="/login?next={{ request.path }}">Sign in</a> to ask a question.</p>{% endif %}
+  <section class="sec pr-reviews" id="reviews" aria-labelledby="reviews-h">
+    <h2 id="reviews-h" class="sec__h">Customer reviews</h2>
+    {% if p.review_count %}<p class="pr-reviews__sum"><span class="stars" role="img" aria-label="Average rating {{ '%.1f'|format(p.avg_rating) }} out of 5">{{ '%.1f'|format(p.avg_rating) }} ★</span> <span class="muted">from {{ p.review_count }} review{{ '' if p.review_count == 1 else 's' }}</span></p>{% endif %}
+    {% if reviews %}
+    <ul class="pr-reviews__list">
+      {% for r in reviews %}
+      <li class="pr-review">
+        <p class="pr-review__stars" role="img" aria-label="{{ r.rating }} out of 5 stars"><span aria-hidden="true">{{ '★' * r.rating }}<span class="pr-review__off">{{ '★' * (5 - r.rating) }}</span></span></p>
+        {% if r.title %}<p class="pr-review__title"><b>{{ r.title }}</b></p>{% endif %}
+        {% if r.body %}<p class="pr-review__body">{{ r.body }}</p>{% endif %}
+        <p class="pr-review__by muted small">{{ (r.user.name.split()[0] if r.user and r.user.name else 'Customer') }}{% if r.is_verified_purchase %} · Verified purchase{% endif %} · {{ r.created_at|local_display }}</p>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="muted">No reviews yet. Customers can rate a product after their order is delivered.</p>{% endif %}
   </section>
 
   {% if similar %}<section class="sec" aria-labelledby="sim-h"><h2 id="sim-h" class="sec__h">You may also like</h2>{{ s.grid(similar) }}</section>{% endif %}

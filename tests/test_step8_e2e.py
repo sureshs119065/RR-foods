@@ -111,13 +111,15 @@ def test_full_shop_journey(app, session, monkeypatch):
     assert post(cust, "/product/millet-mix/review", {"rating": "5", "title": "Great", "body": "Tastes like home"}, page="/account").status_code == 302
     rv = session.scalar(select(Review))
     rid = rv.id
-    assert rv.is_verified_purchase and rv.rating == 5
+    assert rv.is_verified_purchase and rv.rating == 5 and rv.status == "pending"   # waits for the admin
+    assert "Tastes like home" not in app.test_client().get("/product/millet-mix").get_data(as_text=True)
+    assert post(admin, f"/admin/reviews/{rid}/set", {"action": "approve"}, page="/admin/reviews").status_code == 302
     other = _login(app, session, "other@example.com")
     assert post(other, f"/review/{rid}/helpful", {}, page="/account").status_code in (200, 302)
     session.expire_all()
     assert session.get(Review, rid).helpful_count == 1
     product_page = other.get("/product/millet-mix").get_data(as_text=True)
-    assert "Tastes like home" not in product_page and "5.0 ★" in product_page   # only the small average rating, no review list
+    assert "Tastes like home" in product_page   # shown once the admin approved it
     assert admin.get("/admin/reviews").status_code == 200
 
     # ---- return accepted with restock, then refunded

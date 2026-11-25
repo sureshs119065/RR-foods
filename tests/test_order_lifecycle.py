@@ -162,8 +162,8 @@ def test_moderation_pending_then_admin_approves(world, session):
     session.expire_all()
     assert session.get(Review, rv.id).status == "approved" and session.get(type(product), product.id).review_count == 1
     # approved reviews count in the rating but are never listed on the product page, and reach the home page only through the admin's flag
-    assert "Needs a check" not in stranger.get(f"/product/{product.slug}").get_data(as_text=True)
-    assert "Needs a check" not in stranger.get("/").get_data(as_text=True)
+    assert "Needs a check" in stranger.get(f"/product/{product.slug}").get_data(as_text=True)   # approved reviews are listed on the product page
+    assert "Needs a check" not in stranger.get("/").get_data(as_text=True)                        # the home page needs the admin's flag too
     note = [n for n in _notes(session, customer) if n.kind == "review_status"]
     assert note and note[-1].link == f"{url}#rate" and "product page" not in note[-1].body
 
@@ -172,10 +172,11 @@ def test_moderation_pending_then_admin_approves(world, session):
     assert session.get(Review, rv.id).status == "hidden" and session.get(type(product), product.id).review_count == 0
 
 
-def test_moderation_off_by_default_and_admin_only(world, session):
+def test_moderation_can_be_switched_off_and_is_admin_only(world, session):
     customer, other, product, owner, cust, stranger, admin = world
     order = mk_order(session, customer, product, status="delivered")
     url = f"/account/orders/{order.order_number}"
+    assert post(admin, "/admin/reviews/moderation", {"on": "0"}, page="/admin/").status_code == 302
     cust.post(f"/product/{product.slug}/review", data={"rating": "3", "order_item_id": str(order.items[0].id), "next": url, "csrf_token": _tok(cust, url)},
               content_type="multipart/form-data")
     assert session.scalar(select(Review)).status == "approved"

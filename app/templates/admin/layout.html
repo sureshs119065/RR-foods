@@ -46,7 +46,7 @@
         {{ nav_item('admin.faqs', 'FAQ', 'faq', 'admin.faq') }}
         {{ nav_item('admin.banners', 'Header banners', 'image', 'admin.banner') }}
         {{ nav_item('admin.reviews', 'Reviews', 'log', 'admin.review') }}
-        <li><a href="{{ url_for('admin.questions') }}" {% if here in ('admin.questions', 'admin.feedback_thread', 'admin.question_answer') %}aria-current="page"{% endif %}>{{ m.icon('message-circle') }}<span class="label">Questions &amp; Feedback</span>{% if feedback_count %}<span class="nav__count" aria-label="{{ feedback_count }} waiting">{{ feedback_count if feedback_count < 100 else '99+' }}</span>{% endif %}</a></li>
+        <li><a href="{{ url_for('admin.questions') }}" {% if here in ('admin.questions', 'admin.feedback_thread', 'admin.question_answer') %}aria-current="page"{% endif %}>{{ m.icon('message-circle') }}<span class="label">Questions</span>{% if feedback_count %}<span class="nav__count" aria-label="{{ feedback_count }} waiting">{{ feedback_count if feedback_count < 100 else '99+' }}</span>{% endif %}</a></li>
         {{ nav_item('admin.users', 'Users', 'users', 'admin.user') }}
         {{ nav_item('admin.audit', 'Audit log', 'log', 'admin.audit') }}
         <li class="nav__sep" role="separator"></li>

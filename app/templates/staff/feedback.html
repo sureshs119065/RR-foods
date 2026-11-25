@@ -1,13 +1,12 @@
 {% set layout = 'admin/layout.html' if portal == 'admin' else 'owner/layout.html' %}
 {% extends layout %}
 {% import "admin/_macros.html" as m %}
-{% block title %}Questions &amp; Feedback{% endblock %}
-{% block heading %}Questions &amp; Feedback{% endblock %}
+{% block title %}Questions{% endblock %}
+{% block heading %}Questions{% endblock %}
 {% block content %}
 <div class="qf">
   <nav class="qf__tabs" aria-label="Questions and feedback">
     <a class="qf__tab{% if tab == 'questions' %} is-on{% endif %}" href="{{ url_for(portal ~ '.questions') }}" {% if tab == 'questions' %}aria-current="page"{% endif %}>Questions{% if counts.questions %}<span class="qf__n" aria-label="{{ counts.questions }} waiting">{{ counts.questions if counts.questions < 100 else '99+' }}</span>{% endif %}</a>
-    <a class="qf__tab{% if tab == 'feedback' %} is-on{% endif %}" href="{{ url_for(portal ~ '.questions', tab='feedback') }}" {% if tab == 'feedback' %}aria-current="page"{% endif %}>Feedback{% if counts.feedback %}<span class="qf__n" aria-label="{{ counts.feedback }} need a reply">{{ counts.feedback if counts.feedback < 100 else '99+' }}</span>{% endif %}</a>
   </nav>
 
   {% if tab == 'questions' %}
@@ -38,20 +37,6 @@
   {% endfor %}
   {{ m.pager(page, portal ~ '.questions', {'show': show}) }}
 
-  {% else %}
-  <nav class="qf__filters" aria-label="Filter feedback">
-    <a class="nt__chip{% if show == 'all' %} is-on{% endif %}" href="{{ url_for(portal ~ '.questions', tab='feedback') }}" {% if show == 'all' %}aria-current="true"{% endif %}>All</a>
-    <a class="nt__chip{% if show == 'needs' %} is-on{% endif %}" href="{{ url_for(portal ~ '.questions', tab='feedback', show='needs') }}" {% if show == 'needs' %}aria-current="true"{% endif %}>Needs reply</a>
-  </nav>
-  {% for item in page.items %}
-  <a class="qf__row{% if waiting[item.id] %} qf__row--wait{% endif %}" href="{{ url_for(portal ~ '.feedback_thread', thread_id=item.id) }}">
-    <span><b>{{ item.subject }}</b><small>{{ item.customer.name }} · {{ item.last_message_at|local_display }}</small></span>
-    <span class="qf__badge{% if waiting[item.id] %} qf__badge--wait{% endif %}">{{ 'Needs reply' if waiting[item.id] else 'Replied' }}</span>
-  </a>
-  {% else %}
-  <div class="qf__empty"><h2>{{ 'No messages need a reply' if show == 'needs' else 'No customer feedback yet' }}</h2><p>New customer messages will appear here.</p></div>
-  {% endfor %}
-  {{ m.pager(page, portal ~ '.questions', {'tab': 'feedback', 'show': show}) }}
   {% endif %}
 </div>
 <script src="{{ url_for('static', filename='js/feedback.js', v='1') }}" defer></script>

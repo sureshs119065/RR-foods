@@ -105,7 +105,7 @@ def review_home(review_id):
 
 @bp.post("/reviews/moderation")
 def review_moderation():
-    """On: new reviews wait for approval. Off (default): they go live straight away."""
+    """On (default): new reviews wait for approval. Off: they go live straight away."""
     on = request.form.get("on") == "1"
     row = db.session.get(SiteSetting, "review_moderation")
     if row is None:

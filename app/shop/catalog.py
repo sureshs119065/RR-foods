@@ -209,8 +209,11 @@ def product(slug):
     now = utcnow()
     offers = [o for o in p.offers if o.is_active and (not o.starts_at or o.starts_at <= now) and (not o.ends_at or o.ends_at > now)]
     coupons = db.session.scalars(select(Coupon).where(Coupon.is_active.is_(True), (Coupon.expires_at.is_(None)) | (Coupon.expires_at > now)).order_by(Coupon.id).limit(3)).all()
-    questions = db.session.scalars(select(ProductQuestion).where(ProductQuestion.product_id == p.id, ProductQuestion.is_deleted.is_(False), ProductQuestion.answer.is_not(None))
-                                   .order_by(ProductQuestion.created_at.desc()).limit(10)).all()
+    from sqlalchemy.orm import joinedload
+    from ..models import Review
+    # Only reviews the shop approved are shown; the customer's feedback text is optional, the star rating is not.
+    reviews = db.session.scalars(select(Review).options(joinedload(Review.user)).where(Review.product_id == p.id, Review.status == "approved", Review.is_deleted.is_(False))
+                                 .order_by(Review.created_at.desc(), Review.id.desc()).limit(30)).all()
     shopper = g.get("user") is not None and g.user.role == "user"
     cat = db.session.get(Category, p.category_id) if p.category_id else None
     crumbs = storefront.breadcrumb_for(cat)
@@ -226,7 +229,7 @@ def product(slug):
     from ..services.product_catalogue import catalogue_for_product
     catalogue_content = catalogue_for_product(p)
     return render_template("shop/product.html", p=p, variants=variants, stock=available_qty(p), offers=offers, coupons=coupons,
-                           questions=questions, crumbs=crumbs, together=together, together_ids=[t.id for t in together if not active_variants(t)],
+                           reviews=reviews, crumbs=crumbs, together=together, together_ids=[t.id for t in together if not active_variants(t)],
                            similar=storefront.you_may_like(p), shopper=shopper, alert_on=alert_on, now=now, product_bundles=product_bundles,
                            catalogue_content=catalogue_content)
 

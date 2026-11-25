@@ -241,42 +241,6 @@ def review_helpful(review_id):
     return reply(True, "Thanks for your feedback.", "/", helpful=n, on=vote is None)
 
 
-# ---------------------------------------------------------------- questions
-@bp.post("/product/<slug>/ask")
-@user_only
-@limiter.limit("10 per hour")
-def ask_question(slug):
-    p = get_product(slug)
-    if p is None:
-        abort(404)
-    from .. import validation as v
-    wants_json = request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest"
-
-    def done(ok, message, status=200, **extra):
-        if wants_json:
-            return jsonify(ok=ok, message=message, **extra), status
-        flash(message, "success" if ok else "error")
-        return redirect(_back(slug, "qa"))
-
-    data = request.get_json(silent=True) if request.is_json else request.form
-    q = v.one_line((data or {}).get("question"))
-    if not 10 <= len(q) <= 500:
-        msg = "Write your question in 10 to 500 characters."
-        return done(False, msg, 422, errors={"question": msg})
-    waiting = db.session.scalar(select(func.count(ProductQuestion.id)).where(ProductQuestion.user_id == g.user.id, ProductQuestion.product_id == p.id,
-                                                                            ProductQuestion.answer.is_(None), ProductQuestion.is_deleted.is_(False))) or 0
-    if waiting >= 3:
-        return done(False, "You already have questions waiting for an answer on this product.", 409)
-    db.session.add(ProductQuestion(product_id=p.id, user_id=g.user.id, question=q))
-    for oid in db.session.scalars(select(User.id).where(User.role == "owner", User.is_deleted.is_(False), User.is_blocked.is_(False))):
-        notify(oid, "question", f"New question about {p.name}", q[:200], link="/owner/questions?tab=questions")
-    db.session.commit()
-    if wants_json:
-        return jsonify(ok=True, message="Your question was sent successfully.")
-    flash("Thanks! We will answer your question soon. It will appear here once answered.", "success")
-    return redirect(_back(slug, "qa"))
-
-
 # ---------------------------------------------------------------- notifications inbox (customers and owners)
 inbox_roles = roles_required("user", "owner")
 

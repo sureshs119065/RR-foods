@@ -71,7 +71,7 @@ def test_admin_notification_centre_same_design_and_open_marks_read(app, session)
     assert session.get(Notification, n.id).is_read
 
 
-def test_questions_and_feedback_is_one_page_with_two_tabs_in_both_panels(app, cust, session, catalog):
+def test_questions_page_has_no_feedback_tab_in_both_panels(app, cust, session, catalog):
     _, p = catalog
     thread = customer_inbox.create_thread(cust.user, "Where is my parcel", "Please help")
     session.add(ProductQuestion(product_id=p.id, user_id=cust.user.id, question="Is this suitable for kids?"))
@@ -79,22 +79,16 @@ def test_questions_and_feedback_is_one_page_with_two_tabs_in_both_panels(app, cu
     for role in ("owner", "admin"):
         c = staff(app, session, role)
         html = c.get(f"/{role}/questions").get_data(as_text=True)
-        assert "Questions &amp; Feedback" in html and "Is this suitable for kids?" in html and "qf__tab" in html
-        assert "Customer Inbox" not in html
-        fb = c.get(f"/{role}/questions?tab=feedback").get_data(as_text=True)
-        assert "Where is my parcel" in fb and "Needs reply" in fb
-        assert "Customer Inbox" not in c.get(f"/{role}/").get_data(as_text=True)
-        # the old URLs redirect
-        r = c.get(f"/{role}/inbox")
-        assert r.status_code == 301 and r.headers["Location"].endswith(f"/{role}/questions?tab=feedback")
-        r = c.get(f"/{role}/inbox/{thread.id}")
-        assert r.status_code == 301 and r.headers["Location"].endswith(f"/{role}/feedback/{thread.id}")
-        assert c.get(f"/{role}/feedback/{thread.id}").status_code == 200
+        assert "Is this suitable for kids?" in html and "Feedback" not in html and "Customer Inbox" not in html
+        assert "Where is my parcel" not in c.get(f"/{role}/questions?tab=feedback").get_data(as_text=True)
+        assert "Feedback" not in c.get(f"/{role}/").get_data(as_text=True)
+        for old in (f"/{role}/inbox", f"/{role}/inbox/{thread.id}", f"/{role}/feedback/{thread.id}"):
+            r = c.get(old)
+            assert r.status_code == 301 and r.headers["Location"].endswith(f"/{role}/questions")
 
 
-def test_admin_can_answer_a_question_and_reply_to_feedback(app, cust, session, catalog):
+def test_admin_can_answer_a_question(app, cust, session, catalog):
     _, p = catalog
-    thread = customer_inbox.create_thread(cust.user, "Bulk order", "Do you do bulk?")
     q = ProductQuestion(product_id=p.id, user_id=cust.user.id, question="Is this suitable for kids?")
     session.add(q)
     session.commit()
@@ -103,8 +97,3 @@ def test_admin_can_answer_a_question_and_reply_to_feedback(app, cust, session, c
     assert r.status_code == 302
     session.expire_all()
     assert session.get(ProductQuestion, q.id).answer == "Yes, it has no added sugar."
-    r = post(ad, f"/admin/feedback/{thread.id}", {"body": "Yes we do."}, page=f"/admin/feedback/{thread.id}")
-    assert r.status_code == 302
-    page = ad.get("/admin/questions?tab=feedback").get_data(as_text=True)
-    assert "Bulk order" in page and ">Replied<" in page and ">Needs reply<</span>" not in page   # the row flips from "Needs reply" to "Replied"
-    assert "Bulk order" not in ad.get("/admin/questions?tab=feedback&show=needs").get_data(as_text=True)

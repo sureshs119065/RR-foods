@@ -27,6 +27,13 @@ def _fresh_limits():
     limiter.reset()
 
 
+@pytest.fixture(autouse=True)
+def _reviews_go_live_at_once(session):
+    """Approval is on by default and has its own tests; the tests in this file are about everything else."""
+    session.add(SiteSetting(key="review_moderation", value="0"))
+    session.commit()
+
+
 def png(color="red", size=(40, 30)):
     buf = io.BytesIO()
     Image.new("RGB", size, color).save(buf, "PNG")
@@ -256,51 +263,19 @@ def test_admin_hides_a_review_and_rating_follows(app, cust, session, catalog):
         assert role_client.get("/admin/reviews").status_code in (302, 403)
 
 
-# ================================================================ questions
-def test_question_flow(app, cust, session, catalog):
-    _, p = catalog
-    ow = staff(app, session, "owner")
-    ask = lambda q: post(cust, f"/product/{p.slug}/ask", {"question": q}, page=f"/product/{p.slug}")
-    ask("short")
-    ask("x" * 600)
-    assert session.scalar(select(func.count(ProductQuestion.id))) == 0
-    ask("Is this suitable for diabetics?")
-    assert session.scalar(select(func.count(ProductQuestion.id))) == 1
-    assert "Is this suitable" not in cust.get(f"/product/{p.slug}").get_data(as_text=True)      # hidden until answered
-    assert session.scalar(select(Notification).where(Notification.kind == "question"))
-    assert "Is this suitable" in ow.get("/owner/questions").get_data(as_text=True)
-    qid = session.scalar(select(ProductQuestion.id))
-    post(ow, f"/owner/questions/{qid}/answer", {"answer": "Yes, it has no added sugar."}, page="/owner/questions")
-    html = cust.get(f"/product/{p.slug}").get_data(as_text=True)
-    assert "Is this suitable" in html and "no added sugar" in html
-    assert session.scalar(select(Notification).where(Notification.kind == "question_answered", Notification.user_id == cust.user.id))
-    post(ow, f"/owner/questions/{qid}/delete", {}, page="/owner/questions")
-    assert "Is this suitable" not in cust.get(f"/product/{p.slug}").get_data(as_text=True)
-
-
-def test_question_ajax_reply_and_form_wiring(cust, session, catalog):
+# ================================================================ questions (removed from the product page)
+def test_product_page_has_no_questions_section_and_asking_is_gone(app, cust, session, catalog):
     _, p = catalog
     html = cust.get(f"/product/{p.slug}").get_data(as_text=True)
-    assert "data-support-form" in html and 'for="qa-question"' in html and "support-message" in html
-    h = {"X-CSRFToken": token(cust, f"/product/{p.slug}"), "X-Requested-With": "XMLHttpRequest"}
-    bad = cust.post(f"/product/{p.slug}/ask", json={"question": "short"}, headers=h)
-    assert bad.status_code == 422 and "question" in bad.json["errors"]
-    ok = cust.post(f"/product/{p.slug}/ask", json={"question": "Is this suitable for diabetics?"}, headers=h)
-    assert ok.status_code == 200 and ok.json == {"ok": True, "message": "Your question was sent successfully."}
-    assert session.scalar(select(func.count(ProductQuestion.id))) == 1
+    assert 'id="qa"' not in html and "Ask a question" not in html and "Questions &amp; answers" not in html
+    assert cust.post(f"/product/{p.slug}/ask", data={"question": "Is this suitable for diabetics?"}).status_code in (404, 405)
 
 
-def test_question_limits_and_permissions(app, cust, session, catalog):
-    _, p = catalog
-    for i in range(5):
-        post(cust, f"/product/{p.slug}/ask", {"question": f"Question number {i} about it?"}, page=f"/product/{p.slug}")
-    assert session.scalar(select(func.count(ProductQuestion.id))) == 3            # at most 3 waiting
-    qid = session.scalar(select(ProductQuestion.id))
-    assert post(cust, f"/owner/questions/{qid}/answer", {"answer": "I am a customer"}, page="/").status_code == 403
+def test_question_pages_stay_staff_only(app, cust, session, catalog):
     a = staff(app, session, "admin")
     assert a.get("/owner/questions").status_code == 403
-    g = app.test_client()
-    assert g.get(f"/product/{p.slug}").status_code == 200 and "Sign in</a> to ask" in g.get(f"/product/{p.slug}").get_data(as_text=True)
+    assert post(cust, "/owner/questions/1/answer", {"answer": "I am a customer"}, page="/").status_code == 403
+
 
 
 # ================================================================ notifications inbox + email outbox

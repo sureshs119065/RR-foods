@@ -19,6 +19,14 @@ from tests.test_step5_owner import mk_order
 HEADING = "What our customers say"
 
 
+@pytest.fixture(autouse=True)
+def _reviews_go_live_at_once(session):
+    """These tests are about placement and counting, not approval: switch the approval step off here (it is on by default and has its own tests)."""
+    from app.models import SiteSetting
+    session.add(SiteSetting(key="review_moderation", value="0"))
+    session.commit()
+
+
 @pytest.fixture()
 def cache_on(app):
     app.config["HOME_CACHE_SECONDS"] = 60
@@ -233,12 +241,41 @@ def test_rate_this_order_button_follows_what_is_still_unrated(world, session):
     assert "Rate this order" not in stranger.get("/account/orders").get_data(as_text=True)  # not their order
 
 
-def test_product_page_has_no_review_list_breakdown_or_form(world, session):
+def test_product_page_lists_only_approved_reviews_with_optional_feedback(world, session):
     customer, other, product, owner, cust, stranger, admin = world
     order = mk_order(session, customer, product, status="delivered")
-    assert "buy__rate" not in cust.get(f"/product/{product.slug}").get_data(as_text=True)
-    rate(cust, product, order, body="Visible nowhere on the product page")
-    html = cust.get(f"/product/{product.slug}").get_data(as_text=True)
-    assert "5.0 ★" in html and "Visible nowhere" not in html
-    for gone in ('id="reviews"', "rbars", "Write a review", "Submit review", "revs", "Helpful ("):
-        assert gone not in html, gone
+    assert "No reviews yet" in stranger.get(f"/product/{product.slug}").get_data(as_text=True)
+    add_review(session, customer, product, "Shown after approval", status="approved", home=False)
+    add_review(session, other, product, "Waiting for approval", status="pending", home=False)
+    add_review(session, other, product, "Rejected words", status="hidden", home=False)
+    add_review(session, customer, another(session, product, 9), "Other product", home=False)
+    html = stranger.get(f"/product/{product.slug}").get_data(as_text=True)
+    assert 'id="reviews"' in html and "Shown after approval" in html and "Verified purchase" in html
+    assert "Waiting for approval" not in html and "Rejected words" not in html and "Other product" not in html
+    assert "Questions &amp; answers" not in html and 'id="qa"' not in html
+
+
+def test_a_rating_without_feedback_text_is_accepted_and_shown_as_stars(world, session):
+    customer, other, product, owner, cust, stranger, admin = world
+    order = mk_order(session, customer, product, status="delivered")
+    rate(cust, product, order, body="")
+    session.expire_all()
+    r = session.scalar(select(Review))
+    assert r.rating == 5 and r.body is None and r.status == "approved"
+    html = stranger.get(f"/product/{product.slug}").get_data(as_text=True)
+    assert 'id="reviews"' in html and "5 out of 5 stars" in html
+
+
+def test_new_reviews_wait_for_approval_by_default(world, session):
+    from app.models import SiteSetting
+    customer, other, product, owner, cust, stranger, admin = world
+    session.query(SiteSetting).filter_by(key="review_moderation").delete()
+    session.commit()
+    order = mk_order(session, customer, product, status="delivered")
+    rate(cust, product, order, body="Needs the shop's OK")
+    session.expire_all()
+    assert session.scalar(select(Review)).status == "pending"
+    assert "Needs the shop" not in stranger.get(f"/product/{product.slug}").get_data(as_text=True)
+    rid = session.scalar(select(Review.id))
+    post(admin, f"/admin/reviews/{rid}/set", {"action": "approve"}, page="/admin/reviews")
+    assert "Needs the shop" in stranger.get(f"/product/{product.slug}").get_data(as_text=True)

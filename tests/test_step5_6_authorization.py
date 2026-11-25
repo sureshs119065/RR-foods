@@ -457,7 +457,7 @@ TESTED_ABOVE = {
 PUBLIC_BY_DESIGN = {   # no private object behind the id: catalogue pages, public tools, or an action that only ever uses g.user
     "shop.api_pincode", "shop.category_listing", "shop.product", "shop.recipe_detail", "auth.reset", "media.uploaded",
     "shop.add_bundle", "shop.add_recipe_ingredients",       # add shop items to the caller's own cart
-    "shop.ask_question", "shop.stock_alert_toggle",         # keyed by product slug, row is (g.user, product)
+    "shop.stock_alert_toggle",         # keyed by product slug, row is (g.user, product)
 }
 
 
