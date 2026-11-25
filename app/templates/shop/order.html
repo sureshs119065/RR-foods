@@ -25,6 +25,7 @@
     {% if order.status == 'delivered' %}
     <div class="ot__actions">
       <form method="post" action="{{ url_for('shop.order_reorder', order_number=order.order_number) }}">{{ s.csrf() }}<button class="btn" type="submit">Reorder</button></form>
+      {% if review_lines and review_lines|rejectattr('product_id', 'in', my_reviews)|list %}<a class="btn btn--ghost" href="#rate" data-rate-order>Rate this order</a>{% endif %}
       <a class="btn btn--ghost" href="{{ url_for('shop.help_page') }}">Help with this order</a>
     </div>
     {% endif %}
@@ -61,11 +62,12 @@
   </section>
 
   {% if reviewable %}
-  <section class="panel2 orev" id="rate" aria-labelledby="orev-h"><h2 class="h3" id="orev-h">Rate your products</h2>
-    <p class="muted small">Your order has been delivered. Tell us and other shoppers what you think.{% if moderation %} Reviews appear after the shop approves them.{% endif %}</p>
-    {% for it in order.items if it.product_id and it.product_id in review_products %}
+  <section class="panel2 orev" id="rate" aria-labelledby="orev-h"><h2 class="h3" id="orev-h">Rate this order</h2>
+    <p class="muted small">Your order has been delivered. Tell us what you think of each product, once per product in this order.{% if moderation %} Reviews appear after the shop approves them.{% endif %}</p>
+    {% set first_open = namespace(done=false) %}
+    {% for it in review_lines %}
       {% set rp = review_products[it.product_id] %}{% set mine = my_reviews.get(it.product_id) %}
-      <div class="acc orev__item" {% if not mine and loop.first %}data-open{% endif %}>
+      <div class="acc orev__item" {% if not mine and not first_open.done %}data-open{% set first_open.done = true %}{% endif %}>
         <button class="acc__h" type="button" aria-expanded="false">{{ it.name }}{% if mine %} <span class="orev__done">{{ mine.rating }} ★ · {{ 'Waiting for approval' if mine.status == 'pending' else ('Not shown' if mine.status == 'hidden' else 'Reviewed') }}</span>{% else %} <span class="orev__todo">Write a review</span>{% endif %}</button>
         <div class="acc__p"><div class="acc__i"><div class="acc__b">
           <form method="post" action="{{ url_for('shop.review_save', slug=rp.slug) }}" enctype="multipart/form-data" class="form" data-once>

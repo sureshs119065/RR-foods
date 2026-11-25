@@ -9,7 +9,8 @@ from .base import JsonType, SoftDeleteMixin, TimestampMixin, db
 class Review(TimestampMixin, SoftDeleteMixin, db.Model):
     __tablename__ = "reviews"
     __table_args__ = (
-        UniqueConstraint("user_id", "product_id", name="uq_reviews_user_product"),
+        # One review per order line; the app keeps it to one per product per order (two lines of the same product share a review).
+        UniqueConstraint("user_id", "order_item_id", name="uq_reviews_user_order_item"),
         CheckConstraint("rating between 1 and 5", name="ck_reviews_rating"),
         CheckConstraint("status in ('pending','approved','hidden')", name="ck_reviews_status"),
     )
@@ -25,6 +26,8 @@ class Review(TimestampMixin, SoftDeleteMixin, db.Model):
     is_verified_purchase: Mapped[bool] = mapped_column(default=False, server_default="false")
     helpful_count: Mapped[int] = mapped_column(default=0, server_default="0")
     status: Mapped[str] = mapped_column(String(10), default="pending", server_default="pending")
+    # Admin picks which approved reviews appear in "What our customers say" on the home page.
+    show_on_home: Mapped[bool] = mapped_column(default=False, server_default="false")
 
     user = relationship("User")
 

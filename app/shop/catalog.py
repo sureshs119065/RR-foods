@@ -3,14 +3,14 @@ from decimal import Decimal
 from datetime import timedelta, timezone
 
 from flask import abort, current_app, jsonify, make_response, redirect, render_template, request, url_for
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
 from .. import ratelimits as limits
 from .. import validation as v
 from ..extensions import db, limiter
 from flask import g
-from ..models import Category, Coupon, DeliveryZone, Product, ProductQuestion, Review, ReviewVote, User
+from ..models import Category, Coupon, DeliveryZone, Product, ProductQuestion, User
 from ..services import reviews as review_svc
 from ..models.base import utcnow
 from ..services import header_banners, storefront
@@ -30,16 +30,8 @@ def home():
     stmt = select(Reel).where(Reel.is_active.is_(True)).order_by(Reel.sort_order, Reel.id)
     if selected: stmt = stmt.where(Reel.id.in_(selected))
     reels = db.session.scalars(stmt.limit(max(1, min(20, int(cfg.get("max_count", 8)))))).all()
-    # Only approved, non-deleted reviews and answered product questions are
-    # featured publicly. Moderation remains in Admin > Reviews; answers remain
-    # managed by the Shop Owner > Questions workflow.
-    featured_reviews = db.session.execute(
-        select(Review, Product.name, User.name)
-        .join(Product, Product.id == Review.product_id)
-        .join(User, User.id == Review.user_id)
-        .where(Review.status == "approved", Review.is_deleted.is_(False), Product.is_deleted.is_(False))
-        .order_by(Review.created_at.desc()).limit(6)
-    ).all()
+    # "What our customers say": approved reviews the admin flagged for the home page (max 6, newest first, cached with the other home fragments).
+    # Answered product questions stay managed by the Shop Owner > Questions workflow.
     featured_questions = db.session.execute(
         select(ProductQuestion, Product.name, User.name)
         .join(Product, Product.id == ProductQuestion.product_id)
@@ -49,7 +41,7 @@ def home():
     ).all()
     return render_template("shop/home.html", rows=storefront.home_rows(), carousel=header_banners.cached_payload(),
                            recent=storefront.recently_viewed(), now=utcnow(), home_reels=reels,
-                           reels_enabled=cfg.get("enabled", True), featured_reviews=featured_reviews,
+                           reels_enabled=cfg.get("enabled", True), home_reviews=review_svc.home_reviews(),
                            featured_questions=featured_questions)
 
 
@@ -209,17 +201,9 @@ def product(slug):
     now = utcnow()
     offers = [o for o in p.offers if o.is_active and (not o.starts_at or o.starts_at <= now) and (not o.ends_at or o.ends_at > now)]
     coupons = db.session.scalars(select(Coupon).where(Coupon.is_active.is_(True), (Coupon.expires_at.is_(None)) | (Coupon.expires_at > now)).order_by(Coupon.id).limit(3)).all()
-    reviews = db.session.scalars(select(Review).where(Review.product_id == p.id, Review.status == "approved", Review.is_deleted.is_(False))
-                                 .options(joinedload(Review.user)).order_by(Review.helpful_count.desc(), Review.created_at.desc()).limit(10)).all()
-    dist_rows = db.session.execute(select(Review.rating, func.count()).where(Review.product_id == p.id, Review.status == "approved", Review.is_deleted.is_(False)).group_by(Review.rating)).all()
-    rating_dist = {n: 0 for n in range(5, 0, -1)}  # stars -> number of approved reviews, for the 5-to-1 bars
-    rating_dist.update({int(r): int(c) for r, c in dist_rows})
     questions = db.session.scalars(select(ProductQuestion).where(ProductQuestion.product_id == p.id, ProductQuestion.is_deleted.is_(False), ProductQuestion.answer.is_not(None))
                                    .order_by(ProductQuestion.created_at.desc()).limit(10)).all()
     shopper = g.get("user") is not None and g.user.role == "user"
-    can_review = bool(shopper and review_svc.purchase_for(g.user.id, p.id))
-    my_review = db.session.scalar(select(Review).where(Review.user_id == g.user.id, Review.product_id == p.id, Review.is_deleted.is_(False))) if shopper else None
-    voted = set(db.session.scalars(select(ReviewVote.review_id).where(ReviewVote.user_id == g.user.id, ReviewVote.review_id.in_([r.id for r in reviews] or [0])))) if shopper else set()
     cat = db.session.get(Category, p.category_id) if p.category_id else None
     crumbs = storefront.breadcrumb_for(cat)
     if cat:
@@ -233,9 +217,9 @@ def product(slug):
     product_bundles = [b for b in bundles if any(int(x.get("product_id", 0)) == p.id for x in (b.product_quantities or []))]
     from ..services.product_catalogue import catalogue_for_product
     catalogue_content = catalogue_for_product(p)
-    return render_template("shop/product.html", p=p, variants=variants, stock=available_qty(p), offers=offers, coupons=coupons, reviews=reviews,
+    return render_template("shop/product.html", p=p, variants=variants, stock=available_qty(p), offers=offers, coupons=coupons,
                            questions=questions, crumbs=crumbs, together=together, together_ids=[t.id for t in together if not active_variants(t)],
-                           similar=storefront.you_may_like(p), shopper=shopper, can_review=can_review, my_review=my_review, voted=voted, rating_dist=rating_dist, alert_on=alert_on, now=now, product_bundles=product_bundles,
+                           similar=storefront.you_may_like(p), shopper=shopper, alert_on=alert_on, now=now, product_bundles=product_bundles,
                            catalogue_content=catalogue_content)
 
 

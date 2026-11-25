@@ -8,6 +8,7 @@
   <div class="stat"><b>{{ counts.get('pending', 0) }}</b>Waiting for approval</div>
   <div class="stat"><b>{{ counts.get('approved', 0) }}</b>Visible</div>
   <div class="stat"><b>{{ counts.get('hidden', 0) }}</b>Rejected / hidden</div>
+  <div class="stat"><b>{{ on_home }}</b>On home page (max {{ home_limit }} shown)</div>
   <div class="stat"><b>{{ '%.1f'|format(avg) if avg else '–' }} ★</b>Average rating</div>
 </div>
 
@@ -23,7 +24,7 @@
   <button class="btn" type="submit">Apply</button>
 </form>
 <div class="table-wrap"><table class="table">
-  <thead><tr><th scope="col">Product</th><th scope="col">Rating</th><th scope="col">Review</th><th scope="col">By</th><th scope="col">Date</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
+  <thead><tr><th scope="col">Product</th><th scope="col">Rating</th><th scope="col">Review</th><th scope="col">By</th><th scope="col">Date</th><th scope="col">Status</th><th scope="col">Home page</th><th scope="col">Action</th></tr></thead>
   <tbody>
   {% for r in page.items %}
     {% set pr = products.get(r.product_id) %}
@@ -34,6 +35,9 @@
       <td data-label="By">{{ r.user.name if r.user else '—' }}{% if r.order_item_id and orders.get(r.order_item_id) %}<br><span class="hint">Order {{ orders[r.order_item_id] }}</span>{% endif %}</td>
       <td data-label="Date">{{ r.created_at|local_display }}</td>
       <td data-label="Status"><span class="badge {{ 'badge--ok' if r.status == 'approved' else ('badge--warn' if r.status == 'pending' else 'badge--bad') }}">{{ {'approved': 'Visible', 'pending': 'Waiting', 'hidden': 'Rejected'}.get(r.status, r.status) }}</span></td>
+      <td data-label="Home page">{% if r.status == 'approved' %}
+        <form class="inline" method="post" action="{{ url_for('admin.review_home', review_id=r.id) }}">{{ m.csrf() }}<input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}"><button class="btn btn--sm {{ '' if r.show_on_home else 'btn--ghost' }}" type="submit" aria-pressed="{{ 'true' if r.show_on_home else 'false' }}">{{ 'Shown on home' if r.show_on_home else 'Show on home page' }}</button></form>
+        {% else %}<span class="hint">Approve first</span>{% endif %}</td>
       <td class="cell-actions">
         {% for act, label, ghost in (('approve', 'Approve', false), ('reject', 'Reject', true)) %}
           {% if (act == 'approve' and r.status != 'approved') or (act == 'reject' and r.status != 'hidden') %}
@@ -42,7 +46,7 @@
         {% endfor %}
       </td>
     </tr>
-  {% else %}<tr><td class="cell-main" colspan="7">No reviews yet.</td></tr>{% endfor %}
+  {% else %}<tr><td class="cell-main" colspan="8">No reviews yet.</td></tr>{% endfor %}
   </tbody>
 </table></div>
 {{ m.pager(page, 'admin.reviews', args) }}

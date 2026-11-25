@@ -1,6 +1,7 @@
 """Review management: see every review with its product, rating and order, approve or reject it, and choose whether new reviews need approval first.
 
-Statuses: pending (waiting for the admin, only when moderation is on), approved (visible, counts in the rating), hidden (rejected or hidden, not shown).
+Statuses: pending (waiting for the admin, only when moderation is on), approved (counts in the product rating), hidden (rejected or hidden, not shown).
+An approved review can also be switched on for "What our customers say" on the home page (max 6 are shown, newest first).
 """
 from flask import abort, flash, redirect, render_template, request, url_for
 from sqlalchemy import func, or_, select
@@ -10,7 +11,8 @@ from ..auth.service import safe_next
 from ..extensions import db
 from ..models import Order, OrderItem, Product, Review, SiteSetting
 from ..services.notify import notify
-from ..services.reviews import moderation_on, refresh_rating
+from ..services import home_cache
+from ..services.reviews import HOME_REVIEW_LIMIT, moderation_on, refresh_rating
 from . import bp
 from .helpers import log, page_number
 
@@ -30,8 +32,9 @@ def reviews():
                                                   .where(OrderItem.id.in_({r.order_item_id for r in page.items if r.order_item_id} or {0}))).all()}
     counts = dict(db.session.execute(select(Review.status, func.count(Review.id)).where(Review.is_deleted.is_(False)).group_by(Review.status)).all())
     avg = db.session.scalar(select(func.avg(Review.rating)).where(Review.is_deleted.is_(False), Review.status == "approved"))
+    on_home = db.session.scalar(select(func.count(Review.id)).where(Review.is_deleted.is_(False), Review.status == "approved", Review.show_on_home.is_(True))) or 0
     return render_template("admin/reviews.html", page=page, products=products, orders=orders, show=show, counts=counts, avg=float(avg) if avg else None,
-                           moderation=moderation_on(), args={k: v for k, v in request.args.items() if k != "page" and v})
+                           on_home=on_home, home_limit=HOME_REVIEW_LIMIT, moderation=moderation_on(), args={k: v for k, v in request.args.items() if k != "page" and v})
 
 
 @bp.post("/reviews/<int:review_id>/set")
@@ -49,15 +52,18 @@ def review_set(review_id):
     if before == target:
         return redirect(back)
     r.status = target
+    if target != "approved":
+        r.show_on_home = False  # only approved reviews can be on the home page; re-approving does not bring it back by itself
     db.session.flush()
     refresh_rating(r.product_id)
     log(f"review.{action}", "review", r.id, before={"status": before}, after={"status": target})
-    if target == "approved" and before == "pending":  # tell the customer their words are now on the product page
+    if target == "approved" and before == "pending":  # tell the customer their review was accepted
         p = db.session.get(Product, r.product_id)
         if p is not None:
-            notify(r.user_id, "review_status", "Your review is now live", f"Thank you! Your review of {p.name} is now on the product page.", link=f"/product/{p.slug}#reviews")
+            number = db.session.scalar(select(Order.order_number).join(OrderItem, OrderItem.order_id == Order.id).where(OrderItem.id == r.order_item_id)) if r.order_item_id else None
+            notify(r.user_id, "review_status", "Your review was approved", f"Thank you! Your review of {p.name} has been approved.", link=f"/account/orders/{number}#rate" if number else f"/product/{p.slug}")
     db.session.commit()
-    flash("Review approved. It is now on the product page." if target == "approved" else "Review rejected. It is hidden and does not count in the product rating.", "success")
+    flash("Review approved. It now counts in the product rating." if target == "approved" else "Review rejected. It is hidden and does not count in the product rating.", "success")
     return redirect(back)
 
 
@@ -68,12 +74,33 @@ def review_toggle(review_id):
         abort(404)
     before = r.status
     r.status = "hidden" if r.status == "approved" else "approved"
+    if r.status != "approved":
+        r.show_on_home = False
     db.session.flush()
     refresh_rating(r.product_id)
     log("review.hide" if r.status == "hidden" else "review.show", "review", r.id, before={"status": before}, after={"status": r.status})
     db.session.commit()
     flash("Review hidden. It no longer counts in the product rating." if r.status == "hidden" else "Review is visible again.", "success")
     return redirect(safe_next(request.form.get("next"), url_for("admin.reviews")))
+
+
+@bp.post("/reviews/<int:review_id>/home")
+def review_home(review_id):
+    """Switch "Show on home page" on or off for one approved review (the home cache is emptied when this commits)."""
+    r = db.session.get(Review, review_id)
+    if r is None or r.is_deleted:
+        abort(404)
+    back = safe_next(request.form.get("next"), url_for("admin.reviews"))
+    if r.status != "approved":
+        flash("Only approved reviews can be shown on the home page.", "error")
+        return redirect(back)
+    r.show_on_home = not r.show_on_home
+    db.session.flush()
+    home_cache.mark_dirty(db.session)
+    log("review.home_on" if r.show_on_home else "review.home_off", "review", r.id, before={"show_on_home": not r.show_on_home}, after={"show_on_home": r.show_on_home})
+    db.session.commit()
+    flash("Review will be shown on the home page." if r.show_on_home else "Review removed from the home page.", "success")
+    return redirect(back)
 
 
 @bp.post("/reviews/moderation")

@@ -72,11 +72,12 @@ def test_full_lifecycle(world, session):
     assert stranger.get("/notifications/unread.json").get_json()["count"] == 0
     assert cust.get("/notifications/unread.json").get_json()["count"] == 5
     page = cust.get("/notifications").get_data(as_text=True)
-    assert "View order" in page or "Rate your products" in page
+    assert "View order" in page or "Rate this order" in page
 
     # delivered: the tracker is complete and the review form is on the order page
     html = cust.get(url).get_data(as_text=True)
-    assert "Rate your products" in html and html.count("is-done") >= 5 and "Pending" not in html
+    assert "Rate this order" in html and "data-rate-order" in html and html.count("is-done") >= 5 and "Pending" not in html
+    assert "Rate this order" in cust.get("/account/orders").get_data(as_text=True)  # the same button on the orders list
 
     # another customer cannot see this order, its status, or review it
     assert stranger.get(url).status_code == 404 and stranger.get(url + "/status.json").status_code == 404
@@ -90,8 +91,10 @@ def test_full_lifecycle(world, session):
     html = cust.get(url).get_data(as_text=True)
     assert 'data-review-thanks' in html and "Thank You for Your Love" in html and "Keep Smiling, Keep Shopping" in html
     assert 'data-review-thanks' not in cust.get(url).get_data(as_text=True)  # once only
-    assert "Tastes great" in cust.get(f"/product/{product.slug}").get_data(as_text=True)
-    assert 'data-review-thanks' not in cust.get(f"/product/{product.slug}").get_data(as_text=True)
+    page = cust.get(f"/product/{product.slug}").get_data(as_text=True)
+    assert "Tastes great" not in page and 'data-review-thanks' not in page  # the product page no longer lists reviews
+    assert "data-rate-order" not in cust.get(url).get_data(as_text=True)    # everything on the order is rated: no more button
+    assert "Rate this order" not in cust.get("/account/orders").get_data(as_text=True)
 
     # duplicate review for the same product is an edit, not a second row
     data["rating"] = "4"; data["csrf_token"] = _tok(cust, url)
@@ -103,7 +106,8 @@ def test_no_review_before_delivery_and_form_hidden(world, session):
     customer, other, product, owner, cust, stranger, admin = world
     order = mk_order(session, customer, product, status="shipped")
     url = f"/account/orders/{order.order_number}"
-    assert "Rate your products" not in cust.get(url).get_data(as_text=True)
+    assert "Rate this order" not in cust.get(url).get_data(as_text=True)
+    assert "Rate this order" not in cust.get("/account/orders").get_data(as_text=True)
     cust.post(f"/product/{product.slug}/review", data={"rating": "5", "csrf_token": _tok(cust, url)}, content_type="multipart/form-data")
     assert session.scalar(select(func.count(Review.id))) == 0
 
@@ -148,7 +152,7 @@ def test_moderation_pending_then_admin_approves(world, session):
     session.expire_all()
     rv = session.scalar(select(Review))
     assert rv.status == "pending" and session.get(type(product), product.id).review_count == 0
-    assert "Needs a check" not in stranger.get(f"/product/{product.slug}").get_data(as_text=True)
+    assert "Needs a check" not in stranger.get("/").get_data(as_text=True)
     html = cust.get(url).get_data(as_text=True)
     assert "data-review-thanks" in html and "once the shop approves" in html  # popup still appears, with the approval note
 
@@ -157,8 +161,11 @@ def test_moderation_pending_then_admin_approves(world, session):
     assert post(admin, f"/admin/reviews/{rv.id}/set", {"action": "approve"}, page="/admin/reviews").status_code == 302
     session.expire_all()
     assert session.get(Review, rv.id).status == "approved" and session.get(type(product), product.id).review_count == 1
-    assert "Needs a check" in stranger.get(f"/product/{product.slug}").get_data(as_text=True)
-    assert any(n.kind == "review_status" for n in _notes(session, customer))
+    # approved reviews count in the rating but are never listed on the product page, and reach the home page only through the admin's flag
+    assert "Needs a check" not in stranger.get(f"/product/{product.slug}").get_data(as_text=True)
+    assert "Needs a check" not in stranger.get("/").get_data(as_text=True)
+    note = [n for n in _notes(session, customer) if n.kind == "review_status"]
+    assert note and note[-1].link == f"{url}#rate" and "product page" not in note[-1].body
 
     assert post(admin, f"/admin/reviews/{rv.id}/set", {"action": "reject"}, page="/admin/reviews").status_code == 302
     session.expire_all()

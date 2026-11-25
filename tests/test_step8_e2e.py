@@ -116,7 +116,8 @@ def test_full_shop_journey(app, session, monkeypatch):
     assert post(other, f"/review/{rid}/helpful", {}, page="/account").status_code in (200, 302)
     session.expire_all()
     assert session.get(Review, rid).helpful_count == 1
-    assert "Tastes like home" in other.get("/product/millet-mix").get_data(as_text=True)
+    product_page = other.get("/product/millet-mix").get_data(as_text=True)
+    assert "Tastes like home" not in product_page and "5.0 ★" in product_page   # only the small average rating, no review list
     assert admin.get("/admin/reviews").status_code == 200
 
     # ---- return accepted with restock, then refunded

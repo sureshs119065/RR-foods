@@ -108,6 +108,21 @@
   </section>
   {% endif %}
 
+  {% if home_reviews %}
+  <section class="sec hrev" id="customer-reviews" aria-labelledby="hrev-h">
+    <div class="sec__row"><div><h2 id="hrev-h" class="sec__h">What our customers say</h2></div></div>
+    <ul class="hrev__track" aria-label="Customer reviews" tabindex="0">
+      {% for r in home_reviews %}
+      <li class="hrev__card">
+        <p class="hrev__stars" role="img" aria-label="{{ r.rating }} out of 5 stars"><span aria-hidden="true">{{ '★' * r.rating }}<span class="hrev__off">{{ '★' * (5 - r.rating) }}</span></span></p>
+        <blockquote class="hrev__text">&ldquo;{{ r.text }}&rdquo;</blockquote>
+        <p class="hrev__by"><b>{{ r.name }}</b><span>{{ r.product }}</span></p>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
   <section class="rr-how-order" aria-labelledby="rr-how-order-title">
     <div class="rr-how-order__heading">
       <h2 id="rr-how-order-title">How to Order</h2>
@@ -125,7 +140,7 @@
 
 
 
-<section class="home-bottom container{{ ' home-bottom--no-recent' if not recent }}{{ ' home-bottom--no-reviews' if not featured_reviews }}" aria-label="More from RR FOODS">
+<section class="home-bottom container{{ ' home-bottom--no-recent' if not recent }}{{ ' home-bottom--no-reviews' }}" aria-label="More from RR FOODS">
   {% if recent %}
   <section class="home-bottom__recent" aria-labelledby="home-recent-heading">
     <header class="rv__head">
@@ -142,18 +157,6 @@
   <section class="home-bottom__story" aria-labelledby="home-story-heading">
     <div class="home-bottom__story-copy"><h2 id="home-story-heading">Our Story</h2><p>From our farm to your home – fresh, natural and full of goodness.</p><a href="{{ url_for('shop.about') }}">Read the RR FOODS story <span aria-hidden="true">→</span></a></div>
   </section>
-  {% if featured_reviews %}
-  <section class="home-bottom__reviews sec" aria-labelledby="home-reviews-heading">
-    <div class="sec__row"><h2 id="home-reviews-heading" class="sec__h"><span aria-hidden="true">★</span> Customer Reviews</h2><a href="{{ url_for('shop.listing') }}">View all →</a></div>
-    <div class="home-bottom__review-track">
-      {% for review, product_name, customer_name in featured_reviews[:3] %}
-      <article class="home-bottom__review"><div class="home-bottom__review-avatar" aria-hidden="true">{{ (customer_name[:1] if customer_name else 'C')|upper }}</div><div class="home-bottom__review-content">
-        <div class="home-bottom__stars" aria-label="{{ review.rating }} out of 5 stars">{% for n in range(review.rating) %}★{% endfor %}</div>
-        <p>“{{ review.body or review.title or ('Loved ' ~ product_name) }}”</p><div class="home-bottom__review-meta"><b>{{ customer_name.split()[0] if customer_name else 'Customer' }}</b>{% if review.is_verified_purchase %}<span>✓ Verified purchase</span>{% endif %}</div>
-      </div></article>{% endfor %}
-    </div>
-  </section>
-  {% endif %}
   <section class="home-bottom__shortcuts" aria-labelledby="home-shortcuts-heading">
     <div class="home-bottom__shortcuts-head">
       <div><span class="home-bottom__shortcuts-eyebrow">MAKE SHOPPING EASIER</span><h2 id="home-shortcuts-heading">Your shopping shortcuts</h2>

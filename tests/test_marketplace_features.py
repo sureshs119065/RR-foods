@@ -14,8 +14,9 @@ def _fresh_limits():
     limiter.reset()
 
 
-def test_product_page_has_share_trust_and_rating_bars(cust, session, catalog):
+def test_product_page_has_share_trust_and_only_a_small_average_rating(cust, session, catalog):
     _, p = catalog
+    assert "buy__rate" not in cust.get(f"/product/{p.slug}").get_data(as_text=True)  # no reviews: no rating shown at all
     delivered(session, cust, p)
     review(cust, p.slug, rating="4")
     r = session.scalar(select(Review).where(Review.product_id == p.id))
@@ -23,8 +24,9 @@ def test_product_page_has_share_trust_and_rating_bars(cust, session, catalog):
     session.commit()
     html = cust.get(f"/product/{p.slug}").get_data(as_text=True)
     assert "data-share" in html and 'class="pdp-trust"' in html
-    assert 'class="rbars"' in html and html.count('class="rbars__bar"') == 5
-    assert '<progress class="rbars__bar" max="1" value="1" aria-label="4 star: 1 of 1 reviews">' in html
+    assert 'class="stars buy__rate"' in html and "4.0 ★" in html          # the small average beside the name
+    assert 'class="rbars"' not in html and 'id="reviews"' not in html      # no breakdown, no list, no form
+    assert "Write a review" not in html and "Ratings &amp; reviews" not in html
     assert " style=" not in html
 
 

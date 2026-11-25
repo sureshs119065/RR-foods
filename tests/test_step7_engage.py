@@ -139,16 +139,19 @@ def test_only_buyers_who_received_the_product_can_review(cust, session, catalog)
     mk_order(session, cust.user, p, status="shipped", number="NK-S1")           # bought but not delivered yet
     review(cust, p.slug)
     assert session.scalar(select(func.count(Review.id))) == 0
-    assert "after it has been delivered" in cust.get(f"/product/{p.slug}").get_data(as_text=True)
+    assert "Rate this order" not in cust.get("/account/orders/NK-S1").get_data(as_text=True)  # nothing to rate before delivery
     mk_order(session, cust.user, p, status="delivered", number="NK-S2")
+    assert "Rate this order" in cust.get("/account/orders/NK-S2").get_data(as_text=True)
     r = review(cust, p.slug, rating="4", title="Tasty", body="Will buy again")
     assert r.status_code == 302
     rv = session.scalar(select(Review))
     assert (rv.rating, rv.title, rv.status, rv.is_verified_purchase) == (4, "Tasty", "approved", True) and rv.order_item_id
     session.refresh(p)
     assert (p.avg_rating, p.review_count) == (Decimal("4.00"), 1)
-    html = cust.get(f"/product/{p.slug}").get_data(as_text=True)
-    assert "Verified purchase" in html and "Will buy again" in html and "Edit your review" in html
+    order_page = cust.get("/account/orders/NK-S2").get_data(as_text=True)  # the review lives on the order page, ready to edit
+    assert "Will buy again" in order_page and "Save changes" in order_page
+    product_page = cust.get(f"/product/{p.slug}").get_data(as_text=True)
+    assert "Will buy again" not in product_page and "Verified purchase" not in product_page and "4.0 ★" in product_page
 
 
 def test_review_is_one_per_customer_and_editable(cust, session, catalog):
@@ -188,8 +191,9 @@ def test_review_photos(cust, session, catalog):
     rv = session.scalar(select(Review))
     assert len(rv.photos) == 2 and all(u.startswith("/uploads/reviews/") and u.endswith(".webp") for u in rv.photos)
     assert cust.get(rv.photos[0]).status_code == 200
-    html = cust.get(f"/product/{p.slug}").get_data(as_text=True)
-    assert "Photo from the customer" in html
+    assert "Photo from the customer" not in cust.get(f"/product/{p.slug}").get_data(as_text=True)  # no review list on the product page
+    admin = staff(cust.application, session, "admin")
+    assert "(2 photos)" in admin.get("/admin/reviews").get_data(as_text=True)  # moderators still see them
 
 
 def test_review_photo_rules(cust, session, catalog):

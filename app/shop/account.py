@@ -31,7 +31,25 @@ STEP_OF = {}
 @user_only
 def orders():
     q = select(Order).where(Order.user_id == g.user.id).options(selectinload(Order.items)).order_by(Order.created_at.desc(), Order.id.desc())
-    return render_template("shop/orders.html", page=db.paginate(q, page=page_number(), per_page=10, error_out=False), labels=order_svc.LABELS)
+    page = db.paginate(q, page=page_number(), per_page=10, error_out=False)
+    return render_template("shop/orders.html", page=page, labels=order_svc.LABELS, rate_orders=_orders_to_rate(page.items))
+
+
+def _orders_to_rate(orders) -> set[int]:
+    """Ids of the delivered orders on this page that still have a product without a review (they get the "Rate this order" button)."""
+    delivered = [o for o in orders if o.status in rv_svc.REVIEWABLE_ORDER_STATUSES]
+    if not delivered:
+        return set()
+    item_ids = [it.id for o in delivered for it in o.items]
+    pids = {it.product_id for o in delivered for it in o.items if it.product_id}
+    live = set(db.session.scalars(select(Product.id).where(Product.id.in_(pids or {0}), Product.is_deleted.is_(False))))
+    rated = {i for i in db.session.scalars(select(Review.order_item_id).where(Review.user_id == g.user.id, Review.order_item_id.in_(item_ids or [0]), Review.is_deleted.is_(False)))}
+    out = set()
+    for o in delivered:
+        done = {it.product_id for it in o.items if it.id in rated}  # a review on any line counts for that product in this order
+        if any(it.product_id in live and it.product_id not in done for it in o.items):
+            out.add(o.id)
+    return out
 
 
 def _mine(order_number: str) -> Order:
@@ -70,12 +88,20 @@ def order_detail(order_number):
     reviewable = order.status in rv_svc.REVIEWABLE_ORDER_STATUSES
     products = {}
     my_reviews = {}
+    review_lines = []  # one line per product (the first one), because a product is reviewed once per order
     if reviewable:
         pids = {it.product_id for it in order.items if it.product_id}
         products = {p.id: p for p in db.session.scalars(select(Product).where(Product.id.in_(pids or {0}), Product.is_deleted.is_(False)))}
-        my_reviews = {r.product_id: r for r in db.session.scalars(select(Review).where(Review.user_id == g.user.id, Review.product_id.in_(pids or {0}), Review.is_deleted.is_(False)))}
+        product_of_item = {it.id: it.product_id for it in order.items}
+        for r in db.session.scalars(select(Review).where(Review.user_id == g.user.id, Review.order_item_id.in_(list(product_of_item) or [0]), Review.is_deleted.is_(False))):
+            my_reviews[product_of_item[r.order_item_id]] = r  # this order's review of each product, not the customer's other orders
+        seen = set()
+        for it in order.items:
+            if it.product_id in products and it.product_id not in seen:
+                seen.add(it.product_id)
+                review_lines.append(it)
     return render_template("shop/order.html", order=order, steps=STEPS, when=when, current=current, labels=order_svc.LABELS, item_products=order_view.item_products([order]),
-                           reviewable=reviewable, review_products=products, my_reviews=my_reviews, moderation=rv_svc.moderation_on(),
+                           reviewable=reviewable, review_products=products, review_lines=review_lines, my_reviews=my_reviews, moderation=rv_svc.moderation_on(),
                            can_cancel=order.status in order_svc.CANCELLABLE,
                            can_return=False, can_invoice=order.status not in invoice_svc.NOT_INVOICEABLE,
                            return_note=next((h.note for h in reversed(history) if h.to_status == "return_requested"), None), closed_note=next((h.note for h in reversed(history) if h.to_status in ("rejected", "cancelled")), None))

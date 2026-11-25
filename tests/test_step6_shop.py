@@ -100,8 +100,9 @@ def test_product_page_content_and_seo(app, session, catalog):
     session.add(ProductVariant(product_id=p.id, option_name="Weight", option_value="500 g", sku="S1-500", price=Decimal("150"), mrp=Decimal("180"), stock_qty=2))
     session.commit()
     html = app.test_client().get(f"/product/{p.slug}").get_data(as_text=True)
-    for needle in ("Millet Soup Mix", "20% off", "Shelf life", "6 months", "500 g", "Check", '"@type": "Product"', 'rel="canonical"', "application/ld+json", "Frequently" if False else "Ratings"):
+    for needle in ("Millet Soup Mix", "20% off", "Shelf life", "6 months", "500 g", "Check", '"@type": "Product"', 'rel="canonical"', "application/ld+json"):
         assert needle in html, needle
+    assert "Ratings &amp; reviews" not in html and "Write a review" not in html
     assert "name=\"variant_id\"" in html and 'data-price="150.00"' in html
 
 

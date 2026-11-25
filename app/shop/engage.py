@@ -7,7 +7,7 @@ from ..admin.helpers import clean, clean_multiline, page_number, to_int
 from ..auth.decorators import roles_required
 from ..auth.service import audit, safe_next
 from ..extensions import db, limiter
-from ..models import Notification, Product, ProductQuestion, Review, ReviewVote, User, WishlistItem
+from ..models import Notification, Order, Product, ProductQuestion, Review, ReviewVote, User, WishlistItem
 from ..models.base import utcnow
 from ..services import reviews as rv
 from ..services import stock_alerts
@@ -144,8 +144,15 @@ def compare():
 
 
 # ---------------------------------------------------------------- reviews
+# Reviews are written from the delivered order page ("Rate this order"), one per product per order. They are shown in the admin
+# Reviews tab, in the product's average rating, and (when the admin turns it on) in "What our customers say" on the home page.
 def _back(slug: str, anchor: str = "reviews") -> str:
     return url_for("shop.product", slug=slug) + f"#{anchor}"
+
+
+def _order_back(item) -> str:
+    number = db.session.scalar(select(Order.order_number).where(Order.id == item.order_id))
+    return url_for("shop.order_detail", order_number=number) + "#rate" if number else url_for("shop.orders")
 
 
 @bp.post("/product/<slug>/review")
@@ -155,11 +162,11 @@ def review_save(slug):
     p = get_product(slug)
     if p is None:
         abort(404)
-    back = safe_next(request.form.get("next"), _back(slug))  # the order page sends people back to itself
     item_id = to_int(request.form.get("order_item_id"), "i", {}, min_=1, max_=2_000_000_000) if request.form.get("order_item_id") else None
-    item = rv.purchase_for(g.user.id, p.id, item_id)
+    item = rv.purchase_for(g.user.id, p.id, item_id)  # only the buyer, only once the order was delivered
+    back = safe_next(request.form.get("next"), _order_back(item) if item is not None else url_for("shop.orders"))
     if item is None:
-        flash("You can review a product after it has been delivered to you.", "error")
+        flash("You can rate a product after your order has been delivered.", "error")
         return redirect(back)
     errs: dict = {}
     rating = to_int(request.form.get("rating"), "rating", errs, min_=1, max_=5)
@@ -178,13 +185,14 @@ def review_save(slug):
         flash(str(e), "error")
         return redirect(back)
 
-    review = db.session.scalar(select(Review).where(Review.user_id == g.user.id, Review.product_id == p.id))
+    review = rv.existing_for(g.user.id, item)  # one review per product per order: writing again edits it
     if review is None:
         review = Review(user_id=g.user.id, product_id=p.id)
         db.session.add(review)
     review.rating, review.title, review.body = rating, title or None, body or None
     needs_ok = rv.moderation_on()
     review.order_item_id, review.is_verified_purchase, review.status, review.is_deleted = item.id, True, "pending" if needs_ok else "approved", False
+    review.show_on_home = False  # new or edited words go back to the admin before they can be featured again
     if photos:
         review.photos = photos
     elif review.photos is None:
@@ -192,7 +200,7 @@ def review_save(slug):
     db.session.flush()
     rv.refresh_rating(p.id)
     db.session.commit()
-    flash("Thank you! Your review will appear on the product page once the shop approves it." if needs_ok else "Thank you! Your review is now live.", "success")
+    flash("Thank you! Your review will appear once the shop approves it." if needs_ok else "Thank you! Your review was saved.", "success")
     session["review_thanks"] = {"product": p.name[:80], "pending": needs_ok}  # shows the thank-you popup once, on the next page
     return redirect(back)
 

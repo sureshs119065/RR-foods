@@ -1,4 +1,4 @@
-"""Per-worker cache for the storefront's shared fragments: category tiles, category counts, New Arrivals (Step 4.6) and the FAQ list.
+"""Per-worker cache for the storefront's shared fragments: category tiles, category counts, New Arrivals (Step 4.6), the FAQ list and the home-page reviews.
 
 What is cached is the *query result* (detached ORM objects with images, variants and category already loaded), never
 rendered HTML. The product cards contain per-visitor parts (CSRF token, wishlist heart, return URL), so caching HTML would
@@ -6,7 +6,7 @@ hand one visitor's token and wishlist state to the next. Caching the data keeps 
 
 Rules
   * Each entry lives HOME_CACHE_SECONDS (default 60) in this worker's memory. 0 turns the cache off (also the kill switch).
-  * Any committed change to a product, product image, variant, category or FAQ empties the cache of the worker that handled it,
+  * Any committed change to a product, product image, variant, category, FAQ or review (status, home flag, text) empties the cache of the worker that handled it,
     so an admin or owner edit shows up on the next home page load. Other workers catch up within the TTL. There is no shared
     store on purpose: a shared store would cost a round trip per request, which is what this cache exists to avoid.
   * The cached objects are shared between threads and must be treated as read-only; templates only read them.
@@ -88,8 +88,8 @@ def stats() -> dict[str, int]:
 
 # ----------------------------------------------------------------- invalidation
 def _watched() -> tuple[type, ...]:
-    from ..models import Category, Faq, Product, ProductImage, ProductVariant
-    return (Product, ProductImage, ProductVariant, Category, Faq)
+    from ..models import Category, Faq, Product, ProductImage, ProductVariant, Review
+    return (Product, ProductImage, ProductVariant, Category, Faq, Review)
 
 
 def _after_flush(session: Session, _ctx) -> None:

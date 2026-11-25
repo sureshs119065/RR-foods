@@ -4210,3 +4210,18 @@ html body .rt--error .rt__heart { animation: none; }
 .contact-details a:focus-visible { outline: 3px solid #1f5d3a; outline-offset: 2px; border-radius: 3px; }
 .home-contact-section .contact-form { max-width: 720px; margin: 0 auto; }
 .qa-form .btn { justify-self: start; }
+
+
+/* Home: "What our customers say" (phone: swipe row with scroll-snap, no JS; desktop: 3 cards per row) */
+.hrev__track { list-style: none; margin: 0; padding: 4px 2px 10px; display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.hrev__card { flex: 0 0 85%; scroll-snap-align: start; display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 18px; background: var(--c-surface); border: 1px solid var(--c-line); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+.hrev__stars { margin: 0; color: #d9951c; font-size: 1.05rem; letter-spacing: 2px; line-height: 1; }
+.hrev__off { color: var(--c-muted); opacity: .35; }
+.hrev__text { margin: 0; flex: 1; font-size: .95rem; line-height: 1.55; overflow-wrap: anywhere; }
+.hrev__by { margin: 0; display: flex; flex-direction: column; gap: 2px; font-size: .85rem; }
+.hrev__by span { color: var(--c-muted); }
+@media (min-width: 768px) {
+  .hrev__track { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; scroll-snap-type: none; padding: 0; }
+  .hrev__card { flex: none; }
+}
+.buy__rate { font-size: .55em; font-weight: 600; white-space: nowrap; vertical-align: middle; margin-left: .35em; }

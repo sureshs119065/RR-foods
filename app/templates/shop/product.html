@@ -63,7 +63,7 @@
 
     <section class="buy">
       <div class="buy__head">
-      <h1 class="buy__t">{{ p.name }}</h1>
+      <h1 class="buy__t">{{ p.name }}{% if p.review_count %} <span class="stars buy__rate" aria-label="Average rating {{ '%.1f'|format(p.avg_rating) }} out of 5">{{ '%.1f'|format(p.avg_rating) }} ★</span>{% endif %}</h1>
       <div class="buy__tools">
         <form method="post" action="{{ url_for('shop.wishlist_toggle') }}" data-wish>{{ s.csrf() }}<input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.path }}">
           <button class="btn btn--ghost btn--sm wishbtn {{ 'is-on' if in_wishlist(p.id) else '' }}" type="submit" aria-pressed="{{ 'true' if in_wishlist(p.id) else 'false' }}"><span aria-hidden="true">♥</span> <span data-wish-label>{{ 'Saved' if in_wishlist(p.id) else 'Wishlist' }}</span></button></form>
@@ -71,7 +71,6 @@
       </div>
       </div>
       {% if p.brand %}<p class="muted buy__brand">by <a href="{{ url_for('shop.listing', brand=p.brand) }}">{{ p.brand }}</a></p>{% endif %}
-      {% if p.review_count %}<p><a class="stars" href="#reviews">{{ '%.1f'|format(p.avg_rating) }} ★</a> <span class="muted">{{ p.review_count }} review{{ '' if p.review_count == 1 else 's' }}</span></p>{% endif %}
       {% set shown_tags = p.tags|reject('in', ['details-pending'])|list if p.tags else [] %}{% if shown_tags %}<p class="tags">{% for t in shown_tags %}<span class="tagchip">{{ t }}</span>{% endfor %}</p>{% endif %}
 
       <p class="price" aria-live="polite">
@@ -328,49 +327,6 @@
     {% endif %}
   </section>
   {% endif %}
-
-  <section class="sec" id="reviews" aria-labelledby="rev-h">
-    <h2 id="rev-h" class="sec__h">Ratings &amp; reviews</h2>
-    {% if p.review_count %}<p><span class="stars">{{ '%.1f'|format(p.avg_rating) }} ★</span> <span class="muted">based on {{ p.review_count }} review{{ '' if p.review_count == 1 else 's' }}</span></p>
-    {% set rtotal = rating_dist.values()|sum %}
-    {% if rtotal %}<ul class="rbars" aria-label="Ratings by star">{% for n, c in rating_dist.items() %}<li><span class="rbars__n">{{ n }} ★</span><progress class="rbars__bar" max="{{ rtotal }}" value="{{ c }}" aria-label="{{ n }} star: {{ c }} of {{ rtotal }} reviews">{{ c }}</progress><span class="rbars__c muted">{{ c }}</span></li>{% endfor %}</ul>{% endif %}{% endif %}
-    {% if reviews %}
-      <ul class="revs">
-        {% for r in reviews %}
-        <li>
-          <p><span class="stars">{{ r.rating }} ★</span> <b>{{ r.title or '' }}</b></p>
-          {% if r.body %}<p>{{ r.body }}</p>{% endif %}
-          {% if r.photos %}<ul class="revphotos">{% for ph in r.photos %}<li><a href="{{ ph }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="Photo from the customer's review" loading="lazy" decoding="async" width="96" height="96"></a></li>{% endfor %}</ul>{% endif %}
-          <p class="muted small">{{ (r.user.name.split()[0] if r.user and r.user.name else 'Customer') }}{% if r.is_verified_purchase %} · <span class="verified">Verified purchase</span>{% endif %} · {{ r.created_at|local_display }}</p>
-          <div class="revact">
-            <form method="post" action="{{ url_for('shop.review_helpful', review_id=r.id) }}" data-helpful>{{ s.csrf() }}<input type="hidden" name="next" value="{{ request.path }}#reviews">
-              <button class="btn btn--ghost btn--sm {{ 'is-on' if r.id in voted else '' }}" type="submit" {% if shopper and my_review and my_review.id == r.id %}disabled{% endif %}>Helpful (<span data-count>{{ r.helpful_count }}</span>)</button></form>
-            {% if my_review and my_review.id == r.id %}<form method="post" action="{{ url_for('shop.review_delete', review_id=r.id) }}">{{ s.csrf() }}<input type="hidden" name="next" value="{{ request.path }}#reviews"><button class="linkish linkish--bad" type="submit" data-confirm="Remove your review?">Delete my review</button></form>{% endif %}
-          </div>
-        </li>
-        {% endfor %}
-      </ul>
-    {% else %}<p class="muted">No reviews yet.</p>{% endif %}
-
-    {% if my_review and my_review.status == 'pending' %}<p class="notice small">Your review is waiting for the shop's approval. It will appear here once approved.</p>{% endif %}
-    {% if can_review %}
-    <div class="acc" {% if not my_review %}data-open{% endif %}><button class="acc__h" type="button" aria-expanded="false">{{ 'Edit your review' if my_review else 'Write a review' }}</button>
-      <div class="acc__p"><div class="acc__i"><div class="acc__b">
-        <form method="post" action="{{ url_for('shop.review_save', slug=p.slug) }}" enctype="multipart/form-data" class="form" data-once>
-          {{ s.csrf() }}
-          <fieldset class="rating"><legend>Your rating</legend>
-            {% for n in (5, 4, 3, 2, 1) %}<input type="radio" id="rt{{ n }}" name="rating" value="{{ n }}" required {% if my_review and my_review.rating == n %}checked{% endif %}><label for="rt{{ n }}" title="{{ n }} star{{ '' if n == 1 else 's' }}"><span class="sr">{{ n }} star{{ '' if n == 1 else 's' }}</span>★</label>{% endfor %}
-          </fieldset>
-          <label class="field"><span>Title (optional)</span><input name="title" maxlength="150" value="{{ my_review.title if my_review and my_review.title else '' }}"></label>
-          <label class="field"><span>Your review</span><textarea name="body" rows="4" maxlength="2000">{{ my_review.body if my_review and my_review.body else '' }}</textarea></label>
-          <label class="field"><span>Add photos (up to 3, JPG/PNG/WebP, 5 MB each)</span><input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple></label>
-          <button class="btn" type="submit">{{ 'Save changes' if my_review else 'Submit review' }}</button>
-        </form>
-      </div></div></div>
-    </div>
-    {% elif shopper %}<p class="muted small">You can review this product after it has been delivered to you.</p>
-    {% elif not current_user %}<p class="muted small"><a href="/login?next={{ request.path }}">Sign in</a> to review products you bought.</p>{% endif %}
-  </section>
 
   <section class="sec" id="qa" aria-labelledby="qa-h"><h2 id="qa-h" class="sec__h">Questions &amp; answers</h2>
     {% if questions %}<ul class="qa">{% for q in questions %}<li><p><b>Q:</b> {{ q.question }}</p><p><b>A:</b> {{ q.answer }}</p></li>{% endfor %}</ul>{% else %}<p class="muted">No questions answered yet.</p>{% endif %}
