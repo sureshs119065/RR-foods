@@ -352,3 +352,24 @@ html[data-shop] body .shop-lst .results { min-width: 0; }
   .ops-fchips::-webkit-scrollbar { display: none; }
   .ops-fchip { scroll-snap-align: start; }
 }
+
+
+/* ---------- Mobile header: wishlist and notifications stay in the top bar (earlier layers hid them below 900px) ---------- */
+@media (max-width: 900px) {
+  html[data-shop] body .rr-header .sh__actions .rr-action-notifications.sh__bell,
+  html[data-shop] body .rr-header .sh__actions .rr-action-wishlist,
+  html body .sh__actions .rr-action-notifications,
+  html body .sh__actions .rr-action-wishlist {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 40px; height: 40px; min-width: 40px; min-height: 40px; flex-basis: 40px;
+    position: relative;
+  }
+  html body .sh__actions { gap: 2px; }
+}
+@media (max-width: 380px) {
+  html body .sh__actions .icon-btn { width: 36px; min-width: 36px; flex-basis: 36px; }
+  html body .sh__actions .rr-action-notifications,
+  html body .sh__actions .rr-action-wishlist { width: 36px !important; min-width: 36px !important; flex-basis: 36px !important; }
+}
