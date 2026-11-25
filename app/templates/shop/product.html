@@ -136,31 +136,18 @@
     </section>
   </div>
 
-  <section class="pdp-service-strip" aria-label="RR FOODS customer services">
-    <div class="pdp-service-strip__heading">
-      <span>SHOP WITH CONFIDENCE</span>
-      <h2>We're here to help after you order</h2>
-    </div>
-    <ul class="pdp-trust" aria-label="Why order from us">
-      <li><span class="pdp-service-icon" aria-hidden="true">◉</span><div><b>Order on WhatsApp</b><span>The shop confirms every order with you</span></div></li>
-      <li><span class="pdp-service-icon" aria-hidden="true">⌁</span><div><b>Track your order</b><span>See each stage from packed to delivered</span></div></li>
-    </ul>
-  </section>
-
   <div class="det{% if catalogue_content %} det--catalogue{% else %} det--store-content{% endif %}">
     {% if catalogue_content %}
-      <header class="pdp-content-heading">
-        <span class="pdp-content-heading__eyebrow">RR FOODS PRODUCT CATALOGUE</span>
-        <h2>Product information</h2>
-        <p>Explore the complete product story, ingredients, food ideas and pack information.</p>
-      </header>
-
       <section class="pdp-catalogue-intro" aria-labelledby="pdp-about-heading">
         <div class="pdp-catalogue-intro__eyebrow">{{ catalogue_content.local_name }}</div>
         <h2 id="pdp-about-heading">About {{ p.name }}</h2>
         {% if catalogue_content.strapline %}<p class="pdp-catalogue-intro__strapline">{{ catalogue_content.strapline }}</p>{% endif %}
         <p>{{ catalogue_content.description }}</p>
       </section>
+
+      <details class="pdp-more" data-readmore>
+        <summary class="pdp-more__btn"><span class="pdp-more__more">Read more</span><span class="pdp-more__less">Read less</span><span class="pdp-more__chev" aria-hidden="true"></span></summary>
+        <div class="pdp-more__body">
 
       {% if catalogue_content.nutrition_context %}
       <section class="pdp-full-card pdp-nutrition-card" aria-labelledby="pdp-nutrition-heading">
@@ -269,18 +256,19 @@
         <div class="product-recipe-video__frame"><iframe src="https://www.youtube-nocookie.com/embed/{{ p.video_id|e }}" title="Recipe video for {{ p.name|e }}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>
       </section>
       {% endif %}
+        </div>
+      </details>
     {% else %}
-      <header class="pdp-content-heading">
-        <span class="pdp-content-heading__eyebrow">RR FOODS PRODUCT INFORMATION</span>
-        <h2>About this product</h2>
-        <p>Product details and usage information from the current store listing.</p>
-      </header>
       {% if p.description %}
       <section class="pdp-catalogue-intro" aria-labelledby="pdp-about-heading">
         <h2 id="pdp-about-heading">{{ p.name }}</h2>
         <p>{{ p.description }}</p>
       </section>
       {% endif %}
+
+      <details class="pdp-more" data-readmore>
+        <summary class="pdp-more__btn"><span class="pdp-more__more">Read more</span><span class="pdp-more__less">Read less</span><span class="pdp-more__chev" aria-hidden="true"></span></summary>
+        <div class="pdp-more__body">
       <div class="pdp-catalogue-grid">
         {% if p.ingredients %}
         <section class="pdp-info-card"><span class="pdp-info-card__icon" aria-hidden="true">✳</span><h3>Ingredients</h3><p>{{ p.ingredients }}</p></section>
@@ -311,6 +299,8 @@
       {% if p.video_id %}
       <section class="pdp-video-card"><h3>How to prepare {{ p.name }}</h3><div class="product-recipe-video__frame"><iframe src="https://www.youtube-nocookie.com/embed/{{ p.video_id|e }}" title="Recipe video for {{ p.name|e }}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div></section>
       {% endif %}
+        </div>
+      </details>
     {% endif %}
   </div>
 

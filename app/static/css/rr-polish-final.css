@@ -409,3 +409,44 @@ html body .so__sheet .so__list li:last-child { border-bottom: 0; }
 .pr-review__stars { color: #e0a100; letter-spacing: 2px; font-size: 18px; }
 .pr-review__off { color: #d6d9d4; }
 .pr-review__body { overflow-wrap: anywhere; }
+
+/* ---------- Product page: Amazon-style "Read more" + tighter spacing ---------- */
+/* About text stays visible; ingredients, nutrition, preparation, pack details etc. open under "Read more". */
+html[data-shop] .pdp > .det { gap: 12px; margin: 18px 0 8px; }
+html[data-shop] .pdp .pdp-catalogue-intro { padding: 18px 22px; }
+html[data-shop] .pdp .pdp-catalogue-intro h2 { margin: 0 0 6px; font-size: clamp(1.25rem, 2vw, 1.6rem); }
+html[data-shop] .pdp .pdp-catalogue-intro__eyebrow { margin-bottom: 2px; }
+
+html[data-shop] .pdp-more { display: grid; gap: 12px; }
+html[data-shop] .pdp-more > summary { list-style: none; }
+html[data-shop] .pdp-more > summary::-webkit-details-marker { display: none; }
+html[data-shop] .pdp-more__btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; justify-self: start;
+  min-height: 44px; padding: 0 20px; cursor: pointer; user-select: none;
+  border: 1px solid var(--c-brand, #1f6b43); border-radius: 999px; background: #fff;
+  color: var(--c-brand, #1f6b43); font-weight: 700; font-size: .95rem;
+}
+html[data-shop] .pdp-more__btn:hover { background: var(--c-soft, #eef6f0); }
+html[data-shop] .pdp-more__btn:focus-visible { outline: 3px solid #f2a900; outline-offset: 2px; }
+html[data-shop] .pdp-more__less { display: none; }
+html[data-shop] .pdp-more[open] .pdp-more__more { display: none; }
+html[data-shop] .pdp-more[open] .pdp-more__less { display: inline; }
+html[data-shop] .pdp-more__chev { width: 8px; height: 8px; margin-top: -3px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .15s; }
+html[data-shop] .pdp-more[open] .pdp-more__chev { margin-top: 3px; transform: rotate(-135deg); }
+html[data-shop] .pdp-more__body { display: grid; gap: 12px; min-width: 0; }
+html[data-shop] .pdp-more__body > * { margin: 0; min-width: 0; }
+@media (prefers-reduced-motion: reduce) { html[data-shop] .pdp-more__chev { transition: none; } }
+
+/* no stretched empty cards, compact padding, compact tables */
+html[data-shop] .pdp .pdp-catalogue-grid { align-items: start; gap: 12px; }
+html[data-shop] .pdp .pdp-info-card,
+html[data-shop] .pdp .pdp-full-card,
+html[data-shop] .pdp .pdp-spec-card,
+html[data-shop] .pdp .pdp-video-card,
+html[data-shop] .pdp .pdp-editorial-notes { padding: 16px 18px; }
+html[data-shop] .pdp .specs th, html[data-shop] .pdp .specs td { padding-block: 8px; }
+
+/* less empty space around the hero and between page sections */
+@media (min-width: 900px) { html[data-shop] .pdp__grid { gap: 28px; } }
+html[data-shop] .pdp .sec { margin-block: 22px; }
+html[data-shop] .pdp .crumbs ol { margin: 8px 0 12px; }
