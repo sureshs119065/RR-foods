@@ -99,7 +99,7 @@ def checkout_place():
         return redirect(url_for("shop.checkout_page", address=request.form.get("address_id"), **keep))
     try:
         order = svc.create_pending_order(g.user, int(request.form.get("address_id") or 0) if (request.form.get("address_id") or "").isdigit() else 0,
-                                request.form.get("method", ""), session.get("coupon"), notes, request.form.get("gift_message"), request.form.get("hide_prices") == "1",
+                                request.form.get("method", ""), session.get("coupon"), notes,
                                 idempotency_key=submitted_token, only_items=cart_svc.buy_now_items(g.user.id) if buy_now else None)
         db.session.commit()
         session.pop("checkout_token", None)

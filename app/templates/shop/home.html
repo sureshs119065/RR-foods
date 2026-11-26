@@ -20,14 +20,10 @@
 {% set n = items|length %}
 <section class="sec rr-featured-section rr-shelf" aria-labelledby="{{ sid }}-h">
   <div class="sec__row"><div><h2 id="{{ sid }}-h" class="sec__h">{{ title }}</h2>{% if sub %}<p class="sec__sub">{{ sub }}</p>{% endif %}</div><div class="sec__tools"><a href="{{ href }}">View all →</a></div></div>
-  {% if n < 4 %}
-  {# Fewer than 4 products: a compact row of small cards instead of one lonely tall card in a scrolling track. #}
-  <ul class="rr-compact" aria-label="{{ aria }}">{% for p in items %}{{ s.rcard(p) }}{% endfor %}</ul>
-  {% else %}
+  {# Every row uses the same full vertical product cards (image on top, name, price, button), even with 1-3 products; the row only auto-scrolls when the cards overflow. #}
   <div class="rr-loop" data-loop role="region" aria-label="{{ aria }}" tabindex="0">
     <ul class="rr-loop__track" id="{{ sid }}-track">{% for p in items[:6] %}{{ s.rcard(p) }}{% endfor %}</ul>
   </div>
-  {% endif %}
 </section>
 {% endmacro %}
 {{ img_priority_spent() }}{# home: the banner/offer cards are the LCP and the product rows sit below the fold, so product images load lazily and do not compete with the critical CSS #}
