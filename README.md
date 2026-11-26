@@ -242,6 +242,7 @@ Run from the project root with the virtual environment active.
 | `flask db upgrade` | Apply migrations |
 | `flask import-rr-foods --yes` | Import the 20 RR FOODS products (add `--archive-others` to archive the rest, `--dry-run` to preview) |
 | `flask create-user EMAIL "Name" --role admin\|owner\|user` | Create an account |
+| `flask mark-new-arrivals` | Tag every live product "New Arrival" (stock and prices untouched; safe to repeat) |
 | `flask seed-combo` | Create the ₹999 combo bundle from its 7 catalogue products (safe to repeat; run after `import-rr-foods`) |
 | `flask set-setting KEY VALUE` | Change a JSON-backed site setting (strings as JSON, for example `'"RR FOODS"'`) |
 | `flask send-emails` | Deliver queued emails (cron, every minute) |

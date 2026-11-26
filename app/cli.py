@@ -6,6 +6,25 @@ from .extensions import db
 def register_cli(app):
     _register_combo_seed(app)
 
+    @app.cli.command("mark-new-arrivals")
+    def mark_new_arrivals_command():
+        """Tag every live product 'New Arrival' (stock, prices and everything else are left untouched; safe to repeat)."""
+        from sqlalchemy import select
+        from .models import Product
+        from .services import home_cache
+        n = 0
+        for p in db.session.scalars(select(Product).where(Product.is_deleted.is_(False))).all():
+            tags = list(p.tags or [])
+            if not any(str(t).strip().lower() == "new arrival" for t in tags):
+                p.tags = [*tags, "New Arrival"][:20]
+                n += 1
+        db.session.commit()
+        try:
+            home_cache.bust()
+        except Exception:
+            pass
+        click.echo(f"Tagged {n} product(s) as New Arrival.")
+
     @app.cli.command("import-rr-foods")
     @click.option("--path", default="app/seed_data/seed_products.csv", show_default=True,
                   type=click.Path(exists=True, dir_okay=False, readable=True))

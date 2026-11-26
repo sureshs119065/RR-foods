@@ -310,11 +310,16 @@ def diet_options() -> list:
     return home_cache.get("diet_counts", _load_diet_counts)
 
 
+def new_arrival_clause():
+    """True when the product carries the 'New Arrival' tag (tags are a JSON list; compared case-insensitively)."""
+    return func.lower(cast(Product.tags, Text)).contains('"new arrival"', autoescape=True)
+
+
 def _load_new_arrivals(sess) -> tuple:
     # category is joined in the same query: cards print its name, and a detached product cannot lazy-load it later
     opts = (selectinload(Product.images), selectinload(Product.variants), joinedload(Product.category))
     return tuple(sess.scalars(select(Product).where(LIVE, in_stock_sql()).options(*opts)
-                              .order_by(Product.created_at.desc(), Product.id.desc()).limit(HOME_NEW_LIMIT)).all())
+                              .order_by(new_arrival_clause().desc(), Product.created_at.desc(), Product.id.desc()).limit(HOME_NEW_LIMIT)).all())
 
 
 def top_categories() -> tuple:
