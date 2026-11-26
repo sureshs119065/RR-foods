@@ -383,7 +383,7 @@ def bundle_cards(*, include_upcoming: bool = True) -> list[dict]:
             if pr is None:
                 ok = False
                 continue
-            regular += Decimal(str(pr.final_price)) * qty
+            regular += Decimal(str(pr.mrp or pr.final_price)) * qty
             if not pr.is_active or active_variants(pr) or available_qty(pr) < qty:
                 ok = False
             if sold_out is None and pr.is_active and available_qty(pr) <= 0:
@@ -401,7 +401,7 @@ def bundle_cards(*, include_upcoming: bool = True) -> list[dict]:
             window = ""
         cards.append({"id": b.id, "title": _bundle_title(b.name), "description": (b.description or "").strip(),
                       "price": price, "regular": regular, "saving": saving,
-                      "pct": int(round(saving * 100 / regular)) if regular > 0 and saving else 0,
+                      "pct": round(float(saving * 100 / regular), 1) if regular > 0 and saving else 0,
                       "items": items, "count": sum(i["qty"] for i in items), "available": ok and not upcoming,
                       "upcoming": upcoming, "window": window, "sold_out": sold_out,
                       "starts_label": f"{starts.astimezone(ist):%-d %b}" if starts else ""})
