@@ -14,8 +14,8 @@ from .helpers import clean, log, page_number
 PER_PAGE = 25
 
 
-@bp.route("/users")
-def users():
+def user_query():
+    """The users list's role, status and search filters. Shared by the list and the Excel/CSV export."""
     q = select(User).where(User.is_deleted.is_(False))
     role = request.args.get("role", "")
     if role in ("user", "owner", "admin"):
@@ -27,7 +27,12 @@ def users():
     if term:
         like = f"%{term}%"
         q = q.where(or_(func.lower(User.name).like(like), func.lower(User.email).like(like), func.coalesce(User.phone, "").like(like)))
-    page = db.paginate(q.order_by(User.created_at.desc(), User.id.desc()), page=page_number(), per_page=PER_PAGE, error_out=False)
+    return q.order_by(User.created_at.desc(), User.id.desc())
+
+
+@bp.route("/users")
+def users():
+    page = db.paginate(user_query(), page=page_number(), per_page=PER_PAGE, error_out=False)
     args = {k: v for k, v in request.args.items() if k != "page" and v}
     return render_template("admin/users.html", page=page, args=args, now_utc=utcnow())
 

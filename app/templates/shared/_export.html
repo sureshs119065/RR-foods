@@ -1,0 +1,8 @@
+{# Download buttons for a list. `args` are the list's current filters, so the file holds exactly what the screen shows. #}
+{% macro buttons(endpoint, args) %}
+<div class="export-bar" role="group" aria-label="Download this list">
+  <span class="export-bar__label">Download</span>
+  <a class="btn btn--ghost btn--sm" href="{{ url_for(endpoint, fmt='xlsx', **args) }}" download title="Excel file with a summary at the top">Excel (.xlsx)</a>
+  <a class="btn btn--ghost btn--sm" href="{{ url_for(endpoint, fmt='csv', **args) }}" download title="Plain CSV file">CSV</a>
+</div>
+{% endmacro %}

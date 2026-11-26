@@ -342,7 +342,7 @@ def test_export_escapes_formula_injection_and_roundtrips(admin, session, cat):
     assert r.mimetype == "text/csv" and "attachment" in r.headers["Content-Disposition"]
     assert r.get_data()[:3] == b"\xef\xbb\xbf"                                  # UTF-8 byte order mark, so Excel reads ₹ and accents
     rows = list(csv.DictReader(io.StringIO(r.get_data().decode("utf-8-sig"))))
-    names = {x["sku"]: x["name"] for x in rows}
+    names = {x["SKU"]: x["Product Name"] for x in rows}
     assert names["X1"].startswith("'=") and names["X2"] == "'@cmd"
 
 

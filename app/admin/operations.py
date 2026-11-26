@@ -124,9 +124,9 @@ def _local_midnight_utc(day: date) -> datetime:
     return datetime.combine(day, time.min, tzinfo=shop_tz()).astimezone(timezone.utc)
 
 
-@bp.get("/orders")
-def orders():
-    """Orders list. Search, date range and status chips all narrow the same query, and every link and the pager carry them along."""
+def order_filters():
+    """The orders list's search, date range, status chip and revenue tile, as (status, term, d_from, d_to, rev, where).
+    Shared by the list and the Excel/CSV export, so a download always holds exactly the rows the screen is showing."""
     status = request.args.get("status", "")
     status = status if status in ORDER_STATUSES else ""
     term = (request.args.get("q") or "").strip()
@@ -147,6 +147,13 @@ def orders():
         base.append(Order.created_at < _local_midnight_utc(d_to + timedelta(days=1)))
     if rev:
         base.append(Order.status.in_(REVENUE_STATUSES))
+    return status, term, d_from, d_to, rev, base
+
+
+@bp.get("/orders")
+def orders():
+    """Orders list. Search, date range and status chips all narrow the same query, and every link and the pager carry them along."""
+    status, term, d_from, d_to, rev, base = order_filters()
 
     # chip counts follow search + dates (not the status itself), so each chip says what clicking it would show
     counts = dict(db.session.execute(select(Order.status, func.count()).where(*base).group_by(Order.status)).all())

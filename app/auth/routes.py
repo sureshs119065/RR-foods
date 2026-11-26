@@ -36,12 +36,15 @@ def _login(portal: str):
             user, error = authenticate(portal, email, password)
             if user:
                 login_user(user)
-                nxt = safe_next(request.args.get("next") or request.form.get("next"), cfg["home"])
+                landing = cfg.get("after_login", cfg["home"])   # customers: Home Page ("/"); staff: their dashboard
+                nxt = safe_next(request.args.get("next") or request.form.get("next"), landing)   # internal paths only
                 # a customer link must not send staff into the other portal and vice versa
                 if portal != "user" and not nxt.startswith(f"/{portal}/"):
-                    nxt = cfg["home"]
+                    nxt = landing
                 if portal == "user" and nxt.startswith(("/owner", "/admin")):
-                    nxt = cfg["home"]
+                    nxt = landing
+                if portal == "user":   # after login_user(), which resets the session; shown by the flash block on the Home Page
+                    flash(f"Welcome back, {user.name.split()[0] if user.name else 'there'}!", "success")
                 return redirect(nxt)
         status = 429 if error and error.startswith("Too many") else 401
         if portal == "user":   # wrong password on the customer page: show the code form with the password fallback open

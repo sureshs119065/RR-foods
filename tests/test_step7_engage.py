@@ -539,7 +539,7 @@ def test_forgot_password_full_flow(app, session):
     assert app.test_client().get(link).status_code == 400                      # the same link cannot be used twice
     new = app.test_client()
     ok = new.post("/login", data={"email": "reset@x.com", "password": "Brand-new-Pass1", "csrf_token": token(new, "/login")})
-    assert ok.status_code == 302 and ok.headers["Location"] == "/account"
+    assert ok.status_code == 302 and ok.headers["Location"] == "/"
     old = app.test_client()
     bad = old.post("/login", data={"email": "reset@x.com", "password": PW, "csrf_token": token(old, "/login")})
     assert bad.status_code != 302

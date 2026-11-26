@@ -1,0 +1,16 @@
+/* Admin and Owner data tables: numbers right-aligned, text left-aligned, tidy header, clear download buttons. */
+.export-bar { display: inline-flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: 0 0 .75rem; }
+.export-bar__label { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #5b6b60; }
+.pagehead .export-bar, .ops-page-head .export-bar, .owner-orders-intro .export-bar { margin: 0; }
+
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (min-width: 768px) {
+  .table th, .ops-otable th { text-align: left; font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; color: #4a5a4f; white-space: nowrap; }
+  .table th.num, .ops-otable th.c-total, .ops-otable th.num { text-align: right; }
+  .table td.num, .ops-otable td.c-total, .ops-otable td.num { text-align: right; }
+  .table tbody tr:nth-child(even) td { background: #fafcfa; }
+  .table td, .table th { padding-top: .6rem; padding-bottom: .6rem; vertical-align: middle; }
+}
+/* status words always look like badges, whichever table they sit in */
+.badge { text-transform: none; letter-spacing: 0; }
+.badge--muted { background: #eceeed; color: #4b5650; }

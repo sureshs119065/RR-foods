@@ -38,8 +38,8 @@ def _state_payload(qty: int, threshold: int) -> dict:
 
 
 # ---------------------------------------------------------------- list
-@bp.route("/inventory")
-def inventory():
+def inventory_query():
+    """The stock list's search, category, stock level and sort. Shared by the list and the Excel/CSV export."""
     q = (select(Product).where(Product.is_deleted.is_(False))
          .options(selectinload(Product.variants), joinedload(Product.category)))
 
@@ -57,6 +57,12 @@ def inventory():
     sort = request.args.get("sort", "stock_asc")
     q = q.order_by(*SORTS.get(sort, SORTS["stock_asc"]), Product.id)
 
+    return q, sort
+
+
+@bp.route("/inventory")
+def inventory():
+    q, sort = inventory_query()
     page = db.paginate(q, page=page_number(), per_page=PER_PAGE, error_out=False)
     cats = db.session.scalars(select(Category).where(Category.is_deleted.is_(False), Category.parent_id.is_(None)).order_by(Category.sort_order, Category.name)).all()
     args = {k: v for k, v in request.args.items() if k != "page" and v}

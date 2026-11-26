@@ -20,7 +20,7 @@ import re
 import secrets
 from datetime import timedelta
 
-from flask import current_app, g, jsonify, request
+from flask import current_app, flash, g, jsonify, request
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 
@@ -223,6 +223,8 @@ def otp_verify():
     nxt = safe_next(str(data.get("next") or ""), "/")
     if nxt.startswith(("/owner", "/admin")):
         nxt = "/"
+    if not created:   # new accounts get the name step first; returning customers see this on the page they land on
+        flash(f"Welcome back, {user.name.split()[0] if user.name else 'there'}!", "success")
     return jsonify(ok=True, redirect=nxt, new_user=created, name=user.name if created else "")
 
 

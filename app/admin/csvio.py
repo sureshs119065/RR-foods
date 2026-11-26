@@ -8,6 +8,7 @@ import csv
 import io
 import re
 import zipfile
+from datetime import datetime
 from decimal import Decimal
 
 from flask import g
@@ -17,12 +18,22 @@ from ..extensions import db
 from ..services.inventory import notify_admin_stock_transition
 from ..models import Category, InventoryLog, Product, ProductImage
 from ..seed import slugify
-from ..services.xlsx_export import INT, MONEY, NUMBER, TEXT, Sheet, build_workbook
-from .helpers import to_decimal, to_int, unique_slug
+from ..services import report_export as rx
+from ..services.inventory import stock_state
+from ..services.report_export import safe_cell      # one formula guard for every export (re-exported: other modules import it from here)
+from ..services.xlsx_export import INT, MIXED, MONEY, NUMBER, TEXT, Sheet, Typed, build_workbook
+from .helpers import shop_tz, to_decimal, to_int, unique_slug
 
 COLUMNS = ["sku", "name", "category", "subcategory", "brand", "pack_size", "mrp", "discount_type", "discount_value", "stock_qty",
            "low_stock_threshold", "short_description", "description", "ingredients", "how_to_use", "fssai", "video_id", "tags",
            "is_active", "is_bestseller", "image_urls"]
+# What the exported file shows in row 1. The importer reads these AND the short names above, so an exported file imports straight back.
+HEADERS = {"sku": "SKU", "name": "Product Name", "category": "Category", "subcategory": "Subcategory", "brand": "Brand",
+           "pack_size": "Pack Size", "mrp": "MRP (₹)", "discount_type": "Discount Type", "discount_value": "Discount Value",
+           "stock_qty": "Stock Qty", "low_stock_threshold": "Low-Stock Alert At", "short_description": "Short Description",
+           "description": "Description", "ingredients": "Ingredients", "how_to_use": "How To Use", "fssai": "FSSAI No.",
+           "video_id": "YouTube Video ID", "tags": "Tags", "is_active": "Active", "is_bestseller": "Bestseller", "image_urls": "Image URLs"}
+HUMAN_TO_KEY = {v.lower(): k for k, v in HEADERS.items()}
 ALIASES = {"id": "sku", "price": "mrp", "weight": "pack_size", "shortdescription": "short_description", "howtouse": "how_to_use",
            "videoid": "video_id", "image": "image_urls", "images": "image_urls", "instock": "in_stock"}
 MAX_ROWS = 2000
@@ -31,13 +42,6 @@ MAX_XLSX_UNPACKED = 40 * 1024 * 1024      # guards against a tiny .xlsx that unp
 XLSX_MAGIC = b"PK\x03\x04"                 # an .xlsx file is a zip archive
 COLUMN_KINDS = {"mrp": MONEY, "discount_value": NUMBER, "stock_qty": INT, "low_stock_threshold": INT}
 URL_OK = re.compile(r"^(/uploads/|/images/|/static/img/products/|https://)[^\s]+$")
-
-
-def safe_cell(value):
-    text = "" if value is None else str(value)
-    if text[:1] in ("=", "+", "-", "@", "\t", "\r"):
-        return "'" + text
-    return text
 
 
 def unsafe_cell(text: str) -> str:
@@ -55,20 +59,51 @@ def product_row(p) -> list:
             "|".join(i.url for i in p.images)]
 
 
+def _shown(row: list) -> list:
+    """An empty text cell reads "-" in the file (the importer turns a lone "-" back into empty), and Yes/No are capitalised."""
+    out = []
+    for col, value in zip(COLUMNS, row):
+        if col in ("is_active", "is_bestseller"):
+            value = "Yes" if value == "yes" else "No"
+        out.append(value if col in COLUMN_KINDS or value not in (None, "") else rx.EMPTY)
+    return out
+
+
 def export_csv(products) -> str:
-    """UTF-8 with a byte order mark, so Excel opens ₹ and accented text correctly. The importer reads the mark too."""
+    """UTF-8 with a byte order mark, so Excel opens ₹ and accented text correctly. The importer reads the mark too.
+    No summary lines on purpose: this file is also the import template, so row 1 must be the column headings."""
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\n")
-    w.writerow(COLUMNS)
+    w.writerow([HEADERS[c] for c in COLUMNS])
     for p in products:
-        w.writerow([safe_cell(x) for x in product_row(p)])
+        cells = _shown(product_row(p))
+        w.writerow([rx._csv_value(x, COLUMN_KINDS[c]) if c in COLUMN_KINDS else (x if x == rx.EMPTY else safe_cell(x)) for c, x in zip(COLUMNS, cells)])
     return "\ufeff" + buf.getvalue()
 
 
+def _xlsx_clean(text: str) -> str:
+    return text if text in ("", rx.EMPTY) else safe_cell(text)
+
+
 def export_xlsx(products) -> bytes:
-    """Styled Excel file: one sheet, the same columns as the CSV."""
+    """Styled Excel file: the same columns as the CSV on the first sheet (so it imports back), and a Summary sheet with the totals."""
+    products = list(products)
     kinds = [COLUMN_KINDS.get(c, TEXT) for c in COLUMNS]
-    return build_workbook([Sheet("Products", list(COLUMNS), kinds, [product_row(p) for p in products])], clean=safe_cell)
+    now = datetime.now(shop_tz())
+    states = [stock_state(p.stock_qty, p.low_stock_threshold) for p in products]
+    value = sum((p.final_price or 0) * max(p.stock_qty, 0) for p in products)
+    summary = [
+        ("Exported on", f"{rx.dt_text(now.replace(tzinfo=None))} ({shop_tz().key})", TEXT),
+        ("Products in this file", len(products), INT),
+        ("Active (shown in shop)", sum(1 for p in products if p.is_active), INT),
+        ("Hidden", sum(1 for p in products if not p.is_active), INT),
+        ("In stock", states.count("ok"), INT), ("Low stock", states.count("low"), INT), ("Out of stock", states.count("out"), INT),
+        ("Units in stock", sum(max(p.stock_qty, 0) for p in products), INT),
+        ("Stock value at selling price", value, MONEY),
+    ]
+    main = Sheet("Products", [HEADERS[c] for c in COLUMNS], kinds, [_shown(product_row(p)) for p in products])
+    totals = Sheet("Summary", ["Metric", "Value"], [TEXT, MIXED], [[lab, Typed(v, k)] for lab, v, k in summary])
+    return build_workbook([main, totals], clean=_xlsx_clean)
 
 
 def _truthy(value: str, default=True) -> bool:
@@ -140,14 +175,14 @@ def import_csv(raw: bytes, *, create_categories: bool, default_stock: int) -> Im
             res.errors.append("The file is not UTF-8 text. In Excel choose “CSV UTF-8” when saving.")
             return res
         rows = list(csv.reader(io.StringIO(text)))
-    rows = [[unsafe_cell(c) for c in cells] for cells in rows]
+    rows = [["" if c.strip() == rx.EMPTY else unsafe_cell(c) for c in cells] for cells in rows]   # a lone "-" is how the export shows "nothing"
     if not rows or len(rows) < 2:
         res.errors.append("The file has no product rows.")
         return res
     if len(rows) - 1 > MAX_ROWS:
         res.errors.append(f"Too many rows. Import at most {MAX_ROWS} products at a time.")
         return res
-    head = [ALIASES.get(h.strip().lower().replace(" ", "_"), h.strip().lower().replace(" ", "_")) for h in rows[0]]
+    head = [HUMAN_TO_KEY.get(h.strip().lower()) or ALIASES.get(h.strip().lower().replace(" ", "_"), h.strip().lower().replace(" ", "_")) for h in rows[0]]
     missing = [c for c in ("sku", "name", "category", "mrp") if c not in head]
     if missing:
         res.errors.append("Missing column(s): " + ", ".join(missing) + ". (The old columns id, name, category, price also work.)")
