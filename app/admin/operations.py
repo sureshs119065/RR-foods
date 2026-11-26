@@ -126,7 +126,7 @@ def _local_midnight_utc(day: date) -> datetime:
 
 def order_filters():
     """The orders list's search, date range, status chip and revenue tile, as (status, term, d_from, d_to, rev, where).
-    Shared by the list and the Excel/CSV export, so a download always holds exactly the rows the screen is showing."""
+    Shared by the list and the Excel export, so a download always holds exactly the rows the screen is showing."""
     status = request.args.get("status", "")
     status = status if status in ORDER_STATUSES else ""
     term = (request.args.get("q") or "").strip()

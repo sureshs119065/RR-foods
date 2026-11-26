@@ -3,18 +3,26 @@
 One look for every export: dark green header with bold white text, frozen header row, auto-filter, columns sized to their
 content, text on the left and numbers on the right, ₹ money format, thin borders and zebra rows.
 
-The builder never writes a formula: every text cell is forced to a string, and callers can pass `clean` (the CSV code passes
-`safe_cell`) so a value starting with = + - @ is neutralised exactly as it is in the CSV export.
+The builder never writes a formula: every text cell is forced to a string, and callers can pass `clean` (the exports pass
+`safe_cell`) so a value starting with = + - @ is neutralised.
 """
 from __future__ import annotations
 
 import io
+import math
 from collections import namedtuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
 from openpyxl import Workbook
 from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+from openpyxl.chart import BarChart, DoughnutChart, Reference
+from openpyxl.chart.data_source import NumFmt
+from openpyxl.chart.label import DataLabelList
+from openpyxl.chart.series import DataPoint
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.chart.text import RichText
+from openpyxl.drawing.text import CharacterProperties, Paragraph, ParagraphProperties, RichTextProperties
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -196,13 +204,238 @@ def _write_sheet(ws, sheet: Sheet, clean) -> None:
     ws.sheet_view.zoomScale = 100
 
 
-def build_workbook(sheets: list[Sheet], *, clean=None) -> bytes:
-    """Returns the finished .xlsx file as bytes."""
+# ------------------------------------------------------------------ Insights sheet: native charts + suggestion boxes
+# Brand colours for every chart: the panel's dark green first, then lighter greens and one warm accent.
+CHART_COLORS = ["183D2B", "47764F", "78A982", "C9A227", "B7C4BB", "8C5E2A"]
+SUGGESTION_FILL = PatternFill("solid", start_color="FFF8CC")             # light yellow
+SUGGESTION_FONT = Font(size=10, color="3A3A1E")
+BLOCK_FONT = Font(bold=True, size=11, color="183D2B")
+MONEY_LABEL = '"₹"#,##0'                                                  # chart axes and data labels (whole rupees keep them readable)
+
+BOX_COLS = 8            # the chart and the suggestion boxes span columns A:H
+BOX_CHARS = 100         # roughly how many characters of 10 pt text fit on one line of A:H
+CHART_ROWS = 16         # rows reserved for a chart (8 cm is about 15 default rows)
+TABLE_COL = 10          # the chart's data table sits beside it, in J:L
+
+
+@dataclass
+class ChartBlock:
+    """One block of the Insights sheet: a heading, a data table, a native chart that reads that table, and suggestion boxes.
+    kind is "bar" (columns), "hbar" (horizontal bars), "doughnut", or "text" (suggestion boxes only, no chart)."""
+    title: str
+    kind: str = "bar"
+    headers: list[str] = field(default_factory=list)          # table headers; the first column holds the category labels
+    kinds: list[str] = field(default_factory=list)
+    rows: list[list] = field(default_factory=list)
+    plot: list[int] = field(default_factory=lambda: [1])      # indexes of the columns that are drawn (0 is the category column)
+    x_title: str = ""
+    y_title: str = ""
+    colors: list[str] | None = None                            # one colour per slice (doughnut)
+    empty_note: str = "No data for this period yet, so there is no chart."
+    suggestions: list[tuple[str, str]] = field(default_factory=list)   # (title, text)
+
+
+@dataclass
+class InsightsSheet:
+    """The "Insights" worksheet. `chips` are coloured count tiles: (label, count, fill hex, font hex)."""
+    title: str = "Insights"
+    report_title: str = "RR FOODS — Insights"
+    notes: list[str] = field(default_factory=list)
+    chips: list[tuple] = field(default_factory=list)
+    blocks: list[ChartBlock] = field(default_factory=list)
+
+
+def _labels(*, percent=False, fmt=None, rotate=False) -> DataLabelList:
+    dl = DataLabelList()
+    if percent:
+        dl.spPr = GraphicalProperties(solidFill="FFFFFF")
+    dl.showVal, dl.showPercent = (not percent), percent
+    dl.showSerName = dl.showCatName = dl.showLegendKey = dl.showLeaderLines = False      # said out loud: Excel and LibreOffice default differently
+    if fmt:
+        dl.numFmt = fmt
+    if not percent:
+        dl.position = "outEnd"
+    size = 800 if rotate else 900
+    props = RichTextProperties(rot=-5400000, vert="horz") if rotate else RichTextProperties()
+    dl.txPr = RichText(bodyPr=props, p=[Paragraph(pPr=ParagraphProperties(defRPr=CharacterProperties(sz=size)), endParaRPr=CharacterProperties())])
+    return dl
+
+
+def _title(chart_or_axis, text: str) -> None:
+    chart_or_axis.title = text
+    chart_or_axis.title.overlay = False
+
+
+def _make_chart(ws, block: ChartBlock, top: int, last: int):
+    """A native chart whose series point at the block's table on this sheet (header row `top`, data rows top+1 .. last)."""
+    cats = Reference(ws, min_col=TABLE_COL, min_row=top + 1, max_row=last)
+    money = any(block.kinds[i] == MONEY for i in block.plot)
+    fmt = MONEY_LABEL if money else "#,##0"
+    if block.kind == "doughnut":
+        chart = DoughnutChart()
+        chart.holeSize = 55
+        chart.add_data(Reference(ws, min_col=TABLE_COL + block.plot[0], min_row=top, max_row=last), titles_from_data=True)
+        chart.set_categories(cats)
+        for i in range(last - top):
+            point = DataPoint(idx=i)
+            point.graphicalProperties.solidFill = (block.colors or CHART_COLORS)[i % len(block.colors or CHART_COLORS)]
+            chart.series[0].dPt.append(point)
+        chart.dataLabels = _labels(percent=True, fmt="0%")
+        chart.legend.position = "r"
+    else:
+        chart = BarChart()
+        chart.type = "bar" if block.kind == "hbar" else "col"
+        chart.grouping = "clustered"
+        chart.gapWidth = 60
+        for n, idx in enumerate(block.plot):
+            chart.add_data(Reference(ws, min_col=TABLE_COL + idx, min_row=top, max_row=last), titles_from_data=True)
+            series = chart.series[n]
+            color = CHART_COLORS[n % len(CHART_COLORS)]
+            series.graphicalProperties.solidFill = color
+            series.graphicalProperties.line.solidFill = color
+            series.invertIfNegative = False
+        chart.set_categories(cats)
+        chart.dataLabels = _labels(fmt=fmt, rotate=(block.kind == "bar" and last - top > 14))
+        _title(chart.x_axis, block.x_title)
+        _title(chart.y_axis, block.y_title)
+        chart.x_axis.delete = chart.y_axis.delete = False
+        chart.y_axis.numFmt = NumFmt(formatCode=fmt, sourceLinked=False)
+        chart.y_axis.scaling.min = 0
+        if block.kind == "hbar":
+            chart.x_axis.scaling.orientation = "maxMin"          # first row at the top ...
+            chart.y_axis.crosses = "max"                         # ... with the value axis still along the bottom
+        if len(block.plot) > 1:
+            chart.legend.position = "b"
+        else:
+            chart.legend = None
+    if chart.legend is not None:
+        chart.legend.overlay = False
+    _title(chart, block.title)
+    chart.roundedCorners = False
+    chart.width, chart.height = 19.5, 8.0
+    return chart
+
+
+def _write_table(ws, top: int, block: ChartBlock, clean) -> int:
+    """The block's data table in J:L (dark green header, thin borders, zebra rows). Returns the last row used."""
+    for i, (head, kind) in enumerate(zip(block.headers, block.kinds)):
+        cell = ws.cell(row=top, column=TABLE_COL + i, value=head)
+        cell.data_type = "s"
+        cell.font, cell.fill, cell.border = HEADER_FONT, HEADER_FILL, BORDER
+        cell.alignment = Alignment(horizontal="right" if kind in FORMATS else "left", vertical="center")      # one line: a taller row would push the charts below it out of place in some viewers
+    for r, row in enumerate(block.rows, start=top + 1):
+        for i, (raw, kind) in enumerate(zip(row, block.kinds)):
+            cell = ws.cell(row=r, column=TABLE_COL + i)
+            number = _number(raw, kind) if kind in FORMATS else None
+            if number is not None:
+                cell.value, cell.number_format = number, FORMATS[kind]
+                cell.alignment = _align(kind)
+            else:
+                text = _text(raw, clean)
+                if text:
+                    cell.value, cell.data_type = text, "s"
+                cell.alignment = _align(TEXT)
+            cell.border = BORDER
+            if r % 2 == 1:
+                cell.fill = ZEBRA_FILL
+    return top + len(block.rows)
+
+
+def _suggestion_box(ws, row: int, title: str, text: str, clean) -> int:
+    """A light-yellow box of merged, wrapped cells across A:H. Returns the next free row."""
+    body = f"Suggestion — {title}\n{text}" if title else f"Suggestion\n{text}"
+    height = max(2, sum(max(1, math.ceil(len(part) / BOX_CHARS)) for part in body.split("\n")))
+    end = row + height - 1
+    for r in range(row, end + 1):
+        for c in range(1, BOX_COLS + 1):
+            cell = ws.cell(row=r, column=c)
+            cell.fill, cell.border = SUGGESTION_FILL, BORDER
+    anchor = ws.cell(row=row, column=1)
+    anchor.value, anchor.data_type = _text(body, clean), "s"
+    anchor.font, anchor.alignment = SUGGESTION_FONT, Alignment(wrap_text=True, vertical="top", horizontal="left")
+    ws.merge_cells(start_row=row, start_column=1, end_row=end, end_column=BOX_COLS)
+    return end + 1
+
+
+ROW_HEIGHT = 15                                  # every row on the Insights sheet gets an explicit height (below), so no viewer auto-sizes a row
+TALL_ROWS = {"title": 22, "heading": 18, "chip_number": 24}        # and moves the charts, which are positioned by row, out of line
+
+
+def _write_insights(ws, sheet: InsightsSheet, clean) -> None:
+    heights: dict[int, int] = {}
+    row = 1
+    heights[row] = TALL_ROWS["title"]
+    c = ws.cell(row=row, column=1, value=_text(sheet.report_title, clean))
+    c.data_type, c.font = "s", TITLE_FONT
+    row += 1
+    for note in sheet.notes:
+        c = ws.cell(row=row, column=1, value=_text(note, clean))
+        c.data_type, c.font = "s", NOTE_FONT
+        row += 1
+    row += 1
+    if sheet.chips:                                                  # coloured count tiles: label above, number below
+        for i, (label, count, fill, color) in enumerate(sheet.chips):
+            col = 1 + 2 * i
+            for r in (row, row + 1):
+                for cc in (col, col + 1):
+                    ws.cell(row=r, column=cc).fill = PatternFill("solid", start_color=fill)
+                    ws.cell(row=r, column=cc).border = BORDER
+            a = ws.cell(row=row, column=col, value=_text(label, clean))
+            a.data_type, a.font, a.alignment = "s", Font(bold=True, size=10, color=color), Alignment(horizontal="center", vertical="center")
+            b = ws.cell(row=row + 1, column=col, value=int(count))
+            b.number_format, b.font, b.alignment = FORMATS[INT], Font(bold=True, size=14, color=color), Alignment(horizontal="center", vertical="center")
+            ws.merge_cells(start_row=row, start_column=col, end_row=row, end_column=col + 1)
+            ws.merge_cells(start_row=row + 1, start_column=col, end_row=row + 1, end_column=col + 1)
+        heights[row + 1] = TALL_ROWS["chip_number"]
+        row += 3
+
+    for block in sheet.blocks:
+        head = ws.cell(row=row, column=1, value=_text(block.title, clean))
+        head.data_type, head.font = "s", BLOCK_FONT
+        for col in range(1, TABLE_COL + 3):
+            ws.cell(row=row, column=col).fill = TOTAL_FILL
+        heights[row] = TALL_ROWS["heading"]
+        top, table_end = row + 1, row + 1
+        if block.kind == "text":
+            box_row = top
+        else:
+            n = len(block.rows)
+            has_chart = n > 0 and any(_number(r[i], block.kinds[i]) not in (None, 0) for r in block.rows for i in block.plot)
+            if has_chart:
+                table_end = _write_table(ws, top, block, clean)
+                ws.add_chart(_make_chart(ws, block, top, table_end), f"A{top}")
+                box_row = top + CHART_ROWS
+            else:                                                    # nothing to draw: say so, and still leave a valid sheet
+                note = ws.cell(row=top, column=1, value=_text(block.empty_note, clean))
+                note.data_type, note.font = "s", NOTE_FONT
+                box_row = top + 2
+        end = box_row
+        for title, text in block.suggestions:
+            end = _suggestion_box(ws, end, title, text, clean)
+        row = max(end, table_end + 1) + 1
+
+    for r in range(1, row + 1):
+        ws.row_dimensions[r].height = heights.get(r, ROW_HEIGHT)
+    for col in range(1, BOX_COLS + 1):
+        ws.column_dimensions[get_column_letter(col)].width = 13
+    ws.column_dimensions[get_column_letter(TABLE_COL - 1)].width = 3
+    ws.column_dimensions[get_column_letter(TABLE_COL)].width = 30
+    for col in (TABLE_COL + 1, TABLE_COL + 2):
+        ws.column_dimensions[get_column_letter(col)].width = 22
+    ws.sheet_view.showGridLines = False
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth, ws.page_setup.fitToHeight = 1, 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+
+
+def build_workbook(sheets: list, *, clean=None) -> bytes:
+    """Returns the finished .xlsx file as bytes. Each item is a `Sheet` (a table) or an `InsightsSheet` (native charts + suggestions)."""
     wb = Workbook()
     wb.remove(wb.active)
     wb.properties.creator = "RR FOODS"
     for sheet in sheets:
-        _write_sheet(wb.create_sheet(sheet.title[:31]), sheet, clean)
+        ws = wb.create_sheet(sheet.title[:31])
+        (_write_insights if isinstance(sheet, InsightsSheet) else _write_sheet)(ws, sheet, clean)
     out = io.BytesIO()
     wb.save(out)
     return out.getvalue()

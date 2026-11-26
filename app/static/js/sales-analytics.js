@@ -35,7 +35,6 @@
     out_for_delivery: '#8A8F5C', delivered: '#245C3A', rejected: '#C0553A', cancelled: '#B07A5B',
     return_requested: '#6B7F8E', returned: '#8F9AA3', refunded: '#A3B8A0'
   };
-  const PAYMENT_COLOURS = { cod: '#245C3A', online: '#3F7CAC', upi_manual: '#D9A441' };
   const BAR_COLOUR = '#2F7A4E', BAR_HOVER = '#245C3A';
 
   const svgNode = (name, attrs = {}) => {
@@ -225,7 +224,7 @@
       const val = document.createElement('span'); val.className = 'sa-dlegend-value'; val.textContent = `${opts.fmt(d)} · ${pctOf(d.value, total)}`;
       li.append(swatch, label, val); legendRows[i] = li;
 
-      const lines = [opts.fmt(d), `${pctOf(d.value, total)} of ${opts.of}`].concat(opts.extra ? opts.extra(d) : []);
+      const lines = [opts.fmt(d), `${pctOf(d.value, total)} of ${opts.of}`];
       const handlers = { onEnter: () => setActive(i), onLeave: () => setActive(null) };
       bindTip(seg, d.label, lines, handlers);
       bindTip(li, d.label, lines, handlers);
@@ -245,11 +244,6 @@
     renderDonut('sa-status-chart', 'sa-status-legend', data.status_breakdown, {
       colourFor: (d, i) => STATUS_COLOURS[d.key] || PALETTE[i % PALETTE.length],
       centre: (t) => t.toLocaleString('en-IN'), caption: 'orders', fmt: orderFmt, of: 'all orders', emptyText: 'No orders in this period yet.'
-    });
-    renderDonut('sa-payment-chart', 'sa-payment-legend', data.payment_methods, {
-      colourFor: (d, i) => PAYMENT_COLOURS[d.key] || PALETTE[i % PALETTE.length],
-      centre: (t) => t.toLocaleString('en-IN'), caption: 'orders', fmt: orderFmt, of: 'accepted orders',
-      extra: (d) => (d.sales !== undefined ? [`Sales: ${moneyExact(d.sales)}`] : []), emptyText: 'No accepted orders in this period yet.'
     });
     renderDonut('sa-category-chart', 'sa-category-legend', data.categories, {
       centre: compact, caption: 'sales', fmt: (d) => moneyExact(d.value), of: 'product sales', emptyText: 'No category sales in this period yet.'

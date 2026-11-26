@@ -390,7 +390,7 @@ def staff_urls(w):
         ("POST", f"/admin/products/bulk", "admin"), ("POST", f"/admin/coupons/{c}/toggle", "admin"), ("POST", f"/admin/coupons/{c}/delete", "admin"),
         ("POST", f"/admin/users/{u}/block", "admin"), ("POST", f"/admin/users/{u}/reset-password", "admin"),
         ("POST", f"/admin/reviews/{r}/toggle", "admin"), ("POST", f"/admin/reviews/{r}/set", "admin"),
-        ("GET", f"/admin/products/{p}/edit", "admin"), ("GET", "/admin/users", "admin"), ("GET", "/admin/products/export.csv", "admin"),
+        ("GET", f"/admin/products/{p}/edit", "admin"), ("GET", "/admin/users", "admin"), ("GET", "/admin/products/export.xlsx", "admin"),
         ("POST", f"/owner/orders/{o}/status", "owner"), ("POST", f"/owner/orders/{o}/payment", "owner"),
         ("POST", f"/owner/orders/{o}/tracking", "owner"), ("POST", f"/owner/inventory/product/{p}/threshold", "owner"),
         ("POST", f"/owner/inventory/product/{p}/batch", "owner"), ("POST", "/owner/inventory/bulk", "owner"),

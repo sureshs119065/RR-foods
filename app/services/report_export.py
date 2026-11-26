@@ -1,10 +1,9 @@
-"""One look for every Admin and Owner report download (CSV and Excel).
+"""One look for every Admin and Owner report download (Excel only).
 
 A `Report` holds human-readable headers, typed columns, rows, an optional summary block and an optional totals row. It renders to:
 
 * Excel: title, filters, summary block, then the table (frozen header, filter arrows, ₹ formats, real dates, totals row).
-* CSV: UTF-8 with a byte order mark. The same title / filters / summary lines come first, then a blank line, then the table.
-  Money columns carry "(₹)" in the header and hold plain 2-decimal numbers, so they still add up and sort in a spreadsheet.
+  Money columns carry "(₹)" in the header and hold real numbers, so they still add up and sort in a spreadsheet.
 
 Rules applied everywhere: dates look like "25 Nov 2026, 03:45 PM" (shop time zone), statuses are words ("Out for delivery"), an empty
 text cell is "-", an empty number is 0, and any text that could run as a spreadsheet formula (starts with = + - @ tab or CR) is
@@ -12,13 +11,11 @@ neutralised with a leading apostrophe. Numbers are never passed through the form
 """
 from __future__ import annotations
 
-import csv
-import io
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
-from .xlsx_export import DATE, DATETIME, INT, MIXED, MONEY, NUMBER, PERCENT, TEXT, XLSX_MIMETYPE, Sheet, build_workbook
+from .xlsx_export import DATE, DATETIME, INT, MONEY, NUMBER, PERCENT, XLSX_MIMETYPE, InsightsSheet, Sheet, build_workbook
 
 EMPTY = "-"
 MAX_EXPORT_ROWS = 20_000          # keeps one download fast and the server's memory flat; the file says so if it was cut
@@ -113,46 +110,11 @@ class Report:
     summary: list[tuple] = field(default_factory=list)        # (label, value, kind)
     totals: list | None = None                                # one cell per column; None for blank
     extra_sheets: list[Sheet] = field(default_factory=list)
-
-
-def _csv_value(value, kind) -> str:
-    if kind in (INT, NUMBER, MONEY, PERCENT):
-        num = _dec(value)
-        if kind == INT:
-            return str(int(num))
-        return f"{num:.1f}" if kind == PERCENT else f"{num:.2f}"
-    if kind == DATETIME:
-        return dt_text(value) if isinstance(value, datetime) else EMPTY
-    if kind == DATE:
-        return date_text(value)
-    return clean_text(value)
-
-
-def _summary_csv(value, kind) -> str:
-    return _csv_value(value, kind) if kind != MIXED else clean_text(value)
+    insights: InsightsSheet | None = None                     # Excel only: charts + suggestions, always the last sheet
 
 
 def _xlsx_text_clean(text: str) -> str:
     return text if text in ("", EMPTY) else safe_cell(text)
-
-
-def render_csv(report: Report) -> str:
-    buf = io.StringIO()
-    w = csv.writer(buf, lineterminator="\n")
-    w.writerow([report.title])
-    for note in report.notes:
-        w.writerow([clean_text(note) if note else ""])
-    if report.summary:
-        w.writerow([])
-        for lab, value, kind in report.summary:
-            w.writerow([lab, _summary_csv(value, kind)])
-    w.writerow([])
-    w.writerow(report.headers)
-    for row in report.rows:
-        w.writerow([_csv_value(v, k) for v, k in zip(row, report.kinds)])
-    if report.totals:
-        w.writerow([_csv_value(v, k) if v not in (None, "") else "" for v, k in zip(report.totals, report.kinds)])
-    return "\ufeff" + buf.getvalue()
 
 
 def _xlsx_rows(report: Report) -> list[list]:
@@ -173,12 +135,7 @@ def _xlsx_rows(report: Report) -> list[list]:
 def render_xlsx(report: Report) -> bytes:
     main = Sheet(report.sheet_name, report.headers, report.kinds, _xlsx_rows(report), report_title=report.title,
                  notes=[n for n in report.notes if n], summary=report.summary or None, totals=report.totals)
-    return build_workbook([main, *report.extra_sheets], clean=_xlsx_text_clean)
-
-
-def csv_response(report: Report, stamp: str):
-    from flask import Response
-    return Response(render_csv(report), mimetype="text/csv", headers=_headers(report.filename, stamp, "csv"))
+    return build_workbook([main, *report.extra_sheets, *([report.insights] if report.insights else [])], clean=_xlsx_text_clean)
 
 
 def xlsx_response(report: Report, stamp: str):

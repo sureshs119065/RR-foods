@@ -1,4 +1,4 @@
-"""Admin downloads: orders, users and the sales report (Excel and CSV).
+"""Admin downloads: orders, users and the sales report (Excel only).
 
 Every route here sits on the admin blueprint, so the admin-only guard in admin/__init__.py covers it. Orders and users use the SAME
 filters as their on-screen lists, so a download holds exactly what the screen shows. Each export is written to the audit log.
@@ -12,7 +12,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from ..extensions import db
 from ..models import Order, User
 from ..models.orders import DRAFT_STATUS
-from ..services import order_report, report_export as rx, sales_report
+from ..services import order_report, report_export as rx, report_insights, sales_report
 from ..services.analytics import build_sales_analytics
 from ..services.orders import REVENUE_STATUSES
 from ..services.xlsx_export import DATETIME, INT, MONEY, TEXT, XLSX_MIMETYPE
@@ -26,8 +26,8 @@ def _stamp() -> str:
     return datetime.now(shop_tz()).strftime("%Y-%m-%d")
 
 
-def _deliver(report: rx.Report, fmt: str):
-    return rx.xlsx_response(report, _stamp()) if fmt == "xlsx" else rx.csv_response(report, _stamp())
+def _deliver(report: rx.Report):
+    return rx.xlsx_response(report, _stamp())
 
 
 # ------------------------------------------------------------------ orders
@@ -48,12 +48,12 @@ def _orders_report():
 
 @bp.get("/orders/export.<fmt>")
 def orders_export(fmt):
-    if fmt not in ("csv", "xlsx"):
+    if fmt != "xlsx":
         return Response(status=404)
     report, total = _orders_report()
     log("order.export", "order", None, after={"count": min(total, rx.MAX_EXPORT_ROWS), "format": fmt, "filters": dict(request.args)})
     db.session.commit()
-    return _deliver(report, fmt)
+    return _deliver(report)
 
 
 # ------------------------------------------------------------------ users
@@ -78,13 +78,14 @@ def _users_report():
     headers = ["Name", "Email", "Phone", "Role", "Account Status", "Email Verified", "Orders Placed", "Total Spent (₹)", "Wallet Points",
                "Joined On", "Last Sign-in"]
     kinds = [TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, INT, MONEY, INT, DATETIME, DATETIME]
-    rows, by_role, blocked, spent_all = [], {}, 0, 0
+    rows, by_role, blocked, spent_all, accounts = [], {}, 0, 0, []
     for u in users:
         n, amount = spend.get(u.id, (0, 0))
         state = _account_state(u, now)
         blocked += state == "Blocked"
         by_role[u.role] = by_role.get(u.role, 0) + 1
         spent_all += amount or 0
+        accounts.append({"role": u.role, "joined": rx.to_local(u.created_at, tz), "orders": n})
         rows.append([u.name, u.email, u.phone, rx.label(rx.ROLE_LABELS, u.role), state, "Yes" if u.email_verified_at else "No", n, amount,
                      u.wallet_points, rx.to_local(u.created_at, tz), rx.to_local(u.last_login_at, tz)])
     notes = [f"Filters: role {rx.label(rx.ROLE_LABELS, request.args.get('role')) if request.args.get('role') else 'all'}"
@@ -97,17 +98,17 @@ def _users_report():
     summary = [("Accounts in this report", len(rows), INT)] + [(ROLE_ORDER[r], by_role.get(r, 0), INT) for r in ROLE_ORDER] + [
         ("Blocked accounts", blocked, INT), ("Total spent by listed accounts (₹)", spent_all, MONEY)]
     return rx.Report(title="RR FOODS — Users report", filename="rr-foods-users", sheet_name="Users", headers=headers, kinds=kinds, rows=rows,
-                     notes=notes, summary=summary), len(rows)
+                     notes=notes, summary=summary, insights=report_insights.users_insights(accounts, now.date())), len(rows)
 
 
 @bp.get("/users/export.<fmt>")
 def users_export(fmt):
-    if fmt not in ("csv", "xlsx"):
+    if fmt != "xlsx":
         return Response(status=404)
     report, count = _users_report()
     log("user.export", "user", None, after={"count": count, "format": fmt, "filters": dict(request.args)})
     db.session.commit()
-    return _deliver(report, fmt)
+    return _deliver(report)
 
 
 # ------------------------------------------------------------------ sales report (same files the owner gets)
@@ -119,9 +120,3 @@ def _sales_data():
 def analytics_xlsx():
     return Response(sales_report.build_xlsx(_sales_data()), mimetype=XLSX_MIMETYPE, headers={
         "Content-Disposition": "attachment; filename=rr-foods-sales-report.xlsx", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
-
-
-@bp.get("/analytics.csv")
-def analytics_csv():
-    return Response(sales_report.build_csv(_sales_data()), mimetype="text/csv", headers={
-        "Content-Disposition": "attachment; filename=rr-foods-sales-insights.csv", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})

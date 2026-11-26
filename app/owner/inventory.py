@@ -39,7 +39,7 @@ def _state_payload(qty: int, threshold: int) -> dict:
 
 # ---------------------------------------------------------------- list
 def inventory_query():
-    """The stock list's search, category, stock level and sort. Shared by the list and the Excel/CSV export."""
+    """The stock list's search, category, stock level and sort. Shared by the list and the Excel export."""
     q = (select(Product).where(Product.is_deleted.is_(False))
          .options(selectinload(Product.variants), joinedload(Product.category)))
 

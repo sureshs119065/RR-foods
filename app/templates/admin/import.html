@@ -8,7 +8,7 @@
      Optional: subcategory, brand, pack_size, discount_type (none, percent, flat), discount_value, stock_qty, low_stock_threshold, short_description,
      description, ingredients, how_to_use, fssai, video_id, tags, is_active, is_bestseller, image_urls (separate several with |).</p>
   <p>Products are matched by SKU: existing ones are updated, new ones are added. If any row has a problem, <strong>nothing</strong> is imported.
-     Tip: export your products (<a href="{{ url_for('admin.products_export_xlsx') }}">Excel</a> or <a href="{{ url_for('admin.products_export') }}">CSV</a>) to get a file in the right format. Excel files are read from the first sheet.</p>
+     Tip: download your products as <a href="{{ url_for('admin.products_export_xlsx') }}">Excel</a> to get a file in the right format. Excel files are read from the first sheet.</p>
   <form method="post" enctype="multipart/form-data" class="form narrow-form">
     {{ m.csrf() }}
     <label class="field"><span>CSV (UTF-8) or Excel .xlsx file, up to 2 MB</span><input type="file" name="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label>

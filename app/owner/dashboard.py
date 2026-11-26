@@ -85,10 +85,3 @@ def analytics_xlsx():
     """The selected sales period as a styled Excel file: Summary (with the date range), Top products, Coupons, Pincodes."""
     return Response(sales_report.build_xlsx(_report_data()), mimetype=XLSX_MIMETYPE, headers={
         "Content-Disposition": "attachment; filename=rr-foods-sales-report.xlsx", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
-
-
-@bp.get("/analytics.csv")
-def analytics_csv():
-    """The same report as one tidy table: easy to filter or pivot. UTF-8 with a BOM."""
-    return Response(sales_report.build_csv(_report_data()), mimetype="text/csv", headers={
-        "Content-Disposition": "attachment; filename=rr-foods-sales-insights.csv", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})

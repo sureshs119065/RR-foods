@@ -1,7 +1,8 @@
-"""CSV and Excel export, and CSV / Excel import, for products.
+"""Excel export, and CSV / Excel import, for products.
 
 Export protects against spreadsheet formula injection (a cell starting with = + - @ would run as a formula in Excel).
-Both formats have the same columns, so a file exported from here can be imported again.
+The Excel file has the same columns the importer reads, so a file exported from here can be imported again (the importer also
+accepts .csv).
 Import checks every row first and changes nothing unless the whole file is valid.
 """
 import csv
@@ -21,6 +22,7 @@ from ..seed import slugify
 from ..services import report_export as rx
 from ..services.inventory import stock_state
 from ..services.report_export import safe_cell      # one formula guard for every export (re-exported: other modules import it from here)
+from ..services import report_insights
 from ..services.xlsx_export import INT, MIXED, MONEY, NUMBER, TEXT, Sheet, Typed, build_workbook
 from .helpers import shop_tz, to_decimal, to_int, unique_slug
 
@@ -52,7 +54,7 @@ def unsafe_cell(text: str) -> str:
 
 
 def product_row(p) -> list:
-    """One product as the list of cells for COLUMNS. Used by both the CSV and the Excel export."""
+    """One product as the list of cells for COLUMNS. Used by the Excel export."""
     return [p.sku, p.name, p.category.name, p.subcategory.name if p.subcategory else "", p.brand, p.pack_size, p.mrp, p.discount_type,
             p.discount_value, p.stock_qty, p.low_stock_threshold, p.short_description, p.description, p.ingredients, p.how_to_use,
             p.fssai, p.video_id, ", ".join(p.tags or []), "yes" if p.is_active else "no", "yes" if p.is_bestseller else "no",
@@ -67,18 +69,6 @@ def _shown(row: list) -> list:
             value = "Yes" if value == "yes" else "No"
         out.append(value if col in COLUMN_KINDS or value not in (None, "") else rx.EMPTY)
     return out
-
-
-def export_csv(products) -> str:
-    """UTF-8 with a byte order mark, so Excel opens ₹ and accented text correctly. The importer reads the mark too.
-    No summary lines on purpose: this file is also the import template, so row 1 must be the column headings."""
-    buf = io.StringIO()
-    w = csv.writer(buf, lineterminator="\n")
-    w.writerow([HEADERS[c] for c in COLUMNS])
-    for p in products:
-        cells = _shown(product_row(p))
-        w.writerow([rx._csv_value(x, COLUMN_KINDS[c]) if c in COLUMN_KINDS else (x if x == rx.EMPTY else safe_cell(x)) for c, x in zip(COLUMNS, cells)])
-    return "\ufeff" + buf.getvalue()
 
 
 def _xlsx_clean(text: str) -> str:
@@ -103,7 +93,7 @@ def export_xlsx(products) -> bytes:
     ]
     main = Sheet("Products", [HEADERS[c] for c in COLUMNS], kinds, [_shown(product_row(p)) for p in products])
     totals = Sheet("Summary", ["Metric", "Value"], [TEXT, MIXED], [[lab, Typed(v, k)] for lab, v, k in summary])
-    return build_workbook([main, totals], clean=_xlsx_clean)
+    return build_workbook([main, totals, report_insights.stock_insights(products)], clean=_xlsx_clean)
 
 
 def _truthy(value: str, default=True) -> bool:

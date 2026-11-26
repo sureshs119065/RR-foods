@@ -65,7 +65,7 @@
 :root .btn[data-add], :root .btn.pc__btn--primary { --b-bg: var(--rr-amber); --b-bg-h: var(--rr-amber-h); --b-bg-a: var(--rr-amber-a); --b-fg: var(--rr-amber-ink); --b-bd: var(--rr-amber-h); }
 :root form[action*="restore"] .btn:not(.btn--danger) { --b-bg: var(--rr-teal); --b-bg-h: var(--rr-teal-h); --b-bg-a: var(--rr-teal-a); --b-fg: #fff; --b-bd: var(--rr-teal); }
 :root form[action*="delete"] .btn, :root form[action*="reject"] .btn { --b-bg: var(--rr-red); --b-bg-h: var(--rr-red-h); --b-bg-a: var(--rr-red-a); --b-fg: #fff; --b-bd: var(--rr-red); }
-:root a.btn[download], :root a.btn[href*="invoice"], :root a.btn[href*="export"], :root a.btn[href*="csv"] { --b-bg: var(--rr-blue); --b-bg-h: var(--rr-blue-h); --b-bg-a: var(--rr-blue-a); --b-fg: #fff; --b-bd: var(--rr-blue); }
+:root a.btn[download], :root a.btn[href*="invoice"], :root a.btn[href*="export"] { --b-bg: var(--rr-blue); --b-bg-h: var(--rr-blue-h); --b-bg-a: var(--rr-blue-a); --b-fg: #fff; --b-bd: var(--rr-blue); }
 :root a.btn[href*="wa.me"], :root a.btn[href*="whatsapp"] { --b-bg: var(--rr-wa); --b-bg-h: var(--rr-wa-h); --b-bg-a: var(--rr-wa-a); --b-fg: var(--rr-wa-ink); --b-bd: var(--rr-wa); }
 
 /* ---- Shared shape + states ---- */

@@ -22,7 +22,6 @@
 
   <p class="row">
     <a class="btn btn--info" href="{{ url_for(request.blueprint ~ '.analytics_xlsx', range=request.args.get('range'), start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}">Download Excel</a>
-    <a class="btn btn--ghost" href="{{ url_for(request.blueprint ~ '.analytics_csv', range=request.args.get('range'), start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}">Download CSV</a>
   </p>
   <div class="sa-metrics">
     <article class="sa-metric sa-metric--primary">
@@ -63,16 +62,11 @@
     </article>
   </div>
 
-  <div class="sa-chart-grid sa-chart-grid--3">
+  <div class="sa-chart-grid sa-chart-grid--2">
     <article class="sa-chart-card">
       <div class="sa-chart-head"><div><h3>Order status</h3><p>All orders placed in this period</p></div></div>
       <div class="sa-donut" id="sa-status-chart" role="img" aria-label="Order status donut chart"></div>
       <div class="sa-dlegend" id="sa-status-legend" aria-label="Order status legend"></div>
-    </article>
-    <article class="sa-chart-card">
-      <div class="sa-chart-head"><div><h3>Payment methods</h3><p>Accepted orders by payment method</p></div></div>
-      <div class="sa-donut" id="sa-payment-chart" role="img" aria-label="Payment method donut chart"></div>
-      <div class="sa-dlegend" id="sa-payment-legend" aria-label="Payment method legend"></div>
     </article>
     <article class="sa-chart-card">
       <div class="sa-chart-head"><div><h3>Sales by category</h3><p>Share of product sales value</p></div></div>

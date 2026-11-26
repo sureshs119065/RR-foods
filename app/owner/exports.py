@@ -1,4 +1,4 @@
-"""Owner downloads: orders and stock (Excel and CSV).
+"""Owner downloads: orders and stock (Excel only).
 
 Every route sits on the owner blueprint, so the owner-only guard in owner/__init__.py covers it (an admin or a customer is refused).
 Both exports use the SAME filters as the on-screen lists. The orders file leaves out the customer's e-mail address: the owner only
@@ -15,7 +15,7 @@ from ..auth.service import audit
 from ..extensions import db
 from ..models import Order, User
 from ..services import inventory as stock
-from ..services import order_report, report_export as rx
+from ..services import order_report, report_export as rx, report_insights
 from ..services.xlsx_export import INT, MONEY, TEXT
 from . import bp
 from .inventory import inventory_query
@@ -28,14 +28,14 @@ def _stamp() -> str:
     return datetime.now(shop_tz()).strftime("%Y-%m-%d")
 
 
-def _deliver(report: rx.Report, fmt: str):
-    return rx.xlsx_response(report, _stamp()) if fmt == "xlsx" else rx.csv_response(report, _stamp())
+def _deliver(report: rx.Report):
+    return rx.xlsx_response(report, _stamp())
 
 
 # ------------------------------------------------------------------ orders
 @bp.get("/orders/export.<fmt>")
 def orders_export(fmt):
-    if fmt not in ("csv", "xlsx"):
+    if fmt != "xlsx":
         return Response(status=404)
     where, show, unpaid, term = order_filters()
     q = select(Order).join(User, User.id == Order.user_id).where(*where)
@@ -55,13 +55,13 @@ def orders_export(fmt):
                                               truncated_from=total if total > len(rows) else None, who=g.user.name)
     audit("order.export", "order", None, actor_id=g.user.id, after={"count": len(rows), "format": fmt, "filters": dict(request.args)})
     db.session.commit()
-    return _deliver(report, fmt)
+    return _deliver(report)
 
 
 # ------------------------------------------------------------------ stock
 @bp.get("/inventory/export.<fmt>")
 def inventory_export(fmt):
-    if fmt not in ("csv", "xlsx"):
+    if fmt != "xlsx":
         return Response(status=404)
     q, sort = inventory_query()
     products = db.session.scalars(q.limit(rx.MAX_EXPORT_ROWS)).unique().all()
@@ -86,7 +86,7 @@ def inventory_export(fmt):
                ("Low stock", counts["low"], INT), ("Out of stock", counts["out"], INT), ("Stock value at selling price (₹)", value, MONEY)]
     totals = ["Total", None, None, None, None, None, units, None, None, None, None, value, None]
     report = rx.Report(title="RR FOODS — Stock report", filename="rr-foods-stock", sheet_name="Stock", headers=headers, kinds=kinds, rows=rows,
-                       notes=notes, summary=summary, totals=totals)
+                       notes=notes, summary=summary, totals=totals, insights=report_insights.stock_insights(products))
     audit("inventory.export", "product", None, actor_id=g.user.id, after={"count": len(rows), "format": fmt, "filters": dict(request.args)})
     db.session.commit()
-    return _deliver(report, fmt)
+    return _deliver(report)

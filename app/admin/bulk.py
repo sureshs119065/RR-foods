@@ -8,7 +8,7 @@ from ..extensions import db
 from ..models import Category, Product
 from ..services.xlsx_export import XLSX_MIMETYPE
 from . import bp
-from .csvio import MAX_BYTES, export_csv, export_xlsx, import_csv
+from .csvio import MAX_BYTES, export_xlsx, import_csv
 from .helpers import checked, log, to_decimal, to_int
 from .products import _list_query, permanently_delete, snapshot
 
@@ -126,13 +126,6 @@ def _export_rows(fmt: str) -> list[Product]:
     log("product.export", "product", None, after={"count": len(rows), "format": fmt})
     db.session.commit()
     return rows
-
-
-@bp.get("/products/export.csv")
-def products_export():
-    rows = _export_rows("csv")
-    return Response(export_csv(rows), mimetype="text/csv", headers={
-        "Content-Disposition": "attachment; filename=products.csv", "Cache-Control": "no-store"})
 
 
 @bp.get("/products/export.xlsx")

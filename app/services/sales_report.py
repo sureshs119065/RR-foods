@@ -1,14 +1,10 @@
-"""The sales report downloads (Excel and CSV), shared by the Admin and Owner dashboards so both see identical files."""
+"""The sales report downloads (Excel only), shared by the Admin and Owner dashboards so both see identical files."""
 from __future__ import annotations
 
-import csv
-import io
 from datetime import date
 
-from . import report_export as rx
+from . import report_export as rx, report_insights
 from .xlsx_export import INT, MIXED, MONEY, PERCENT, TEXT, Sheet, Typed, build_workbook
-
-UNITS = {MONEY: "₹", INT: "Count", PERCENT: "%", TEXT: "-"}
 
 
 def _nice_day(iso: str) -> str:
@@ -35,8 +31,8 @@ def summary_rows(data) -> list[tuple]:
     ]
 
 
-def build_xlsx(data) -> bytes:
-    """Summary (with the date range), Top products, Coupons, Pincodes."""
+def build_xlsx(data, tz=None) -> bytes:
+    """Summary (with the date range), Top products, Coupons, Pincodes, then Insights (charts and suggestions)."""
     sheets = [
         Sheet("Summary", ["Metric", "Value"], [TEXT, MIXED], [[label, Typed(value, kind)] for label, value, kind in summary_rows(data)]),
         Sheet("Top products", ["Rank", "Product", "Sales (₹)"], [INT, TEXT, MONEY],
@@ -46,20 +42,5 @@ def build_xlsx(data) -> bytes:
         Sheet("Pincodes", ["Pincode", "Sales (₹)"], [TEXT, MONEY],
               [[rx.clean_text(item["label"]), item["value"]] for item in data["orders_by_pincode"]]),
     ]
+    sheets.append(report_insights.sales_insights(data, tz))
     return build_workbook(sheets, clean=rx.safe_cell)
-
-
-def build_csv(data) -> str:
-    """One tidy table (Section, Metric, Value, Unit, Orders, Discount (₹)): easy to filter or pivot. Money is a plain 2-decimal number."""
-    out = io.StringIO()
-    w = csv.writer(out, lineterminator="\n")
-    w.writerow(["Section", "Metric", "Value", "Unit", "Orders", "Discount (₹)"])
-    for label, value, kind in summary_rows(data):
-        w.writerow(["Summary", label, rx._csv_value(value, kind), UNITS.get(kind, "-"), "-", "-"])
-    for item in data["top_products"]:
-        w.writerow(["Top products", rx.clean_text(item["label"]), rx._csv_value(item["value"], MONEY), "₹", "-", "-"])
-    for c in data["coupon_performance"]:
-        w.writerow(["Coupons", rx.clean_text(c["code"]), rx._csv_value(c["sales"], MONEY), "₹", rx._csv_value(c["orders"], INT), rx._csv_value(c["discount"], MONEY)])
-    for item in data["orders_by_pincode"]:
-        w.writerow(["Pincodes", rx.clean_text(item["label"]), rx._csv_value(item["value"], MONEY), "₹", "-", "-"])
-    return "\ufeff" + out.getvalue()

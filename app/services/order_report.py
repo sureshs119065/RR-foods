@@ -1,4 +1,4 @@
-"""The orders report (Excel / CSV), shared by the Admin and Owner exports.
+"""The orders report (Excel), shared by the Admin and Owner exports.
 
 The caller decides WHICH orders (each role applies its own list filters and permissions); this module only lays them out.
 The customer's e-mail address is included for the admin only: the owner needs a name, phone and delivery area to fulfil an order.
@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from . import report_export as rx
+from . import report_export as rx, report_insights
 from .orders import REVENUE_STATUSES
 from .xlsx_export import DATE, DATETIME, INT, MONEY, TEXT
 
@@ -78,4 +78,4 @@ def build_orders_report(orders, *, tz, include_email: bool, filters_text: str, t
         ("Orders with payment pending", unpaid, INT),
     ]
     return rx.Report(title="RR FOODS — Orders report", filename="rr-foods-orders", sheet_name="Orders", headers=headers, kinds=kinds,
-                     rows=rows, notes=notes, summary=summary)
+                     rows=rows, notes=notes, summary=summary, insights=report_insights.orders_insights(orders, tz))

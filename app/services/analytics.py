@@ -154,8 +154,8 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
         category_totals[category] = category_totals.get(category, Decimal("0.00")) + Decimal(str(line_total or 0))
 
     top_products = [
-        {"label": name, "value": float(amount)}
-        for (_, name), amount in sorted(product_totals.items(), key=lambda pair: pair[1], reverse=True)[:8]
+        {"label": name, "value": float(amount), "product_id": product_id}
+        for (product_id, name), amount in sorted(product_totals.items(), key=lambda pair: pair[1], reverse=True)[:8]
     ]
     categories = [
         {"label": name, "value": float(amount)}
@@ -182,10 +182,11 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
         .where(*base_filter, Order.coupon_code.is_not(None))
         .group_by(Order.coupon_code).order_by(func.count(Order.id).desc()).limit(12)
     ).all()
-    pincode_totals = {}
+    pincode_totals, pincode_orders = {}, {}
     for address, amount in db.session.execute(select(Order.shipping_address, Order.total).where(*base_filter)).all():
         pin = (address or {}).get("pincode") or (address or {}).get("postal_code") or "Unknown"
         pincode_totals[pin] = pincode_totals.get(pin, 0.0) + float(amount or 0)
+        pincode_orders[pin] = pincode_orders.get(pin, 0) + 1
     slow_products = [
         {"label": name, "value": float(amount)}
         for (_, name), amount in sorted(product_totals.items(), key=lambda pair: pair[1])[:8]
@@ -200,15 +201,6 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
     status_breakdown = [
         {"key": status, "label": LABELS.get(status, status.replace("_", " ").title()), "value": int(count)}
         for status, count in sorted(status_rows, key=lambda row: row[1], reverse=True) if count
-    ]
-    payment_rows = db.session.execute(
-        select(Order.payment_method, func.count(Order.id), func.coalesce(func.sum(Order.total), 0))
-        .where(*base_filter).group_by(Order.payment_method)
-    ).all()
-    payment_labels = {"cod": "Cash on delivery", "online": "Online payment", "upi_manual": "UPI (manual)"}
-    payment_methods = [
-        {"key": method, "label": payment_labels.get(method, str(method or "Other")), "value": int(count), "sales": float(amount or 0)}
-        for method, count, amount in sorted(payment_rows, key=lambda row: row[1], reverse=True) if count
     ]
 
     return {
@@ -236,10 +228,9 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
             for code, count, discount, sales in coupon_rows
         ],
         "orders_by_pincode": [
-            {"label": pin, "value": round(value, 2)}
+            {"label": pin, "value": round(value, 2), "orders": pincode_orders[pin]}
             for pin, value in sorted(pincode_totals.items(), key=lambda item: item[1], reverse=True)[:12]
         ],
         "slow_products": slow_products,
         "status_breakdown": status_breakdown,
-        "payment_methods": payment_methods,
     }

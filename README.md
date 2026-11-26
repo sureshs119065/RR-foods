@@ -51,9 +51,9 @@ Set `ADMIN_WHATSAPP_NUMBER` (country code and digits only, for example `91987654
 - Wishlist, notifications, customer inbox, back-in-stock alerts, password recovery, optional browser push opt-in (see [Known gaps](#known-gaps)).
 - Recipes (with cook mode), reels on the homepage, product bundles and festival combos, About page with the quality journey, Help page with a WhatsApp or email message form.
 
-**Admin workspace**: products (variants, images, pricing, bestseller flag, bulk actions, CSV import/export), categories, **Offers** (product offers, coupons, bundles and festival combos together), header banners, reels, recipes, reviews moderation, users, shared customer inbox, stock alerts, read-only order list and detail, audit log, help centre.
+**Admin workspace**: products (variants, images, pricing, bestseller flag, bulk actions, CSV/Excel import, Excel export), categories, **Offers** (product offers, coupons, bundles and festival combos together), header banners, reels, recipes, reviews moderation, users, shared customer inbox, stock alerts, read-only order list and detail, audit log, help centre.
 
-**Owner workspace**: sales analytics (with CSV export), inventory (stock, reorder level, batches and expiry), stock history, one consolidated order queue with search and payment filter, order detail with status moves, courier and tracking, payment marking and WhatsApp status messages, delivery slot settings, customer questions, shared inbox.
+**Owner workspace**: sales analytics (with Excel export), inventory (stock, reorder level, batches and expiry), stock history, one consolidated order queue with search and payment filter, order detail with status moves, courier and tracking, payment marking and WhatsApp status messages, delivery slot settings, customer questions, shared inbox.
 
 ## Project structure
 
@@ -182,7 +182,7 @@ Public pages: `/`, `/shop`, `/bestsellers`, `/category/<slug>`, `/product/<slug>
 Menu: Dashboard, Products, Orders (read-only), Stock alerts, Notifications, Help & FAQs, Categories, Reels, Recipes, Header banners, Reviews, Users, Audit log, Offers, Inbox, Change password.
 
 - **Offers** is one section with product offers, festival combos, coupons and combo bundles. All offer management lives in Admin only.
-- **Products:** create, edit, archive, restore, variants, images, price, discount, stock threshold, bestseller flag, YouTube recipe video ID, bulk actions and CSV.
+- **Products:** create, edit, archive, restore, variants, images, price, discount, stock threshold, bestseller flag, YouTube recipe video ID, bulk actions, CSV/Excel import and Excel export.
 - **Users:** search, block and unblock, password reset, create owner accounts. All admin actions are written to the audit log.
 - Admins can view orders but not change them; fulfilment is the owner's job.
 
@@ -192,7 +192,7 @@ Menu: Dashboard, Orders, Inventory, Delivery slots, Stock history, Questions, In
 
 - **Orders:** one queue, newest first, with search (order number, name, phone) and an unpaid filter. Each order has a status dropdown and a Reject button; the detail page adds courier and tracking, the payment actions and a WhatsApp status message (English or Tamil templates).
 - **Inventory:** stock, reorder level, batch and expiry entries, bulk updates. Stock changes are transactional and logged with user, time, old value, new value and reason.
-- **Dashboard:** sales analytics for this month, this year or a custom range; repeat-customer rate, coupon performance, pincode sales, slowest products, expiring batches, estimated days of stock left; CSV export.
+- **Dashboard:** sales analytics for this month, this year or a custom range; repeat-customer rate, coupon performance, pincode sales, slowest products, expiring batches, estimated days of stock left; Excel export.
 
 ## Cart, checkout and order lifecycle
 

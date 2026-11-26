@@ -32,7 +32,7 @@ def _never_placed():
 
 def order_filters():
     """The owner's orders list filters (Confirmed / Not confirmed chip, search, unpaid), as (where, show, unpaid, term).
-    Shared by the list and the Excel/CSV export, so a download holds exactly what the screen shows."""
+    Shared by the list and the Excel export, so a download holds exactly what the screen shows."""
     unpaid = request.args.get("pay") == "pending"
     show = request.args.get("show") if request.args.get("show") in SHOW_FILTERS else "all"
     where = [~_never_placed()]

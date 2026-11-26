@@ -15,7 +15,7 @@ PER_PAGE = 25
 
 
 def user_query():
-    """The users list's role, status and search filters. Shared by the list and the Excel/CSV export."""
+    """The users list's role, status and search filters. Shared by the list and the Excel export."""
     q = select(User).where(User.is_deleted.is_(False))
     role = request.args.get("role", "")
     if role in ("user", "owner", "admin"):
