@@ -71,7 +71,7 @@ docker run -d --name nk --env-file .env -p 8000:8000 -v nk_uploads:/data/uploads
 docker run --rm --env-file .env nk-shop flask db upgrade     # once
 ```
 
-The image contains no database: point `DATABASE_URL` at a managed PostgreSQL or your own server. Put nginx or a cloud load balancer in front for HTTPS and set `TRUST_PROXY=1`. The container's `start.sh` prints diagnostics, runs migrations, seeds the Children's Day combo (safe to repeat) and starts gunicorn. The Docker files have not been built or run in a verified environment.
+The image contains no database: point `DATABASE_URL` at a managed PostgreSQL or your own server. Put nginx or a cloud load balancer in front for HTTPS and set `TRUST_PROXY=1`. The container's `start.sh` prints diagnostics, runs migrations, ensures the ₹999 combo exists with `flask seed-combo` (safe to repeat) and starts gunicorn. The Docker files have not been built or run in a verified environment.
 
 `docker-compose.yml` starts only a local development PostgreSQL (`docker compose up -d db`).
 

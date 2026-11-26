@@ -239,7 +239,6 @@
         <p class="pdp-combo-card__description">{{ catalogue_content.combo_offer.description }}</p>
         <h4>What the combo includes · one pack each</h4>
         <ul>{% for item in catalogue_content.combo_offer["items"] %}<li><span>{{ item.name }}</span><b>{{ item.pack }}</b></li>{% endfor %}</ul>
-        <p class="pdp-combo-card__closing">{{ catalogue_content.combo_offer.closing }}</p>
       </section>
       {% endif %}
 

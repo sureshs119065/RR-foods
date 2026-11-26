@@ -4,7 +4,7 @@ from .extensions import db
 
 
 def register_cli(app):
-    _register_childrens_day_seed(app)
+    _register_combo_seed(app)
 
     @app.cli.command("import-rr-foods")
     @click.option("--path", default="app/seed_data/seed_products.csv", show_default=True,
@@ -173,67 +173,35 @@ def register_check_cli(app):
         raise SystemExit(1 if fatal else 0)
 
 
-CHILDRENS_DAY_NAME = "RR FOODS – Children's Day Special Combo + Opening Day Combo | ₹999"
-CHILDRENS_DAY_DESCRIPTION = (
-    "Celebrate Children's Day with a special food combo from RR FOODS! Enjoy seven delicious and nutritious favourites "
-    "in one value-packed bundle. Featuring millet noodles, pasta, vermicelli, chapati flour, soup mix, traditional idli "
-    "podi and healthy Karuppu Kavuni Kanji Mix. A perfect combination of taste, tradition and everyday goodness for the whole family."
-)
-# one pack of each, by SKU
-CHILDRENS_DAY_SKUS = ["RR-MN-005", "RR-PCB-006", "RR-MV-006", "RR-BTM-001", "RR-BTM-008", "RR-BTM-004", "RR-TNF-004"]
+def _register_combo_seed(app):
+    @app.cli.command("seed-combo")
+    def seed_combo():
+        """Create the Rs 999 RR FOODS combo bundle from the 7 catalogue products (safe to run again).
 
-
-def _register_childrens_day_seed(app):
-    @app.cli.command("seed-childrens-day-combo")
-    def seed_childrens_day_combo():
-        """Add any catalogue products that are missing, then create the Children's Day combo bundle. Safe to run again."""
-        import csv, io
-        from datetime import datetime
-        from pathlib import Path
-        from zoneinfo import ZoneInfo
+        Also removes the old Children's Day bundle if an earlier version of this project created it.
+        """
         from sqlalchemy import select
-        from .admin.csvio import import_csv
         from .models import Bundle, Product
-        from .admin.helpers import unique_slug
+        from .services.product_catalogue import CATALOGUE_COMBO_OFFER
+        from .shop.catalog import COMBO_BUNDLE_SLUG, ensure_catalogue_combo_bundle
 
-        path = Path(__file__).parent / "seed_data" / "seed_products.csv"
-        raw = path.read_text(encoding="utf-8-sig")
-        reader = csv.DictReader(io.StringIO(raw))
-        rows = list(reader)
-        have = {s.upper() for s in db.session.scalars(select(Product.sku)).all() if s}
-        missing = [r for r in rows if r["sku"].upper() in CHILDRENS_DAY_SKUS and r["sku"].upper() not in have]
-        if missing:
-            buf = io.StringIO()
-            w = csv.DictWriter(buf, fieldnames=reader.fieldnames, lineterminator="\r\n")
-            w.writeheader(); w.writerows(missing)
-            res = import_csv(buf.getvalue().encode("utf-8"), create_categories=True, default_stock=0)
-            if res.errors:
-                db.session.rollback()
-                raise click.ClickException("; ".join(res.errors))
+        old = db.session.scalar(select(Bundle).where(Bundle.slug == "childrens-day-special-combo-opening-day-combo"))
+        if old is not None:
+            db.session.delete(old)
             db.session.commit()
-            click.echo(f"Added {res.created} missing catalogue product(s). Stock is 0: enter real stock in the admin panel.")
-
-        if db.session.scalar(select(Bundle.id).where(Bundle.name == CHILDRENS_DAY_NAME)):
-            click.echo("Children's Day combo already exists; nothing to do.")
-            return
-        products = {p.sku.upper(): p for p in db.session.scalars(select(Product).where(Product.sku.in_(CHILDRENS_DAY_SKUS)))}
-        lacking = [s for s in CHILDRENS_DAY_SKUS if s not in products]
-        if lacking:
-            raise click.ClickException("Products not found: " + ", ".join(lacking))
-        ist = ZoneInfo("Asia/Kolkata")
-        bundle = Bundle(
-            name=CHILDRENS_DAY_NAME,
-            slug=unique_slug(Bundle, "childrens-day-special-combo-opening-day-combo"),
-            description=CHILDRENS_DAY_DESCRIPTION,
-            image_url="/static/img/bundles/childrens-day-combo.svg",
-            product_quantities=[{"product_id": products[s].id, "quantity": 1} for s in CHILDRENS_DAY_SKUS],
-            bundle_price=999,
-            is_active=True,
-            starts_at=datetime(2026, 11, 14, 0, 0, tzinfo=ist),
-            ends_at=datetime(2026, 11, 15, 23, 59, tzinfo=ist),
-        )
-        db.session.add(bundle); db.session.commit()
-        click.echo("Created the Children's Day combo bundle (14-15 Nov 2026, Rs 999).")
+            click.echo("Removed the old Children's Day bundle.")
+        had = db.session.scalar(select(Bundle.id).where(Bundle.slug == COMBO_BUNDLE_SLUG)) is not None
+        bundle = ensure_catalogue_combo_bundle()
+        if bundle is None:
+            raise click.ClickException("Combo not created: none of its products are in the database. Run flask import-rr-foods --yes first.")
+        skus = [i["sku"] for i in CATALOGUE_COMBO_OFFER["items"]]
+        prods = {p.sku: p for p in db.session.scalars(select(Product).where(Product.sku.in_(skus)))}
+        missing = [s for s in skus if s not in prods]
+        mrp = sum(float(prods[s].mrp) for s in skus if s in prods)
+        click.echo(("Combo already exists; left unchanged." if had else "Created the combo bundle.")
+                   + f" Products found {len(skus) - len(missing)}/7, total MRP Rs {mrp:.2f}, bundle price Rs {bundle.bundle_price:.2f}.")
+        if missing:
+            click.echo("[WARN] Missing SKUs (bundle is hidden until fixed): " + ", ".join(missing))
 
 
 def register_stock_notification_sync_cli(app):

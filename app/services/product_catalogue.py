@@ -744,24 +744,21 @@ PRODUCT_CATALOGUE = [{'number': 1,
                           'FOODS product. Serving suggestions and recipe ideas are editorial suggestions, not '
                           'manufacturer instructions.'}]
 
-CATALOGUE_COMBO_OFFER = {'title': 'RR FOODS – TRADITIONAL GRAINS & EVERYDAY ESSENTIALS COMBO',
+CATALOGUE_COMBO_OFFER = {'title': 'RR FOODS – ₹999 TRADITIONAL GRAINS & EVERYDAY ESSENTIALS COMBO',
  'strapline': 'Seven familiar favourites. One thoughtfully put-together pantry combo.',
  'description': 'Explore a selection of millet-based foods and traditional favourites in one convenient bundle. From '
                 'quick meals and everyday cooking to a traditional podi and kanji preparation, this combo brings a '
                 'variety of RR Foods products together for the family pantry.',
  'price': '₹999',
- 'items': [{'name': 'Multi Millet Instant Noodles', 'pack': '180 g'},
-           {'name': 'Multi Millet Pasta', 'pack': '180 g'},
-           {'name': 'Multi Millet Vermicelli (Semiya)', 'pack': '200 g'},
-           {'name': 'Multi Millet Chapati Maavu (Multi Millet Grain Atta)', 'pack': '500 g'},
-           {'name': 'Soup Mix (selected variant)', 'pack': '130 g'},
-           {'name': 'Traditional Tirunelveli Idli Podi', 'pack': '250 g'},
-           {'name': 'Karuppu Kavuni Rice, Black Urad Dal & Biotin Kanji Mix', 'pack': '275 g'}],
- 'closing': 'A balanced assortment for everyday food choices: enjoy the noodles and pasta as convenient meals, '
-            'prepare semiya and chapati for family dishes, and use the soup mix, traditional idli podi and kanji mix '
-            'to add variety to your menu.',
- 'confirmation': 'Confirm whether the 130 g soup mix is Moringa Leaf Soup Mix or Soup Base Mix, and verify all seven '
-                 'SKUs, pack sizes and the approved ₹999 combo price before sale.'}
+ # One pack of each. SKUs are the exact catalogue SKUs (see app/seed_data/seed_products.csv); names are the
+ # website product names. The Excel label name containing "Biotin" is a flagged label claim and is not shown.
+ 'items': [{'sku': 'RR-MN-005', 'name': 'Multi Millet Instant Noodles', 'pack': '180 g', 'mrp': 129},
+           {'sku': 'RR-PCB-006', 'name': 'Multi Millet Pasta', 'pack': '180 g', 'mrp': 129},
+           {'sku': 'RR-MV-006', 'name': 'Multi Millet Vermicelli (Semiya)', 'pack': '200 g', 'mrp': 99},
+           {'sku': 'RR-BTM-001', 'name': 'Multi Millet Chapati Mix', 'pack': '500 g', 'mrp': 129},
+           {'sku': 'RR-BTM-005', 'name': 'Moringa Leaf Soup Mix', 'pack': '130 g', 'mrp': 159},
+           {'sku': 'RR-BTM-004', 'name': 'Traditional Tirunelveli Idli Podi', 'pack': '250 g', 'mrp': 150},
+           {'sku': 'RR-TNF-004', 'name': 'Karuppu Kavuni Kanji Mix', 'pack': '275 g', 'mrp': 349}]}
 for _number in (5, 11, 13, 15, 17, 18, 19, 20):
     PRODUCT_CATALOGUE[_number - 1]["combo_offer"] = CATALOGUE_COMBO_OFFER
 

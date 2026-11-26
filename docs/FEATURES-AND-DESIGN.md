@@ -37,9 +37,9 @@ Reference notes that sit beside the README: design system, listing and bestselle
 
 Only two numbers are shown, both supplied by the brand: `0 preservatives added` and `6 journey stages`. An unsupported "50+ quality checks" claim is deliberately not shown. Do not invent product claims.
 
-## Festival combos (Diwali, Pongal, Children's Day)
+## Combos
 
-A `Combo` stores a name, description, product list, original and discounted price, image, active state, festival tag and a link to an existing `Bundle`. The linked bundle drives the cart, so the combo price is allocated across the product lines. Admin manages combos at `/admin/combos` (only active, in-stock products without active variants are selectable) and the site-wide countdown end time is the `diwali_end_at` setting. `flask seed-diwali-combos` and `flask seed-childrens-day-combo` create samples from real catalogue products and never overwrite existing combos.
+A `Combo` stores a name, description, product list, original and discounted price, image, active state, festival tag and a link to an existing `Bundle`. The linked bundle drives the cart, so the combo price is allocated across the product lines. Admin manages combos at `/admin/combos` (only active, in-stock products without active variants are selectable) and the site-wide countdown end time is the `diwali_end_at` setting. The permanent ₹999 combo bundle (seven catalogue products, one pack each, matched by exact SKU) is created by `flask seed-combo` and never overwritten afterwards.
 
 On the public site a combo linked to a bundle appears on `/offers` as that bundle's card inside the "Combo bundles" section. `diwali.css` and `diwali-fireworks.js` (canvas rockets about every 1.2 seconds, paused when off-screen or the tab is hidden, bounded particle pool, no audio, static for reduced motion) exist but no page loads them now.
 

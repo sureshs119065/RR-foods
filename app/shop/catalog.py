@@ -234,45 +234,16 @@ def product(slug):
                            catalogue_content=catalogue_content)
 
 
-# Alternative keyword sets (tried in order) used to find the real store product behind each catalogue combo line
-# (same order as the combo items). The pack size in the catalogue line is used to pick between several matches.
-_COMBO_MATCH_KEYS = [
-    [("multi millet", "instant noodles"), ("multi", "noodles"), ("millet", "noodles")],
-    [("multi millet", "pasta"), ("multi", "pasta"), ("millet", "pasta")],
-    [("multi millet", "vermicelli"), ("multi", "semiya"), ("vermicelli",)],
-    [("multi millet", "chapati"), ("multi", "chapati"), ("chapati",), ("grain atta",)],
-    [("soup mix", "selected variant"), ("soup mix",), ("soup",)],
-    [("tirunelveli", "idli podi"), ("tirunelveli", "podi"), ("idli podi",), ("idli", "podi")],
-    [("karuppu kavuni",), ("kavuni",), ("kanji mix",)],
-]
 COMBO_BUNDLE_SLUG = "rr-foods-traditional-grains-combo"
 
 
-def _digits(text):
-    return re.sub(r"[^0-9]", "", text or "")
-
-
 def _combo_lines(combo):
-    """Resolve each catalogue combo item to a live product (image, link, price). Missing -> product None."""
-    products = db.session.scalars(select(Product).options(joinedload(Product.images)).where(
-        Product.is_active.is_(True), Product.is_deleted.is_(False))).unique().all()
-    lines = []
-    used = set()
-    for index, item in enumerate(combo["items"]):
-        alternatives = _COMBO_MATCH_KEYS[index] if index < len(_COMBO_MATCH_KEYS) else []
-        found = None
-        for keys in alternatives:
-            hay = lambda prod: " ".join([(prod.name or ""), (prod.slug or "").replace("-", " ")]).lower()
-            candidates = [pr for pr in products if pr.id not in used and all(k in hay(pr) for k in keys)]
-            if candidates:
-                want = _digits(item["pack"])
-                preferred = [pr for pr in candidates if want and want == _digits(pr.pack_size)]
-                found = (preferred or candidates)[0]
-                break
-        if found is not None:
-            used.add(found.id)
-        lines.append({"name": item["name"], "pack": item["pack"], "product": found})
-    return lines
+    """Resolve each catalogue combo item to its live product by exact SKU. Missing -> product None."""
+    skus = [item["sku"].upper() for item in combo["items"]]
+    found = {(pr.sku or "").upper(): pr for pr in db.session.scalars(select(Product).where(
+        Product.sku.in_(skus), Product.is_active.is_(True), Product.is_deleted.is_(False))).all()}
+    return [{"name": item["name"], "pack": item["pack"], "product": found.get(item["sku"].upper())}
+            for item in combo["items"]]
 
 
 def _combo_price(combo):
@@ -303,7 +274,7 @@ def ensure_catalogue_combo_bundle():
     if missing:
         current_app.logger.warning("Combo bundle created Hidden; unmatched products: %s", "; ".join(missing))
     bundle = Bundle(name=CATALOGUE_COMBO_OFFER["title"], slug=COMBO_BUNDLE_SLUG,
-                    description=CATALOGUE_COMBO_OFFER["strapline"],
+                    description=CATALOGUE_COMBO_OFFER["strapline"] + " " + CATALOGUE_COMBO_OFFER["description"],
                     product_quantities=[{"product_id": l["product"].id, "quantity": 1} for l in matched],
                     bundle_price=float(_combo_price(CATALOGUE_COMBO_OFFER)), is_active=not missing)
     db.session.add(bundle)

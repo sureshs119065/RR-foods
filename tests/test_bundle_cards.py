@@ -11,7 +11,7 @@ def _bundle(session, **over):
     p1 = make_product(session, category=cat, stock_qty=50)
     p2 = make_product(session, category=cat, name="Second Pack", slug="second", sku="T2", stock_qty=50)
     session.flush()
-    b = Bundle(name="RR FOODS – Children's Day Special Combo | ₹999", slug="kids", bundle_price=100,
+    b = Bundle(name="Test Combo Pack", slug="kids", bundle_price=100,
                description="Seven favourites in one pack.",
                product_quantities=[{"product_id": p1.id, "quantity": 1}, {"product_id": p2.id, "quantity": 2}],
                is_active=True, **over)
@@ -31,7 +31,7 @@ def test_home_points_to_offers_for_a_live_bundle_without_listing_it(app, session
     _bundle(session)
     html = app.test_client().get("/").get_data(as_text=True)
     assert "op--combo" in html and "1 combo pack available" in html and "Coming soon" not in html
-    assert "Children&#39;s Day Special Combo" not in html and "bd__title" not in html
+    assert "Test Combo Pack" not in html and "bd__title" not in html
     assert "TRADITIONAL GRAINS" not in html and "rr-combo" not in html and "Combo offer" not in html
 
 
