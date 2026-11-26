@@ -139,7 +139,7 @@
   <div class="det{% if catalogue_content %} det--catalogue{% else %} det--store-content{% endif %}">
     {% if catalogue_content %}
       <section class="pdp-catalogue-intro" aria-labelledby="pdp-about-heading">
-        <div class="pdp-catalogue-intro__eyebrow">{{ catalogue_content.local_name }}</div>
+        {% if catalogue_content.local_name %}<div class="pdp-catalogue-intro__eyebrow">{{ catalogue_content.local_name }}</div>{% endif %}
         <h2 id="pdp-about-heading">About {{ p.name }}</h2>
         {% if catalogue_content.strapline %}<p class="pdp-catalogue-intro__strapline">{{ catalogue_content.strapline }}</p>{% endif %}
         <p>{{ catalogue_content.description }}</p>
@@ -240,16 +240,9 @@
         <h4>What the combo includes · one pack each</h4>
         <ul>{% for item in catalogue_content.combo_offer["items"] %}<li><span>{{ item.name }}</span><b>{{ item.pack }}</b></li>{% endfor %}</ul>
         <p class="pdp-combo-card__closing">{{ catalogue_content.combo_offer.closing }}</p>
-        <p class="pdp-combo-card__note">{{ catalogue_content.combo_offer.confirmation }}</p>
       </section>
       {% endif %}
 
-      {% if catalogue_content.editorial_notes %}
-      <section class="pdp-editorial-notes" aria-labelledby="pdp-notes-heading">
-        <div class="pdp-editorial-notes__title"><span aria-hidden="true">ⓘ</span><h3 id="pdp-notes-heading">Catalogue notes and information to verify</h3></div>
-        {% for note in catalogue_content.editorial_notes %}<p>{{ note }}</p>{% endfor %}
-      </section>
-      {% endif %}
       {% if p.video_id %}
       <section class="pdp-video-card">
         <h3>How to prepare {{ p.name }}</h3>

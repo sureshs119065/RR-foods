@@ -51,7 +51,7 @@ class Config:
     RATELIMIT_HEADERS_ENABLED = True              # Retry-After on 429
     RATE_LIMITS = _rate_limits()                  # every other limit, see app/ratelimits.py
     # WhatsApp-first ordering (no API, no cost): the order is sent to this number as a ready-written WhatsApp message and the
-    # owner settles payment with the customer on WhatsApp. Digits only, with country code, e.g. 919876543210.
+    # owner settles payment with the customer on WhatsApp. Digits only, with country code, e.g. 91XXXXXXXXXX.
     ADMIN_WHATSAPP_NUMBER = os.environ.get("ADMIN_WHATSAPP_NUMBER", "")
     DEFAULT_COUNTRY_CODE = os.environ.get("DEFAULT_COUNTRY_CODE", "91")  # added to 10 digit customer numbers
     SHOP_NAME = os.environ.get("SHOP_NAME", "RR FOODS")

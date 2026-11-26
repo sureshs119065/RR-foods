@@ -78,10 +78,6 @@
 
 {% include "shared/sales_analytics.html" %}
 
-{% if sales_analytics.accepted_orders == 0 %}
-<section class="ops-demo-panel" aria-label="Illustrative dashboard preview"><div class="ops-section-heading"><div><span class="ops-eyebrow">PREVIEW MODE</span><h2>Example store performance</h2></div><span class="ops-demo-pill">Sample data</span></div><p>{{ demo_data.label }}</p><div class="ops-demo-kpis"><div><small>Total sales</small><strong>₹{{ '{:,.0f}'.format(demo_data.total_sales) }}</strong></div><div><small>Orders</small><strong>{{ demo_data.total_orders }}</strong></div><div><small>Pending</small><strong>{{ demo_data.pending_orders }}</strong></div><div><small>Low stock</small><strong>{{ demo_data.low_stock_items }}</strong></div></div><div class="ops-demo-chart"><h3>Sales trend · sample week</h3><div class="ops-demo-bars">{% for day in demo_data.daily_sales %}<div><span data-bar-value="{{ (day.value / 27650 * 100)|round|int }}"></span><small>{{ day.label }}</small></div>{% endfor %}</div></div><div class="ops-demo-products"><h3>Top-selling products · sample</h3>{% for item in demo_data.top_products %}<div><span>{{ item.name }}</span><b>{{ item.units }} units</b></div>{% endfor %}</div></section>
-{% endif %}
-
 <section class="ops-dashboard-lower">
   <div class="ops-section-heading"><div><span class="ops-eyebrow">LATEST ACTIVITY</span><h2>Recent orders</h2></div><a href="{{ url_for('admin.orders') }}">View all →</a></div>
   <div class="ops-dashboard-columns">

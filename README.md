@@ -14,7 +14,7 @@ Other documents: [CHANGELOG.md](CHANGELOG.md) (every update so far), [deploy/DEP
 4. [Local setup](#local-setup)
 5. [Configuration](#configuration)
 6. [Database and migrations](#database-and-migrations)
-7. [Products and demo data](#products-and-demo-data)
+7. [Products and catalogue data](#products-and-catalogue-data)
 8. [Roles, logins and routes](#roles-logins-and-routes)
 9. [Admin panel](#admin-panel)
 10. [Owner panel](#owner-panel)
@@ -73,7 +73,7 @@ rr-foods/
 │   ├── templates/         # auth, account, shop, admin, owner, shared, partials, errors
 │   ├── static/            # css, js, img, fonts
 │   ├── seed_data/         # catalogue CSV files
-│   ├── seed.py  security.py  uploads.py  media.py  prodcheck.py  extensions.py
+│   ├── slugs.py  security.py  uploads.py  media.py  prodcheck.py  extensions.py
 ├── migrations/            # Alembic history (single head)
 ├── tests/                 # pytest suite (needs PostgreSQL)
 ├── deploy/                # DEPLOY.md, nginx, systemd, cron
@@ -99,7 +99,8 @@ python -m pip install --upgrade pip && pip install -r requirements.txt
 cp .env.example .env              # then edit: SECRET_KEY, DATABASE_URL, ADMIN_WHATSAPP_NUMBER
 docker compose up -d db           # or use your own PostgreSQL 16+
 flask db upgrade
-flask seed                        # development only: prints demo passwords once
+flask create-user you@yourshop.com "Your Name" --role admin   # prompts for a password
+flask import-rr-foods --yes       # loads the 20 RR FOODS products (stock 0). Run once: re-running resets stock to 0
 python -m flask run
 ```
 
@@ -113,13 +114,12 @@ pip install -r requirements.txt
 Copy-Item .env.example .env       # then edit it
 docker compose up -d db
 flask db upgrade
-flask seed
+flask create-user you@yourshop.com "Your Name" --role admin
+flask import-rr-foods --yes
 python -m flask run
 ```
 
 Open `http://127.0.0.1:5000/`. Monitoring URLs: `/healthz` (process is up), `/readyz` (database answers, 503 if not) and `/health` (JSON database check plus version).
-
-Never run `flask seed` on a live shop: it adds sample data and example logins.
 
 ## Configuration
 
@@ -158,11 +158,14 @@ There is a single migration head (`5d2e9a7c1f40`). Alembic always proposes re-cr
 
 `flask db check` currently reports small, harmless drift between the models and the migrations: the unused `orders.delivered_at` column (added by a migration, no code uses it), unique constraints on the `slug` columns of `bundles`, `combos` and `recipe_videos`, and the `ix_products_fts` index. Applying migrations from an empty database works. If you run `flask db migrate`, read the generated file and remove any operation that drops these before applying it.
 
-## Products and demo data
+## Products and catalogue data
 
-- `flask seed` creates sample admin, owner and customer accounts, categories, products, coupons and banners (development only).
-- `flask import-rr-foods --yes` imports the supplied RR FOODS catalogue (`app/seed_data/seed_products.csv`, 32 products, updated by SKU). Missing ingredients, nutrition, allergens and FSSAI details are left blank on purpose: do not invent regulated label facts. Imported stock is **0**; set real stock in Owner → Inventory before selling. Review `docs/RR-FOODS-product-data-review.csv` before publishing package information.
-- `flask import-products-csv PATH` imports a general CSV; Admin → Products → Import gives row-level error reports.
+The project ships no demo data: no sample accounts, coupons, banners, pincodes or dashboard figures. Everything shown comes from the database.
+
+- `flask import-rr-foods --yes` imports the 20 RR FOODS products from `app/seed_data/seed_products.csv` (3 categories, matched by SKU, so existing SKUs, images and orders stay linked). Prices: MRP from the Excel catalogue, discount 8 % so the selling price equals the Excel Selling Price. Imported stock is **0** and low-stock threshold is 5; set real stock in Owner → Inventory before selling. Run it **once**: the file says stock 0, so running it again resets stock to 0 (the command warns when that would happen).
+- Moving an existing site from the old 32-product list to these 20: `flask import-rr-foods --dry-run --archive-others` lists every product and empty category that would be archived and changes nothing; then `flask import-rr-foods --yes --archive-others` does it. Products are archived (soft-deleted, orders kept, restorable in Admin), never hard-deleted.
+- Product-page text (description, benefits, perfect for, serving, recipes, preparation, storage, allergen, best before) lives in `app/services/product_catalogue.py`, which is **generated** from `data/RR_FOODS_PRODUCT_CATALOGUE_-_FINAL.xlsx` by `python tools/build_catalogue_from_excel.py` (also rewrites the CSV). Do not edit it by hand. Fields the Excel leaves open stay empty and show nothing. Internal editorial/compliance notes are in `docs/INTERNAL-catalogue-review.md` and are never shown on the site.
+- Admin → Products → Import accepts a product CSV and gives row-level error reports.
 - Product images bundled with the code live in `app/static/img/products/`; images uploaded in Admin go to `UPLOAD_DIR`.
 
 ## Roles, logins and routes
@@ -216,7 +219,7 @@ Rules enforced on the server:
 Every pincode from 600001 to 643999 (Tamil Nadu, including Puducherry and Karaikal) is deliverable by rule: 3 days, free delivery by default. A row in `delivery_zones` overrides one pincode (custom fee or days, city and state, or switch it off):
 
 ```bash
-python add_pincodes.py 641001 --eta 1 --fee 0
+python add_pincodes.py <pincode> --eta 1 --fee 0
 python add_pincodes.py 605001 --disable
 python add_pincodes.py 636001 --city Salem --state "Tamil Nadu"
 ```
@@ -226,7 +229,7 @@ The product-page pincode check (`/api/pincode/<pin>`), checkout and order placem
 ## Content, images and uploads
 
 - **Reels** (homepage only), **recipes** and **bundles** are managed in Admin. Videos: MP4, WebM or MOV up to 50 MB, checked by their real file header, not just the extension. Recipes accept an uploaded video or a YouTube URL.
-- **Festival combos** (for example Diwali, Pongal) are admin-managed `Combo` records linked to a `Bundle`; a combo linked to a bundle appears on `/offers` as that bundle's card inside the "Combo bundles" section. Seed samples with `flask seed-diwali-combos` or `flask seed-childrens-day-combo`. The Diwali countdown and fireworks assets (`diwali.css`, `diwali-fireworks.js`) are kept but are not currently loaded by any page.
+- **Festival combos** (for example Diwali, Pongal) are admin-managed `Combo` records linked to a `Bundle`; a combo linked to a bundle appears on `/offers` as that bundle's card inside the "Combo bundles" section. The Diwali countdown and fireworks assets (`diwali.css`, `diwali-fireworks.js`) are kept but are not currently loaded by any page.
 - **Images:** the uploader validates format, re-encodes with Pillow to WebP, strips metadata, uses random file names and resizes. Committed static images belong in `app/static/img/`. Uploads go to `UPLOAD_DIR` and are served by the app; back the folder up together with the database. On hosts with a temporary disk (such as Render) attach a persistent disk, or uploads are lost on restart.
 - Optional images the CSS expects: `app/static/img/rr-foods-bestsellers-background.jpg`, `rr-foods-new-arrivals-background.jpg` and `RR-FOODS-About-Hero-Background.jpg` (file names are case-sensitive).
 
@@ -237,11 +240,9 @@ Run from the project root with the virtual environment active.
 | Command | Purpose |
 |---|---|
 | `flask db upgrade` | Apply migrations |
-| `flask seed` | Development demo data and accounts |
-| `flask import-rr-foods --yes` | Import the RR FOODS catalogue |
-| `flask import-products-csv PATH` | Import a general product CSV |
+| `flask import-rr-foods --yes` | Import the 20 RR FOODS products (add `--archive-others` to archive the rest, `--dry-run` to preview) |
 | `flask create-user EMAIL "Name" --role admin\|owner\|user` | Create an account |
-| `flask seed-diwali-combos` / `flask seed-childrens-day-combo` | Seed sample festival combos |
+| `flask seed-childrens-day-combo` | Create the combo bundle (under review) |
 | `flask set-setting KEY VALUE` | Change a JSON-backed site setting (strings as JSON, for example `'"RR FOODS"'`) |
 | `flask send-emails` | Deliver queued emails (cron, every minute) |
 | `flask send-stock-alerts` | Back-in-stock notifications (cron, every 5 minutes) |
@@ -265,12 +266,12 @@ python -m pytest -q tests/test_step8_access.py tests/test_step8_e2e.py   # acces
 
 On the current code the whole suite passes (**486 tests**). Highlights: every route's access rules; the full customer, owner and admin journey through the real forms; two simultaneous checkouts for the last unit, over several rounds, with stock never below zero; order, review, return and refund rules; password reset; invoice PDF text; the production safety check; `/readyz`. GitHub Actions (`.github/workflows/pytest.yml`) runs the suite on PostgreSQL 16.
 
-**Browser layout audit** (needs a running, seeded site):
+**Browser layout audit** (needs a running site with a catalogue and test accounts):
 
 ```bash
 pip install playwright && playwright install chromium
-flask db upgrade && flask seed && flask run          # in another terminal
-export AUDIT_USER=... AUDIT_OWNER=... AUDIT_ADMIN=...
+flask db upgrade && flask import-rr-foods --yes && flask run   # in another terminal; create test accounts with flask create-user
+export AUDIT_USER_EMAIL=... AUDIT_USER=... AUDIT_OWNER_EMAIL=... AUDIT_OWNER=... AUDIT_ADMIN_EMAIL=... AUDIT_ADMIN=...
 AUDIT_ROLES=public,user AUDIT_WIDTHS=360,1366 python scripts/layout_audit.py
 ```
 
@@ -290,7 +291,7 @@ Hard failures (exit code 1): sideways page scroll, JavaScript errors, failed req
 ## Launch checklist
 
 - [ ] `flask check-config` reports "0 to fix"; advice items reviewed.
-- [ ] Real admin and owner accounts created; no demo accounts or `@nurseskitchen.local` examples.
+- [ ] Real admin and owner accounts created (`flask create-user`).
 - [ ] `ADMIN_WHATSAPP_NUMBER` set and a test order walked through every owner step on a real phone.
 - [ ] HTTPS works and HTTP redirects to it; `TRUST_PROXY=1` only behind a trusted proxy.
 - [ ] Redis installed and `RATELIMIT_STORAGE_URI` set when using several workers.

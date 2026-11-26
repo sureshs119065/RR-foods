@@ -6,11 +6,10 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 
 from app.models import (
-    Category, CartItem, Coupon, HeaderBanner, Product, User, WishlistItem, SiteSetting,
+    Category, CartItem, Coupon, HeaderBanner, Product, User, WishlistItem,
 )
 from app.models.base import utcnow
 from app.security import hash_password, verify_password
-from app.seed import import_products_csv, seed_all
 
 
 def make_category(session, name="Snacks"):
@@ -161,34 +160,3 @@ def test_password_hash_verify():
     assert verify_password(h, "correct horse")
     assert not verify_password(h, "wrong")
     assert not verify_password("not-a-hash", "x")
-
-
-# ---------- seed ----------
-def test_seed_creates_expected_data_and_is_idempotent(session):
-    first = seed_all()
-    counts = lambda: (
-        session.scalar(select(text("count(*)")).select_from(text("users"))),
-        session.scalar(select(text("count(*)")).select_from(text("products"))),
-        session.scalar(select(text("count(*)")).select_from(text("header_banners"))),
-        session.scalar(select(text("count(*)")).select_from(text("categories"))),
-    )
-    c1 = counts()
-    assert c1 == (3, 12, 4, 5)  # users, products, header banners, categories
-    assert session.scalar(select(text("count(*)")).select_from(text("users")).where(text("role='admin'"))) == 1
-    assert session.scalar(select(text("count(*)")).select_from(text("users")).where(text("role='owner'"))) == 1
-    assert len(first["passwords"]) == 3
-    seed_all()
-    assert counts() == c1
-    assert session.get(SiteSetting, "header_carousel_interval_ms").value == 5000
-    millet = session.scalar(select(Product).where(Product.sku == "P001"))
-    assert millet.is_bestseller and millet.final_price == Decimal("180.00") and millet.nutrition["calories"] == 310
-    sold_out = session.scalar(select(Product).where(Product.stock_qty == 0))
-    assert sold_out is not None  # CSV rows with inStock FALSE start at 0 stock
-
-
-def test_csv_import_rejects_negative_price(session, tmp_path):
-    bad = tmp_path / "bad.csv"
-    bad.write_text("id,name,category,price\nB1,Bad,Snacks,-5\n", encoding="utf-8")
-    with pytest.raises(ValueError):
-        import_products_csv(bad)
-    session.rollback()

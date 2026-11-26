@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 from ..extensions import db
 from ..services.inventory import notify_admin_stock_transition
 from ..models import Category, InventoryLog, Product, ProductImage
-from ..seed import slugify
+from ..slugs import slugify
 from ..services.xlsx_export import INT, MONEY, NUMBER, TEXT, Sheet, build_workbook
 from .helpers import to_decimal, to_int, unique_slug
 
@@ -268,7 +268,7 @@ def import_csv(raw: bytes, *, create_categories: bool, default_stock: int) -> Im
             p.stock_qty = 0
         db.session.flush()
         if old_stock != p.stock_qty:
-            db.session.add(InventoryLog(product_id=p.id, changed_by=g.user.id, old_qty=old_stock, new_qty=p.stock_qty, reason="csv import"))
+            db.session.add(InventoryLog(product_id=p.id, changed_by=getattr(g, "user", None) and g.user.id, old_qty=old_stock, new_qty=p.stock_qty, reason="csv import"))
             notify_admin_stock_transition(p, old_stock, p.stock_qty)
         have = {i.url for i in p.images}
         for url in plan["urls"]:

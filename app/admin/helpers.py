@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from ..auth.service import audit
 from ..extensions import db
-from ..seed import slugify
+from ..slugs import slugify
 
 
 def log(action: str, entity_type: str, entity_id=None, before=None, after=None) -> None:

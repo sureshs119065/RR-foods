@@ -4,46 +4,62 @@ from .extensions import db
 
 
 def register_cli(app):
-    _register_diwali_seed(app)
     _register_childrens_day_seed(app)
-    @app.cli.command("seed")
-    def seed_command():
-        """Create sample admin, owner, customer, categories, products, coupon, banners and settings."""
-        from .seed import seed_all
-
-        result = seed_all()
-        click.echo(f"Products: {result['products']}  Header banners added: {result['header_banners']}")
-        click.echo("Accounts (save these passwords now, they are not shown again):")
-        for email, pw in result["passwords"].items():
-            click.echo(f"  {email}  {pw}")
-
-    @app.cli.command("import-products-csv")
-    @click.argument("path", required=False)
-    def import_csv_command(path):
-        """Import products from the old site's CSV (default: app/seed_data/products.csv)."""
-        from .seed import import_products_csv
-
-        click.echo(import_products_csv(path))
 
     @app.cli.command("import-rr-foods")
     @click.option("--path", default="app/seed_data/seed_products.csv", show_default=True,
                   type=click.Path(exists=True, dir_okay=False, readable=True))
+    @click.option("--archive-others", is_flag=True,
+                  help="Also archive (soft-delete, never hard-delete) every product and empty category that is not in the file.")
+    @click.option("--dry-run", is_flag=True, help="Check the file and list what would change, then roll everything back.")
     @click.option("--yes", is_flag=True, help="Skip the confirmation prompt.")
-    def import_rr_foods_command(path, yes):
-        """Import the supplied RR FOODS catalogue into the configured database."""
+    def import_rr_foods_command(path, archive_others, dry_run, yes):
+        """Import the 20 RR FOODS products (app/seed_data/seed_products.csv) into the configured database."""
+        import csv
+        import io
         from pathlib import Path
+        from sqlalchemy import func, select
         from .admin.csvio import import_csv
+        from .models import Category, Product
         raw = Path(path).read_bytes()
-        if not yes:
-            click.confirm("Import the RR FOODS product records? Existing matching SKUs will be updated.", abort=True)
+        keep_skus = {r["sku"].strip().upper() for r in csv.DictReader(io.StringIO(raw.decode("utf-8-sig"))) if r.get("sku")}
+        keep_categories = {r["category"].strip().lower() for r in csv.DictReader(io.StringIO(raw.decode("utf-8-sig"))) if r.get("category")}
+        with_stock = db.session.scalars(select(Product).where(func.upper(Product.sku).in_(keep_skus), Product.stock_qty > 0)).all()
+        if with_stock:
+            click.echo(f"WARNING: {len(with_stock)} of these products currently have stock; this import sets their stock to 0 "
+                       "(the file says stock 0). Run the import once, before you enter real stock.", err=True)
+        if not (yes or dry_run):
+            click.confirm("Import the RR FOODS product records? Existing matching SKUs will be updated"
+                          + (" and every other product will be archived." if archive_others else "."), abort=True)
         result = import_csv(raw, create_categories=True, default_stock=0)
         if result.errors:
             db.session.rollback()
             for error in result.errors:
                 click.echo(f"ERROR: {error}", err=True)
             raise click.ClickException("No products were imported. Fix the CSV errors and retry.")
+        click.echo(f"RR FOODS import {'check' if dry_run else 'complete'}: {result.created} created/{result.updated} updated, 0 errors "
+                   f"({result.created + result.updated} products).")
+        if archive_others:
+            others = db.session.scalars(select(Product).where(Product.is_deleted.is_(False), func.upper(Product.sku).not_in(keep_skus))
+                                        .order_by(Product.sku)).all()
+            click.echo(f"Products not in the file ({len(others)}) -> archived (orders and history are kept, they can be restored in Admin):")
+            for product in others:
+                product.archive()
+                click.echo(f"  {product.sku}  {product.name}")
+            db.session.flush()
+            empty = []
+            for category in db.session.scalars(select(Category).where(Category.is_deleted.is_(False))).all():
+                if category.name.strip().lower() in keep_categories:
+                    continue
+                if not db.session.scalar(select(func.count(Product.id)).where(Product.category_id == category.id, Product.is_deleted.is_(False))):
+                    category.archive()
+                    empty.append(category.name)
+            click.echo(f"Empty categories archived ({len(empty)}): " + (", ".join(empty) or "none"))
+        if dry_run:
+            db.session.rollback()
+            click.echo("Dry run: nothing was saved.")
+            return
         db.session.commit()
-        click.echo(f"RR FOODS import complete: {result.created} created, {result.updated} updated.")
         click.echo("All imported stock quantities are zero; enter verified inventory before enabling sales.")
 
     @app.cli.command("create-user")
@@ -144,15 +160,9 @@ def register_check_cli(app):
     @app.cli.command("check-config")
     def check_config_command():
         """Check .env for unsafe production settings. Exit code 1 if something must be fixed."""
-        from .prodcheck import config_problems, example_accounts_advice, is_production
+        from .prodcheck import config_problems, is_production
 
         fatal, advice = config_problems(app)
-        try:
-            extra = example_accounts_advice()
-            if extra:
-                advice.append(extra)
-        except Exception as exc:  # noqa: BLE001  database may not be reachable yet
-            advice.append(f"Could not look for example accounts ({type(exc).__name__}). Is the database reachable and migrated?")
         if not is_production(app):
             click.echo("Note: FLASK_ENV is not 'production', so these are what WOULD be refused in production.")
         for m in fatal:
@@ -161,57 +171,6 @@ def register_check_cli(app):
             click.echo(f"[ADVICE] {m}")
         click.echo(f"{len(fatal)} to fix, {len(advice)} advice.")
         raise SystemExit(1 if fatal else 0)
-
-
-def _register_diwali_seed(app):
-    @app.cli.command("seed-diwali-combos")
-    def seed_diwali_combos():
-        """Create three sample Diwali combo records using existing active catalogue products."""
-        from decimal import Decimal
-        from sqlalchemy import select
-        from .models import Bundle, Combo, Product, SiteSetting
-        from .seed import slugify
-        from .services.storefront import active_variants
-        rows = db.session.scalars(select(Product).where(Product.is_active.is_(True), Product.is_deleted.is_(False), Product.final_price > 0, Product.stock_qty > 0).order_by(Product.name)).all()
-        products = [p for p in rows if not active_variants(p)]
-        if len(products) < 2:
-            raise click.ClickException("Import and activate at least two products before seeding Diwali combos.")
-        if db.session.scalar(select(Combo.id).limit(1)):
-            click.echo("Diwali combos already exist; no duplicate samples were created.")
-            return
-        plans = [
-            ("Biotin Laddu Festive Box", "A festive RR FOODS laddu selection.", ("laddu",)),
-            ("Healthy Snack Combo", "A shareable mix of millet and wholesome pantry favourites.", ("muesli", "moringa", "soup")),
-            ("Traditional Pantry Gift Hamper", "Traditional RR FOODS pantry favourites, curated for gifting.", ("idli podi", "pickle", "vathal")),
-        ]
-        used_ids = set()
-        for name, description, keywords in plans:
-            chosen = []
-            for keyword in keywords:
-                match = next((p for p in products if keyword in p.name.lower() and p.id not in used_ids), None)
-                if match and len(chosen) < 3:
-                    chosen.append(match); used_ids.add(match.id)
-            if not chosen:
-                chosen = [p for p in products if p.id not in used_ids][:2]
-                used_ids.update(p.id for p in chosen)
-            if not chosen:
-                chosen = products[:2]
-            original = sum((Decimal(str(p.final_price)) for p in chosen), Decimal("0"))
-            if original <= 0: original = Decimal("200.00")
-            price = (original * Decimal("0.85")).quantize(Decimal("0.01"))
-            slug = slugify(name)
-            from .admin.helpers import unique_slug
-            bundle = Bundle(name=name, slug=unique_slug(Bundle, f"diwali-{slug}-cart"), description=description,
-                product_quantities=[{"product_id": p.id, "quantity": 1} for p in chosen], bundle_price=float(price), is_active=True)
-            db.session.add(bundle); db.session.flush()
-            db.session.add(Combo(name=name, slug=f"diwali-{slug}", description=description,
-                items=[{"product_id": p.id, "quantity": 1} for p in chosen], price=price,
-                original_price=original, festival_tag="diwali", is_active=True, bundle=bundle))
-        setting = db.session.get(SiteSetting, "diwali_end_at")
-        if not setting: db.session.add(SiteSetting(key="diwali_end_at", value="2026-11-12T23:59"))
-        db.session.commit()
-        click.echo("Created 3 Diwali combos using existing active catalogue products.")
-
 
 
 CHILDRENS_DAY_NAME = "RR FOODS – Children's Day Special Combo + Opening Day Combo | ₹999"

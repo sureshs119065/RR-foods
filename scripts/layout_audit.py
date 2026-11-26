@@ -1,7 +1,7 @@
-"""Real-browser layout audit (Chromium via Playwright) against a RUNNING, SEEDED site.
+"""Real-browser layout audit (Chromium via Playwright) against a RUNNING site that has a catalogue and test accounts.
 
   pip install playwright && playwright install chromium
-  BASE_URL=http://127.0.0.1:5000 AUDIT_USER=... AUDIT_OWNER=... AUDIT_ADMIN=... python scripts/layout_audit.py
+  BASE_URL=http://127.0.0.1:5000 AUDIT_USER_EMAIL=... AUDIT_USER=... AUDIT_OWNER_EMAIL=... AUDIT_OWNER=... AUDIT_ADMIN_EMAIL=... AUDIT_ADMIN=... python scripts/layout_audit.py
 
 Narrow a run (recommended, the full run is slow):  AUDIT_ROLES=public,user  AUDIT_WIDTHS=360,1366  AUDIT_OUT=report.json
 Set CHROME_PATH if Playwright cannot find its browser.
@@ -25,7 +25,7 @@ _only = {int(x) for x in os.environ.get("AUDIT_WIDTHS", "").split(",") if x}
 if _only:
     WIDTHS = [wh for wh in WIDTHS if wh[0] in _only]
 PHONE_MAX = 480
-EMAIL = {"user": "user@nurseskitchen.local", "owner": "owner@nurseskitchen.local", "admin": "admin@nurseskitchen.local"}
+EMAIL = {r: os.environ.get(f"AUDIT_{r.upper()}_EMAIL", "") for r in ("user", "owner", "admin")}   # real test accounts you created with flask create-user
 LOGIN = {"user": "/login", "owner": "/owner/login", "admin": "/admin/login"}
 PW = {r: os.environ.get(f"AUDIT_{r.upper()}", "") for r in EMAIL}
 PAGES = {

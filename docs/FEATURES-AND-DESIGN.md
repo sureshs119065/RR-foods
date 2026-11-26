@@ -45,18 +45,18 @@ On the public site a combo linked to a bundle appears on `/offers` as that bundl
 
 **Test checklist (festival and storefront)**
 - `/about` on desktop and mobile: six cards reveal in order, the line fills and the marker travels; with reduced motion and with JavaScript off, all six stages stay readable.
-- `flask seed-diwali-combos`, then `/admin/combos`: edit contents, prices, image and active state; create and delete a test combo.
+- `/admin/combos`: edit contents, prices, image and active state; create and delete a test combo.
 - `/offers`: only active combos and bundles render with real product names, struck-through originals and correct discounted prices.
 - Signed in as a customer, add a combo to the cart: the bundle cart price equals the combo price.
 - Regression: Shop All, Bestsellers, search, filters, cart and checkout behave as before.
 
 ## Data, QA and launch notes
 
-- **Catalogue seed:** `app/seed_data/seed_products.csv` has all 32 supplied products with source SKUs, names, categories, MRP, discount amounts and pack sizes; a `Breakfast` subcategory holds seven relevant products. Ingredients, nutrition, allergens, preparation and FSSAI details are blank where not supplied. Stock is blank so imports default to zero and re-imports never overwrite existing stock. `docs/RR-FOODS-product-data-review.csv` lists what still needs approval.
-- **Product page content:** the 20 products in the supplied catalogue document carry full content (ingredients, serving suggestions, recipe ideas, MRP, pack size, best-before, storage, allergens). Other products use their store-listing text in the same card layout; catalogue copy is never attached to products that are not in the catalogue. The provisional Multi Millet Pasta mapping note stays visible until confirmed.
+- **Catalogue seed:** `app/seed_data/seed_products.csv` has the 20 products of the approved Excel catalogue (SKU, name, 3 categories, MRP, 8 % discount so the price equals the Excel Selling Price, pack size, tagline, ingredients, preparation, image). Stock is 0 until entered in Owner → Inventory. Empty Excel fields stay empty. Internal notes: `docs/INTERNAL-catalogue-review.md`.
+- **Product page content:** the 20 products in the supplied catalogue document carry full content (ingredients, serving suggestions, recipe ideas, MRP, pack size, best-before, storage, allergens). Other products use their store-listing text in the same card layout. The Excel review notes are internal and never appear on the product page.
 - **Combo catalogue offer:** `app/services/product_catalogue.py` is the source of truth for the ₹999 seven-product combo.
-- **Admin demo data:** `app/data/admin_dashboard_demo.json` (labelled illustrative figures shown only when the live range has no orders) and `app/data/admin_faqs.json` (help centre content) are replaceable.
-- **Required before public launch:** real stock and approved pack images; all 32 products checked against packaging; business contact details, shipping coverage and charges, tax rules, legal policies and social links confirmed; SMTP, HTTPS, backups and a real-phone test pass (see the README launch checklist).
+- **Dashboard data:** the admin dashboard shows live database values only (zeros and "No data yet" when empty). `app/data/admin_faqs.json` holds the help centre content.
+- **Required before public launch:** real stock and approved pack images; all 20 products checked against packaging; business contact details, shipping coverage and charges, tax rules, legal policies and social links confirmed; SMTP, HTTPS, backups and a real-phone test pass (see the README launch checklist).
 - **Compare is retired:** `/compare` redirects to `/shop`; the toggle route remains for old links.
 
 ## Marketplace comparison (9 Nov 2026)

@@ -52,6 +52,8 @@
     </article>
   </div>
 
+  {% if not sales_analytics.total_orders %}<p class="sa-empty" role="status">No data yet. No orders were placed in this period.</p>{% endif %}
+
   <div class="sa-chart-grid">
     <article class="sa-chart-card sa-chart-card--wide">
       <div class="sa-chart-head"><div><h3>Monthly sales</h3><p>Sales by month in the selected period</p></div><span class="sa-chart-mark">₹</span></div>

@@ -5,7 +5,6 @@ from datetime import date
 from sqlalchemy import select
 
 from app.models import HeaderBanner, Order, Product
-from app.seed import seed_header_banners
 from app.services import header_banners
 from tests.helpers import post
 from tests.test_step2_models import make_product  # noqa: F401
@@ -31,7 +30,8 @@ def test_2_empty_search_stays_on_the_same_page(cust):
 
 
 def test_3_festival_and_combo_links_go_to_their_own_pages(cust, session):
-    seed_header_banners()
+    session.add(HeaderBanner(title="Test festival banner", badge_text="FESTIVAL", bg_color="#7a1f3d", text_color="#ffffff",
+                             button_text="Shop offers", link_type="url", link_target="/offers", sort_order=0))
     session.commit()
     festival = session.scalar(select(HeaderBanner).where(HeaderBanner.badge_text == "FESTIVAL"))
     assert header_banners.resolve_href(festival) == "/offers"

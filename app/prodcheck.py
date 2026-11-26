@@ -83,17 +83,3 @@ def _inside_code(upload_dir) -> bool:
     code = Path(__file__).resolve().parent
     target = Path(str(upload_dir)).resolve()
     return target == code or code in target.parents
-
-
-def example_accounts_advice() -> str | None:
-    """Looks in the database for the seeded @nurseskitchen.local accounts (call inside an app context)."""
-    from sqlalchemy import select
-
-    from .extensions import db
-    from .models import User
-
-    rows = db.session.scalars(select(User.email).where(User.email.like("%@nurseskitchen.local"), User.is_blocked.is_(False))).all()
-    if rows:
-        return ("These accounts use the example '@nurseskitchen.local' address. Create real staff accounts "
-                "(flask create-user ...) and block the examples from Admin > Users: " + ", ".join(sorted(rows)))
-    return None

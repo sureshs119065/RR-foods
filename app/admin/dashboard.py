@@ -27,15 +27,10 @@ def dashboard():
     stats["total_orders"] = count(select(func.count(Order.id)).where(Order.status != "pending_whatsapp"))
     recent_orders = db.session.scalars(select(Order).options().where(Order.status != "pending_whatsapp").order_by(Order.created_at.desc(), Order.id.desc()).limit(5)).all()
     low_items = db.session.scalars(select(Product).where(live, Product.stock_qty <= Product.low_stock_threshold).order_by(Product.stock_qty.asc()).limit(5)).all()
-    import json
-    from pathlib import Path
-    demo_path = Path(__file__).resolve().parents[1] / "data" / "admin_dashboard_demo.json"
-    with demo_path.open(encoding="utf-8") as handle:
-        demo_data = json.load(handle)
     sales_analytics = build_sales_analytics(
         request.args.get("range"), request.args.get("start_date"), request.args.get("end_date"), shop_tz()
     )
-    return render_template("admin/dashboard.html", stats=stats, sales_analytics=sales_analytics, recent_orders=recent_orders, low_items=low_items, demo_data=demo_data,
+    return render_template("admin/dashboard.html", stats=stats, sales_analytics=sales_analytics, recent_orders=recent_orders, low_items=low_items,
                            analytics_refresh_url=url_for("admin.analytics_data"))
 
 

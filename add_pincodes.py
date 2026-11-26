@@ -2,9 +2,9 @@ r"""Add or update deliverable pincodes in the database that DATABASE_URL points 
 
 Usage (PowerShell, inside the nk-platform folder):
   $env:DATABASE_URL = "<External Database URL>"
-  .\.venv\Scripts\python.exe add_pincodes.py 641001 641002 641003 --eta 2 --fee 0
+  .\.venv\Scripts\python.exe add_pincodes.py <pincode> <pincode> --eta 2 --fee 0
   .\.venv\Scripts\python.exe add_pincodes.py --list
-  .\.venv\Scripts\python.exe add_pincodes.py 641099 --disable      (stop delivering there)
+  .\.venv\Scripts\python.exe add_pincodes.py <pincode> --disable      (stop delivering there)
 """
 import argparse
 import re

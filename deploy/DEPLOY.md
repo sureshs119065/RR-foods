@@ -24,8 +24,8 @@ Payments: there is no gateway. Customers pay the owner on WhatsApp and the owner
    - Health check path: `/readyz`
 4. Environment variables: `PYTHON_VERSION=3.12.3`, `FLASK_APP=wsgi.py`, `FLASK_ENV=production`, `SECRET_KEY` (`python -c "import secrets; print(secrets.token_urlsafe(48))"`), `DATABASE_URL`, `TRUST_PROXY=1`, `RATELIMIT_STORAGE_URI` (the internal URL of a Render Key Value instance; required, the site will not start without it), `SITE_URL=https://<your-service>.onrender.com`, `ADMIN_WHATSAPP_NUMBER=91XXXXXXXXXX`, `SHOP_TIMEZONE=Asia/Kolkata`, `UPLOAD_DIR=/var/data/uploads`.
 5. Attach a **Disk** (paid instance) mounted at `/var/data`, or admin-uploaded images are lost on every deploy. Images bundled with the code (`app/static/img/products/`) survive on any plan.
-6. Create an admin from the Shell: `flask create-user you@example.com "Your Name" --role admin --password 'StrongPassword'`. Do not run `flask seed` on a live shop.
-7. Load the catalogue once: `flask import-rr-foods --yes`. Imported stock is 0; set real stock in Owner → Inventory before selling. Products without a bundled image get theirs via Admin → Products → Edit → Images.
+6. Create an admin from the Shell: `flask create-user you@example.com "Your Name" --role admin --password 'StrongPassword'`.
+7. Load the 20 products once: `flask import-rr-foods --yes`. Imported stock is 0 and the command resets stock to 0 if run again, so run it before you enter real stock. Set real stock in Owner → Inventory before selling. Every product has its bundled image already. **Existing site with the old 32 products:** first `flask import-rr-foods --dry-run --archive-others` (prints the products and empty categories that will be archived, changes nothing), then `flask import-rr-foods --yes --archive-others`.
 8. Cron jobs (same environment variables): `flask send-emails` every minute (needs `MAIL_MODE=smtp`, `brevo` or `resend`), `flask send-stock-alerts` every 5 minutes, `flask sync-stock-notifications` every 30 minutes (run it once after deploying to backfill existing alerts).
 
 ### Sign-in code emails on Render (SMTP is blocked, use an HTTPS email API)
@@ -51,7 +51,7 @@ Render's temporary filesystem is not a backup. Use a persistent host or Render c
    venv/bin/flask check-config        # must say "0 to fix"
    venv/bin/flask db upgrade
    ```
-5. Accounts (**not** `flask seed`):
+5. Accounts:
    ```bash
    venv/bin/flask create-user you@yourshop.com "Your Name" --role admin
    venv/bin/flask create-user owner@yourshop.com "Owner Name" --role owner

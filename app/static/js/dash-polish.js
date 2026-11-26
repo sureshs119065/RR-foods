@@ -61,7 +61,7 @@
     }
 
     /* staggered reveal */
-    var targets = $$(".admin-hero,.owner-hero,.dp-attn,.admin-kpi,.owner-kpi,.sales-analytics,.ops-demo-panel,.ops-dashboard-lower,.admin-action-grid a,.owner-ops-card");
+    var targets = $$(".admin-hero,.owner-hero,.dp-attn,.admin-kpi,.owner-kpi,.sales-analytics,.ops-dashboard-lower,.admin-action-grid a,.owner-ops-card");
     var counted = new WeakSet();
     function show(el, i) {
       el.style.setProperty("--dp-d", Math.min(i, 10) * 55 + "ms");
