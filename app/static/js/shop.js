@@ -85,6 +85,9 @@
     if (opener && opener.focus) opener.focus();
   }
   var drawer = $("#drawer"), searchO = $("#search-overlay");
+  /* keep the search sheet inside the visible area when the phone keyboard opens (dvh ignores the keyboard on iOS) */
+  function syncSearchViewport() { if (searchO && window.visualViewport) searchO.style.setProperty("--so-vh", Math.round(window.visualViewport.height) + "px"); }
+  if (window.visualViewport) { window.visualViewport.addEventListener("resize", syncSearchViewport); syncSearchViewport(); }
   document.addEventListener("click", function (e) {
     var o = e.target.closest("[data-open]");
     if (o) { e.preventDefault(); var w = o.getAttribute("data-open"); if (w === "drawer" && drawer) open(drawer, o, true); if (w === "search" && searchO) { open(searchO, o, false); renderRecent(); } return; }
@@ -153,9 +156,9 @@
     var out = [];
     if (d.popular) {
       out.push('<li class="sg-h" aria-hidden="true">Popular searches</li>');
-      out = out.concat((d.terms || []).map(function (t) { return termLink(t, ""); }));
+      out = out.concat((d.terms || []).slice(0, 4).map(function (t) { return termLink(t, ""); }));
       if ((d.categories || []).length) out.push('<li class="sg-h" aria-hidden="true">Browse categories</li>');
-      out = out.concat((d.categories || []).map(function (c) { return '<li><a href="' + esc(c.url) + '">' + ICON + "<span>" + esc(c.name) + "</span></a></li>"; }));
+      out = out.concat((d.categories || []).slice(0, 3).map(function (c) { return '<li><a href="' + esc(c.url) + '">' + ICON + "<span>" + esc(c.name) + "</span></a></li>"; }));
       return out.join("");
     }
     out = out.concat((d.bundles || []).map(function (b) { return '<li><a href="' + esc(b.url) + '"><span class="sg-tag">Combo offer</span><span>' + hl(b.name, q) + '</span><span class="sub">₹' + esc(b.price) + "</span></a></li>"; }));

@@ -7,7 +7,7 @@
 <div class="container account-dashboard">
   <section class="account-welcome">
     <div class="account-avatar" aria-hidden="true">{{ (current_user.name or 'U')[:1]|upper }}</div>
-    <div class="account-welcome__copy"><p class="eyebrow">YOUR RR FOODS ACCOUNT</p><h1>Hello, {{ current_user.name }}</h1><p class="muted">{{ current_user.email }} · Member since {{ current_user.created_at|local_display if current_user.created_at else 'Welcome!' }}</p></div>
+    <div class="account-welcome__copy"><p class="eyebrow">Your RR FOODS account</p><h1>Hello, {{ current_user.name }}</h1><p class="muted">{{ current_user.email }} · Member since {{ current_user.created_at|local_display if current_user.created_at else 'Welcome!' }}</p></div>
     <a class="btn btn--ghost" href="{{ url_for('shop.addresses') }}">Manage addresses</a>
   </section>
   <section class="account-stats" aria-label="Account summary">

@@ -2,14 +2,12 @@
 {% import "owner/_macros.html" as o %}
 {% import "admin/_macros.html" as m %}
 {% import "shared/_order_timeline.html" as ot %}
-{% import "shared/_export.html" as ex %}
 {% block title %}Orders{% endblock %}
 {% block heading %}Order management{% endblock %}
 {% block content %}
 <div class="owner-orders-intro">
   <div><h2>Customer orders</h2><p class="hint">All orders in one live workflow, newest first. Update a stage to notify the customer automatically.</p></div>
   <span class="owner-orders-total">{{ page.total }} {{ 'order' if page.total == 1 else 'orders' }}</span>
-  {{ ex.buttons('owner.orders_export', args) }}
 </div>
 <nav class="chips ot-chips" aria-label="Filter orders by confirmation">
   {% for key, label in (('all','All'),('confirmed','Confirmed'),('not_confirmed','Not confirmed')) %}

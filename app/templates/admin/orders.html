@@ -1,11 +1,10 @@
 {% extends "admin/layout.html" %}
 {% import "admin/_macros.html" as m %}
 {% import "shared/_order_timeline.html" as ot %}
-{% import "shared/_export.html" as ex %}
 {% block title %}Orders{% endblock %}{% block heading %}Orders{% endblock %}
 {% block content %}
 <div class="ops-orders-wrap">
-<div class="ops-page-head"><div><span class="ops-eyebrow">CUSTOMER FULFILMENT</span><h2>All customer orders</h2><p>{{ page.total }} {{ 'matching order' if filtered else 'order' }}{{ '' if page.total == 1 else 's' }} · newest orders first</p></div>{{ ex.buttons('admin.orders_export', pager_args) }}</div>
+<div class="ops-page-head"><div><span class="ops-eyebrow">CUSTOMER FULFILMENT</span><h2>All customer orders</h2><p>{{ page.total }} {{ 'matching order' if filtered else 'order' }}{{ '' if page.total == 1 else 's' }} · newest orders first</p></div></div>
 
 <nav class="ops-sum" aria-label="Order summary">
   {% for c in summary %}<a class="ops-sum__card{{ ' is-on' if c.on else '' }}" href="{{ c.url }}"{% if c.on %} aria-current="true"{% endif %}><small>{{ c.label }}</small><b>{{ c.value }}</b></a>{% endfor %}

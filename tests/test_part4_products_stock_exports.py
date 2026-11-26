@@ -1,4 +1,4 @@
-"""Part 4: archived toggle, Duplicate removed, admin stock alerts redesign, styled Excel exports (Excel only; CSV import still works)."""
+"""Part 4: archived toggle, Duplicate removed, admin stock alerts redesign, styled Excel exports and the CSV option."""
 import csv
 import io
 import re
@@ -146,17 +146,17 @@ def test_builder_styles_every_sheet_and_never_writes_a_formula():
 
 
 # ---------------------------------------------------------------- admin product export / import
-def test_product_export_xlsx_is_styled_with_readable_headers_and_a_summary_sheet(admin, session, cat):
-    from app.admin.csvio import COLUMNS, HEADERS
+def test_product_export_xlsx_is_styled_one_sheet_with_the_csv_columns(admin, session, cat):
+    from app.admin.csvio import COLUMNS
     make_product(session, category=cat, sku="X1", slug="x1", name='=HYPERLINK("http://evil","click")', mrp=Decimal("1250.5"), final_price=Decimal("1250.5"), stock_qty=7)
     make_product(session, category=cat, sku="X2", slug="x2", name="@cmd", mrp=Decimal(60), final_price=Decimal(60))
     session.commit()
     r = admin.get("/admin/products/export.xlsx")
     assert r.mimetype == XLSX and "attachment" in r.headers["Content-Disposition"] and "products.xlsx" in r.headers["Content-Disposition"]
     wb = load_workbook(io.BytesIO(r.get_data()))
-    assert wb.sheetnames == ["Products", "Summary", "Insights"]               # the import reads the first sheet; totals on the second; charts last
+    assert wb.sheetnames == ["Products"]
     ws = wb["Products"]
-    assert [c.value for c in ws[1]] == [HEADERS[c] for c in COLUMNS]
+    assert [c.value for c in ws[1]] == COLUMNS
     rows = {row[0].value: row for row in ws.iter_rows(min_row=2)}
     assert rows["X1"][1].value.startswith("'=") and rows["X2"][1].value == "'@cmd" and rows["X1"][1].data_type == "s"
     mrp, stock = COLUMNS.index("mrp"), COLUMNS.index("stock_qty")
@@ -165,25 +165,22 @@ def test_product_export_xlsx_is_styled_with_readable_headers_and_a_summary_sheet
     assert ws["A1"].fill.start_color.rgb.endswith("183D2B") and ws.freeze_panes == "A2" and ws.auto_filter.ref.startswith("A1:")
 
 
-def test_product_export_respects_the_current_filters_and_there_is_no_csv_export(admin, session, cat):
+def test_product_export_respects_the_current_filters_and_csv_has_a_bom(admin, session, cat):
     make_product(session, category=cat, sku="F1", slug="f1", name="Findable")
     make_product(session, category=cat, sku="F2", slug="f2", name="Other")
     session.commit()
     ws = sheet_of(admin.get("/admin/products/export.xlsx?q=findable"))
     assert [row[0].value for row in ws.iter_rows(min_row=2)] == ["F1"]
-    assert admin.get("/admin/products/export.csv").status_code == 404
+    raw = admin.get("/admin/products/export.csv").get_data()
+    assert raw.startswith(b"\xef\xbb\xbfsku,name,")
 
 
-def test_exported_xlsx_imports_back_cleanly_as_xlsx_and_as_csv(admin, session, cat):
+def test_exported_xlsx_and_csv_import_back_cleanly(admin, session, cat):
     make_product(session, category=cat, sku="RT1", slug="rt1", name="=SUM(1)", mrp=Decimal("99.50"), final_price=Decimal("99.50"), stock_qty=4)
     make_product(session, category=cat, sku="RT2", slug="rt2", name="Plain", mrp=Decimal("10"), final_price=Decimal("10"), stock_qty=0, brand="Nurse")
     session.commit()
-    xlsx = admin.get("/admin/products/export.xlsx").get_data()
-    buf = io.StringIO()
-    writer = csv.writer(buf, lineterminator="\n")
-    for row in load_workbook(io.BytesIO(xlsx)).worksheets[0].iter_rows(values_only=True):       # the same table, saved as a .csv
-        writer.writerow(["" if v is None else v for v in row])
-    for data, name in ((xlsx, "p.xlsx"), (("\ufeff" + buf.getvalue()).encode("utf-8"), "p.csv")):                # import reads both
+    for url, name, body in (("/admin/products/export.xlsx", "p.xlsx", None), ("/admin/products/export.csv", "p.csv", None)):
+        data = admin.get(url).get_data()
         r = post(admin, "/admin/products/import", {"default_stock": "0"}, files={"file": (io.BytesIO(data), name)})
         assert r.status_code == 302, r.get_data(as_text=True)[:600]
         p1, p2 = get_product(session, "RT1"), get_product(session, "RT2")
@@ -206,23 +203,26 @@ def test_owner_report_xlsx_has_four_sheets_with_the_date_range_on_summary(owner,
     r = owner.get("/owner/analytics.xlsx?range=year")
     assert r.status_code == 200 and r.mimetype == XLSX and "rr-foods-sales-report.xlsx" in r.headers["Content-Disposition"]
     wb = load_workbook(io.BytesIO(r.get_data()))
-    assert wb.sheetnames == ["Summary", "Top products", "Coupons", "Pincodes", "Insights"]       # charts and suggestions come last
+    assert wb.sheetnames == ["Summary", "Top products", "Coupons", "Pincodes"]
     summary = {row[0].value: row[1] for row in wb["Summary"].iter_rows(min_row=2)}
     assert {"Date range", "From", "To"} <= set(summary) and summary["Date range"].value
     assert summary["Total sales"].value == 300 and summary["Total sales"].number_format == '"₹"#,##0.00' and summary["Total sales"].alignment.horizontal == "right"
     assert summary["Orders"].value == 1 and summary["Orders"].number_format == "#,##0"
     assert summary["Repeat customer rate"].number_format == '0.0"%"' and summary["Date range"].alignment.horizontal == "left"
     top = wb["Top products"]
-    assert [c.value for c in top[1]] == ["Rank", "Product", "Sales (₹)"] and top["B2"].value == "Ragi Flour" and top["C2"].value == 300
+    assert [c.value for c in top[1]] == ["Rank", "Product", "Sales"] and top["B2"].value == "Ragi Flour" and top["C2"].value == 300
     assert wb["Pincodes"]["A2"].value == "600001" and wb["Pincodes"]["B2"].value == 300
-    for ws in wb.worksheets[:4]:                                              # same styling on every data sheet
+    for ws in wb.worksheets:                                                  # same styling on every sheet
         assert ws.freeze_panes == "A2" and ws["A1"].font.bold and ws["A1"].fill.start_color.rgb.endswith("183D2B") and ws.auto_filter.ref
 
 
-def test_owner_report_xlsx_with_no_orders_still_downloads_and_csv_is_gone(owner):
+def test_owner_report_xlsx_with_no_orders_still_downloads_and_csv_is_tidy_with_bom(owner):
     wb = load_workbook(io.BytesIO(owner.get("/owner/analytics.xlsx").get_data()))
     assert wb["Top products"].max_row == 1 and wb["Coupons"].max_row == 1       # header only
-    assert owner.get("/owner/analytics.csv").status_code == 404
+    r = owner.get("/owner/analytics.csv")
+    assert r.get_data().startswith(b"\xef\xbb\xbfSection,Item,Value,Orders,Discount")
+    rows = list(csv.DictReader(io.StringIO(r.get_data().decode("utf-8-sig"))))
+    assert rows[0]["Section"] == "Summary" and rows[0]["Item"] == "Date range"
 
 
 def test_owner_report_downloads_are_owner_only(admin, app):

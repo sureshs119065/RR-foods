@@ -23,7 +23,8 @@
       <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.products', status='archived') }}">Show archived <span class="badge{{ ' badge--warn' if archived_count }}">{{ archived_count }}</span></a>
     {% endif %}
     <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.products_import') }}">Import</a>
-    <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.products_export_xlsx', **args) }}">Download Excel</a>
+    <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.products_export_xlsx', **args) }}">Export Excel</a>
+    <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.products_export', **args) }}">Export CSV</a>
     <a class="btn" href="{{ url_for('admin.product_new') }}">Add product</a>
   </div>
 </div>

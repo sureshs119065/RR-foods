@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 
 from ..extensions import db
 from ..models import Category, Coupon, Order, OrderItem, Product, User
-from .orders import LABELS, REVENUE_STATUSES
+from .orders import REVENUE_STATUSES
 
 
 def _month_after(value: date) -> date:
@@ -77,8 +77,6 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
     # truncation behaviour and keeps the displayed day/month boundaries correct.
     daily_totals: dict[date, Decimal] = {}
     monthly_totals: dict[tuple[int, int], Decimal] = {}
-    daily_counts: dict[date, int] = {}
-    monthly_counts: dict[tuple[int, int], int] = {}
     for created_at, amount in order_rows:
         if created_at.tzinfo is None:
             created_at = created_at.replace(tzinfo=timezone.utc)
@@ -87,8 +85,6 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
         daily_totals[local_day] = daily_totals.get(local_day, Decimal("0.00")) + value
         month_key = (local_day.year, local_day.month)
         monthly_totals[month_key] = monthly_totals.get(month_key, Decimal("0.00")) + value
-        daily_counts[local_day] = daily_counts.get(local_day, 0) + 1
-        monthly_counts[month_key] = monthly_counts.get(month_key, 0) + 1
 
     monthly_chart = []
     cursor = date(start_day.year, start_day.month, 1)
@@ -96,7 +92,6 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
         monthly_chart.append({
             "label": cursor.strftime("%b %Y"),
             "value": float(monthly_totals.get((cursor.year, cursor.month), Decimal("0.00"))),
-            "orders": monthly_counts.get((cursor.year, cursor.month), 0),
         })
         cursor = _month_after(cursor)
 
@@ -104,8 +99,7 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
     if span_days <= 62:
         daily_chart = [
             {"label": (start_day + timedelta(days=i)).strftime("%d %b"),
-             "value": float(daily_totals.get(start_day + timedelta(days=i), Decimal("0.00"))),
-             "orders": daily_counts.get(start_day + timedelta(days=i), 0)}
+             "value": float(daily_totals.get(start_day + timedelta(days=i), Decimal("0.00")))}
             for i in range(span_days)
         ]
         daily_granularity = "daily"
@@ -117,13 +111,11 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
         while offset < span_days:
             bucket_start = start_day + timedelta(days=offset)
             bucket_end = min(bucket_start + timedelta(days=6), end_day)
-            span = range((bucket_end - bucket_start).days + 1)
-            value = sum((daily_totals.get(bucket_start + timedelta(days=i), Decimal("0.00")) for i in span), Decimal("0.00"))
-            orders = sum(daily_counts.get(bucket_start + timedelta(days=i), 0) for i in span)
+            value = sum((daily_totals.get(bucket_start + timedelta(days=i), Decimal("0.00"))
+                         for i in range((bucket_end - bucket_start).days + 1)), Decimal("0.00"))
             daily_chart.append({
                 "label": f"{bucket_start:%d %b}–{bucket_end:%d %b}",
                 "value": float(value),
-                "orders": orders,
             })
             offset += 7
         daily_granularity = "weekly"
@@ -154,8 +146,8 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
         category_totals[category] = category_totals.get(category, Decimal("0.00")) + Decimal(str(line_total or 0))
 
     top_products = [
-        {"label": name, "value": float(amount), "product_id": product_id}
-        for (product_id, name), amount in sorted(product_totals.items(), key=lambda pair: pair[1], reverse=True)[:8]
+        {"label": name, "value": float(amount)}
+        for (_, name), amount in sorted(product_totals.items(), key=lambda pair: pair[1], reverse=True)[:8]
     ]
     categories = [
         {"label": name, "value": float(amount)}
@@ -182,25 +174,13 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
         .where(*base_filter, Order.coupon_code.is_not(None))
         .group_by(Order.coupon_code).order_by(func.count(Order.id).desc()).limit(12)
     ).all()
-    pincode_totals, pincode_orders = {}, {}
+    pincode_totals = {}
     for address, amount in db.session.execute(select(Order.shipping_address, Order.total).where(*base_filter)).all():
         pin = (address or {}).get("pincode") or (address or {}).get("postal_code") or "Unknown"
         pincode_totals[pin] = pincode_totals.get(pin, 0.0) + float(amount or 0)
-        pincode_orders[pin] = pincode_orders.get(pin, 0) + 1
     slow_products = [
         {"label": name, "value": float(amount)}
         for (_, name), amount in sorted(product_totals.items(), key=lambda pair: pair[1])[:8]
-    ]
-
-    # Proportional breakdowns for the donut charts (same period, shop-local boundaries).
-    status_rows = db.session.execute(
-        select(Order.status, func.count(Order.id))
-        .where(Order.created_at >= start_utc, Order.created_at < end_utc, Order.status != "pending_whatsapp")
-        .group_by(Order.status)
-    ).all()
-    status_breakdown = [
-        {"key": status, "label": LABELS.get(status, status.replace("_", " ").title()), "value": int(count)}
-        for status, count in sorted(status_rows, key=lambda row: row[1], reverse=True) if count
     ]
 
     return {
@@ -228,9 +208,8 @@ def build_sales_analytics(range_key: str | None, start_raw: str | None, end_raw:
             for code, count, discount, sales in coupon_rows
         ],
         "orders_by_pincode": [
-            {"label": pin, "value": round(value, 2), "orders": pincode_orders[pin]}
+            {"label": pin, "value": round(value, 2)}
             for pin, value in sorted(pincode_totals.items(), key=lambda item: item[1], reverse=True)[:12]
         ],
         "slow_products": slow_products,
-        "status_breakdown": status_breakdown,
     }

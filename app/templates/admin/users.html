@@ -1,9 +1,8 @@
 {% extends "admin/layout.html" %}
-{% import "shared/_export.html" as ex %}
 {% block title %}Users{% endblock %}
 {% block heading %}Users{% endblock %}
 {% block content %}
-<div class="pagehead"><h2>Users <span class="hint">({{ page.total }})</span></h2><span class="row">{{ ex.buttons('admin.users_export', args) }}<a class="btn" href="{{ url_for('admin.owner_new') }}">Add owner account</a></span></div>
+<div class="pagehead"><h2>Users <span class="hint">({{ page.total }})</span></h2><a class="btn" href="{{ url_for('admin.owner_new') }}">Add owner account</a></div>
 <form class="filters" method="get" role="search">
   <input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Search name, email or phone" aria-label="Search users">
   <select name="role" aria-label="Role">{% for v, t in [("", "All roles"), ("user", "Customers"), ("owner", "Owners"), ("admin", "Admins")] %}<option value="{{ v }}" {% if request.args.get('role', '') == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>

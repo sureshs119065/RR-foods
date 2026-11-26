@@ -65,7 +65,7 @@
 :root .btn[data-add], :root .btn.pc__btn--primary { --b-bg: var(--rr-amber); --b-bg-h: var(--rr-amber-h); --b-bg-a: var(--rr-amber-a); --b-fg: var(--rr-amber-ink); --b-bd: var(--rr-amber-h); }
 :root form[action*="restore"] .btn:not(.btn--danger) { --b-bg: var(--rr-teal); --b-bg-h: var(--rr-teal-h); --b-bg-a: var(--rr-teal-a); --b-fg: #fff; --b-bd: var(--rr-teal); }
 :root form[action*="delete"] .btn, :root form[action*="reject"] .btn { --b-bg: var(--rr-red); --b-bg-h: var(--rr-red-h); --b-bg-a: var(--rr-red-a); --b-fg: #fff; --b-bd: var(--rr-red); }
-:root a.btn[download], :root a.btn[href*="invoice"], :root a.btn[href*="export"] { --b-bg: var(--rr-blue); --b-bg-h: var(--rr-blue-h); --b-bg-a: var(--rr-blue-a); --b-fg: #fff; --b-bd: var(--rr-blue); }
+:root a.btn[download], :root a.btn[href*="invoice"], :root a.btn[href*="export"], :root a.btn[href*="csv"] { --b-bg: var(--rr-blue); --b-bg-h: var(--rr-blue-h); --b-bg-a: var(--rr-blue-a); --b-fg: #fff; --b-bd: var(--rr-blue); }
 :root a.btn[href*="wa.me"], :root a.btn[href*="whatsapp"] { --b-bg: var(--rr-wa); --b-bg-h: var(--rr-wa-h); --b-bg-a: var(--rr-wa-a); --b-fg: var(--rr-wa-ink); --b-bd: var(--rr-wa); }
 
 /* ---- Shared shape + states ---- */
@@ -375,69 +375,31 @@ html[data-shop] body .shop-lst .results { min-width: 0; }
 }
 
 
-/* ---------- Search panel: a floating card over a dimmed page (never a full-page takeover) ----------
-   Older theme files paint .so (the full-screen layer) with an !important solid colour, which made the
-   whole page look covered. The selectors below out-rank them: .so is only a translucent scrim, and the
-   white .so__sheet card holds the search bar and suggestions. Tapping the scrim closes the panel. */
-html[data-shop] body .so,
+/* ---------- Search panel: a compact top sheet over a dimmed page, not a full-screen takeover ---------- */
 html body .so {
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-  padding: 0; border: 0;
-  background: rgba(20, 34, 26, .42) !important;
-  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
-  overscroll-behavior: contain;
+  padding: 0; background: rgba(20, 34, 26, .45); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
 }
 html body .so__sheet {
-  display: flex; flex-direction: column; min-height: 0;
-  width: calc(100% - 16px); max-width: 680px;
-  max-height: min(72dvh, 560px);
-  margin-top: calc(env(safe-area-inset-top, 0px) + 8px);
-  background: #fff; color: #252A26;
-  border: 1px solid rgba(20, 34, 26, .06); border-radius: 20px;
-  box-shadow: 0 20px 48px rgba(20, 34, 26, .24), 0 2px 8px rgba(20, 34, 26, .08);
-  overflow: hidden;
-  transform: translateY(-10px); opacity: .98; transition: transform 200ms ease;
+  display: flex; flex-direction: column; width: min(100%, 680px); max-height: min(78dvh, 640px);
+  background: #fff; border-radius: 0 0 20px 20px; box-shadow: 0 18px 40px rgba(20, 34, 26, .22); overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  transform: translateY(-12px); transition: transform 200ms ease;
 }
-html body .so.is-open .so__sheet { transform: none; opacity: 1; }
+html body .so.is-open .so__sheet { transform: none; }
 html body .so__sheet .so__bar {
-  flex: none; width: auto; min-height: 48px; margin: 10px 10px 8px; padding: 3px 4px; gap: 2px;
-  border: 1px solid #d9e2db; border-radius: 999px; background: #f6f8f5; box-shadow: none; outline: 0;
-  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  width: auto; min-height: 50px; margin: 12px 14px; padding: 4px 6px; gap: 4px;
+  border: 1px solid #d9e2db; border-radius: 999px; background: #f6f8f5; box-shadow: none; flex: none;
 }
-html body .so__sheet .so__bar:focus-within {
-  outline: 0; background: #fff;
-  border-color: var(--c-brand, #245C3A); box-shadow: 0 0 0 3px rgba(36, 92, 58, .16);
-}
-html body .so__sheet .so__bar .icon-btn { width: 40px; height: 40px; min-width: 40px; color: #44524a; border-radius: 50%; }
-html body .so__sheet .so__bar input { font-size: 16px; height: 40px; padding: 0 6px; color: #1f2a24; }
-html body .so__sheet .so__bar input::placeholder { color: #8a948d; }
-html body .so__sheet .so__body {
-  flex: 1 1 auto; min-height: 0; width: 100%; padding: 0 10px 10px;
-  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin; scrollbar-color: #c9d3cb transparent;
-}
+html body .so__sheet .so__bar:focus-within { border-color: var(--c-brand, #245C3A); box-shadow: 0 0 0 3px rgba(36, 92, 58, .14); background: #fff; }
+html body .so__sheet .so__bar input { font-size: 16px; height: 42px; padding: 0 6px; }
+html body .so__sheet .so__body { width: 100%; padding: 0 14px 14px; overflow-y: auto; overscroll-behavior: contain; }
 html body .so__sheet .so__body:not(:has(li, [id="so-recent"]:not([hidden]))) { padding: 0; }
-html body .so__sheet .so__h { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #6b766e; margin: 8px 8px 4px; align-items: center; }
-html body .so__sheet .so__h .linkish { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--c-brand, #245C3A); }
-html body .so__sheet .so__list li { padding: 0; border-bottom: 0; }
-html body .so__sheet .so__list a { min-height: 46px; padding: 6px 8px; gap: 12px; border-radius: 12px; font-size: 15px; font-weight: 500; }
-html body .so__sheet .so__list a:active { background: #eef4ef; }
-html body .so__sheet .so__list img { border-radius: 10px; }
-
-/* suggestion headings and icons (shared by the phone panel and the desktop dropdown) */
-html body .so__list li.sg-h, html body .sugg li.sg-h {
-  padding: 12px 8px 4px; margin: 0; border: 0; min-height: 0;
-  font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #6b766e;
-}
-html body .so__list li.sg-h:first-child, html body .sugg li.sg-h:first-child { padding-top: 4px; }
-html body .so__list li.sg-h:not(:first-child), html body .sugg li.sg-h:not(:first-child) { margin-top: 6px; border-top: 1px solid #eef2ee; padding-top: 14px; }
-html body .so__list .sg-i, html body .sugg .sg-i { flex: none; color: #7d8a81; }
-html body .so__list .sg-tag, html body .sugg .sg-tag { flex: none; padding: 2px 8px; border-radius: 999px; background: #e8f3ea; color: #245C3A; font-size: 11px; font-weight: 700; }
-html body .so__list a b, html body .sugg a b { font-weight: 700; color: #1f2a24; }
-html body .so__list .nomatch { padding: 18px 8px; text-align: center; color: #6b766e; }
-
-@media (min-width: 901px) { html body .so__sheet { margin-top: 16px; } }
-@media (prefers-reduced-motion: reduce) { html body .so__sheet, html body .so__sheet .so__bar { transition: none; transform: none; } }
+html body .so__sheet .so__h { font-size: 13px; font-weight: 700; letter-spacing: .02em; color: #5b665e; margin: 4px 0 6px; align-items: center; }
+html body .so__sheet .so__list li { padding: 0; border-bottom: 1px solid #eef2ee; }
+html body .so__sheet .so__list li:last-child { border-bottom: 0; }
+@media (min-width: 901px) { html body .so__sheet { margin-top: 12px; border-radius: 20px; } }
+@media (prefers-reduced-motion: reduce) { html body .so__sheet { transition: none; transform: none; } }
 
 /* ---------- Product page: customer reviews (approved by the shop) ---------- */
 .pr-reviews__sum { margin: 0 0 12px; font-weight: 700; }
@@ -488,3 +450,191 @@ html[data-shop] .pdp .specs th, html[data-shop] .pdp .specs td { padding-block: 
 @media (min-width: 900px) { html[data-shop] .pdp__grid { gap: 28px; } }
 html[data-shop] .pdp .sec { margin-block: 22px; }
 html[data-shop] .pdp .crumbs ol { margin: 8px 0 12px; }
+
+
+/* RR FOODS: customer-facing polish layer. Loaded LAST in base.html, so it only refines what the earlier files draw.
+   Scope: storefront, account and auth pages. Admin and owner panels do not load this file. */
+
+/* ---------------------------------------------------------------------------------------------------------------
+   1. Search panel
+   The old rules painted the whole overlay solid cream (so the page vanished) and stacked a gold ring on a green
+   border. Now: a dimmed page behind, a floating white card with a clear edge, one calm focus state.
+   --------------------------------------------------------------------------------------------------------------- */
+html[data-shop] body .so {
+  background: rgba(20, 34, 26, .42) !important;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  padding: 0 !important;
+  align-items: stretch;
+}
+html[data-shop] body .so__sheet {
+  width: auto;
+  margin: calc(env(safe-area-inset-top, 0px) + 8px) 10px 0;
+  padding-top: 0;
+  max-height: min(calc(var(--so-vh, 100dvh) - 24px - env(safe-area-inset-top, 0px)), 60dvh, 460px);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 18px 44px rgba(20, 34, 26, .28), 0 0 0 1px rgba(20, 34, 26, .06);
+}
+html[data-shop] body .so__sheet .so__bar {
+  margin: 10px 10px 6px;
+  min-height: 48px;
+  background: #f4f7f4;
+  border: 1.5px solid transparent;
+}
+html[data-shop] body .so__sheet .so__bar:focus-within {
+  outline: 0;
+  background: #fff;
+  border-color: var(--c-brand, #245C3A);
+  box-shadow: 0 0 0 3px rgba(36, 92, 58, .16);
+}
+html[data-shop] body .so__sheet .so__body { padding: 0 10px 10px; }
+html[data-shop] body .so__sheet .so__list a,
+html[data-shop] body .so__sheet .so__list .sg-h { padding-inline: 6px; }
+html[data-shop] body .so__sheet .so__list a { min-height: 44px; gap: 12px; border-radius: 10px; }
+html[data-shop] body .so__sheet .so__list .sg-h {
+  list-style: none; margin: 8px 0 2px; font-size: .8125rem; font-weight: 700; color: #5b665e; letter-spacing: .01em;
+}
+html[data-shop] body .so__sheet .so__list .sg-h:first-child { margin-top: 2px; }
+html[data-shop] body .so__sheet .so__list li:has(+ .sg-h) { border-bottom: 0; }
+html[data-shop] body .so__sheet .so__list .sg-i { color: #5b665e; flex: none; }
+@media (min-width: 901px) {
+  html[data-shop] body .so__sheet { width: min(680px, calc(100% - 32px)); margin: 16px auto 0; }
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   2. Form focus: one ring, not two. Text fields keep a visible state (border turns green + soft halo, 3:1+ contrast).
+   --------------------------------------------------------------------------------------------------------------- */
+html body :is(.field, .auth-card, .input-wrap) input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+html body :is(.field, .auth-card, .input-wrap) textarea:focus-visible,
+html body :is(.field, .auth-card, .input-wrap) select:focus-visible,
+html body :is(.recipe-filters, .contact-page, [data-support-form]) :is(input, textarea, select):focus-visible {
+  outline: 0 !important;
+  border-color: var(--c-brand, #245C3A) !important;
+  box-shadow: 0 0 0 3px rgba(36, 92, 58, .2) !important;
+}
+html body .sh__search:focus-within { outline: 0; }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   3. Header: one surface colour with the rest of the page chrome (was cream over a mint page)
+   --------------------------------------------------------------------------------------------------------------- */
+html[data-shop] body .sh { background: #fff !important; border-bottom-color: #e3ebe4 !important; }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   4. Page titles, eyebrows, breadcrumbs: one scale across Offers, Bundles, Recipes, FAQ, Contact, Account pages
+   --------------------------------------------------------------------------------------------------------------- */
+html body :is(.pg-h, .content-head h1, .pagehead h1, .contact-page h1, .about-hero h1) {
+  font-size: clamp(1.5rem, 1.1rem + 1.8vw, 2.125rem);
+  line-height: 1.15;
+  letter-spacing: -.01em;
+  margin: 0 0 .35rem;
+}
+html[data-shop] body .eyebrow {
+  text-transform: none !important;
+  letter-spacing: .01em !important;
+  font-size: .8125rem;
+  font-weight: 600;
+  color: var(--c-brand, #245C3A) !important;
+  margin: 0 0 .35rem;
+}
+html body .content-head { margin-bottom: 1rem; }
+html body .content-head p:not(.eyebrow) { max-width: 60ch; }
+
+html body .crumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; margin: 0; padding: 0; list-style: none; font-size: .8125rem; }
+html body .crumbs li { display: inline-flex; align-items: center; color: #5b665e; }
+html body .crumbs li + li::before { content: "/"; margin: 0 .5em; color: #a3ada5; }
+html body .crumbs a { color: #3c4a40; text-decoration: none; }
+html body .crumbs a:hover { color: var(--c-brand, #245C3A); text-decoration: underline; text-underline-offset: 3px; }
+html body .crumbs [aria-current="page"] { color: #17251b; font-weight: 600; }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   5. About page: reading size and measure
+   --------------------------------------------------------------------------------------------------------------- */
+html body .about-copy { max-width: 62ch; margin-inline: auto; }
+html[data-shop] body .about-copy, html[data-shop] body .about-copy p { font-size: 1rem !important; line-height: 1.7 !important; }
+html[data-shop] body .about-copy p { margin: 0 0 1.1em; }
+html body .about-hero { padding-block: 1.5rem; }
+html body .about-hero h1 { font-size: clamp(1.6rem, 1.2rem + 2.4vw, 2.5rem); }
+html body .about-lead { font-size: 1rem; }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   6. Empty states: a compact card, not floating text in a 400px void
+   --------------------------------------------------------------------------------------------------------------- */
+html body .empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: .5rem;
+  max-width: 460px; margin: 1.5rem auto; padding: 1.75rem 1.25rem;
+  background: #fff; border: 1px solid #e3ebe4; border-radius: 16px; box-shadow: none;
+}
+html body .content-grid > .empty, html body .recipe-filters + .empty { grid-column: 1 / -1; width: 100%; }
+html body .empty--inline { margin: .75rem 0; max-width: none; }
+html body .empty h2, html body .empty .h3 { margin: 0; font-size: 1.125rem; line-height: 1.3; }
+html body .empty p { margin: 0; max-width: 34ch; font-size: .9375rem; }
+html body .empty__art { margin: 0 0 .25rem; width: 52px; height: 52px; }
+html body .empty__act { margin-top: .75rem; display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   7. Shop listing: toolbar that never wraps oddly, 
+   --------------------------------------------------------------------------------------------------------------- */
+html body .lst-bar__ctl { display: flex; align-items: center; gap: .5rem; flex-wrap: nowrap; }
+html body .lst-bar__ctl .switch { white-space: nowrap; flex: none; gap: .5rem; }
+html body .lst-bar__ctl .switch > span:last-child { white-space: nowrap; font-size: .875rem; }
+html body .lst-bar__ctl .sortbox { flex: 1 1 auto; min-width: 0; }
+html body .lst-bar__ctl .sortbox select { width: 100%; text-overflow: ellipsis; }
+html body .lst-bar__ctl .lst-bar__filters { flex: none; white-space: nowrap; }
+@media (max-width: 380px) { html body .lst-bar__ctl .sortbox__l { display: none; } }
+
+html body .trust-strip { gap: .25rem .75rem; }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   8. Checkout progress (was "1. Cart2. Address3. Pay" run together)
+   --------------------------------------------------------------------------------------------------------------- */
+html body .checkout-progress {
+  display: flex; align-items: center; gap: .5rem; margin: .25rem 0 1rem; padding: 0; list-style: none; font-size: .875rem; color: #5b665e;
+}
+html body .checkout-progress li { display: inline-flex; align-items: center; gap: .5rem; counter-increment: step; }
+html body .checkout-progress { counter-reset: step; }
+html body .checkout-progress li::before {
+  content: counter(step); display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  font-size: .75rem; font-weight: 700; background: #e3ebe4; color: #3c4a40;
+}
+html body .checkout-progress li + li::after { content: none; }
+html body .checkout-progress li:not(:last-child)::after { content: ""; width: 20px; height: 2px; background: #cfdcd2; margin-left: .25rem; }
+html body .checkout-progress .is-done::before { background: var(--c-brand, #245C3A); color: #fff; content: "\2713"; }
+html body .checkout-progress .is-current { color: #17251b; font-weight: 700; }
+html body .checkout-progress .is-current::before { background: var(--c-brand, #245C3A); color: #fff; }
+html body .checkout-progress a { color: inherit; text-decoration: none; }
+html body .checkout-progress a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   9. FAQ rows: question text centred against the +/- icon, even padding
+   --------------------------------------------------------------------------------------------------------------- */
+html body .faq__btn { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem 1rem; text-align: left; width: 100%; }
+html body .faq__q { margin: 0; line-height: 1.35; }
+html body .faq__qt { flex: 1 1 auto; }
+/* the answer's bottom padding sat outside the collapsing box and left a gap under closed questions */
+html body .faq__a-in { padding-bottom: 0; }
+html body .faq__a-in p { padding-bottom: var(--sp-4, 1rem); }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   10. Home hero carousel: arrows no longer sit on top of the headline on phones; smaller, quieter dots
+   --------------------------------------------------------------------------------------------------------------- */
+@media (max-width: 700px) {
+  html body .hc__nav { display: none; }
+}
+/* the selected dot kept a white fill on its whole 44px tap area, which showed as a big capsule; the visible dot is its ::before */
+html body .hc__dot[aria-selected="true"] { background: none; border-radius: 0; }
+@media (min-width: 701px) { html body .hc__slide .hc__copy-inner { padding-left: 72px !important; padding-right: 72px !important; } }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   11. Links inside cards and "view all" rows: consistent, not browser-default underlines
+   --------------------------------------------------------------------------------------------------------------- */
+html body :is(.acct, .account) a:not(.btn):not(.nav-link) { text-underline-offset: 3px; }
+html body .btn + .btn { margin-top: 0; }
+html body :is(.empty__act, .acct-actions, .btn-row) { gap: .5rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-shop] body .so__sheet { transition: none; }
+}
+
+/* account header: avatar centred on the text block */
+html body .account-welcome { align-items: center; }

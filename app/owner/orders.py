@@ -30,9 +30,11 @@ def _never_placed():
         OrderStatusHistory.order_id == Order.id, OrderStatusHistory.from_status == DRAFT_STATUS, OrderStatusHistory.to_status == "cancelled").exists()
 
 
-def order_filters():
-    """The owner's orders list filters (Confirmed / Not confirmed chip, search, unpaid), as (where, show, unpaid, term).
-    Shared by the list and the Excel export, so a download holds exactly what the screen shows."""
+@bp.route("/orders")
+def orders():
+    # One consolidated queue: newest orders first, with a Confirmed / Not confirmed chip, search and payment filtering.
+    # Checkout requests waiting for the shop's "Message received" step are listed under "Not confirmed" so the owner can act on them;
+    # requests that were closed before ever being confirmed are hidden (they never became orders).
     unpaid = request.args.get("pay") == "pending"
     show = request.args.get("show") if request.args.get("show") in SHOW_FILTERS else "all"
     where = [~_never_placed()]
@@ -46,15 +48,6 @@ def order_filters():
             func.lower(func.coalesce(Order.shipping_address["full_name"].as_string(), "")).contains(term, autoescape=True),
             func.coalesce(Order.shipping_address["phone"].as_string(), "").contains(term.replace(" ", ""), autoescape=True),
         ))
-    return where, show, unpaid, term
-
-
-@bp.route("/orders")
-def orders():
-    # One consolidated queue: newest orders first, with a Confirmed / Not confirmed chip, search and payment filtering.
-    # Checkout requests waiting for the shop's "Message received" step are listed under "Not confirmed" so the owner can act on them;
-    # requests that were closed before ever being confirmed are hidden (they never became orders).
-    where, show, unpaid, term = order_filters()
     # Chip counts follow the same search / payment filter, so a chip always matches the list it opens.
     by_status = dict(db.session.execute(
         select(Order.status, func.count(Order.id)).join(User, User.id == Order.user_id).where(*where).group_by(Order.status)).all())

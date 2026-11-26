@@ -66,16 +66,19 @@
  .sa-metric-label { font-size:.66rem; line-height:1.25; }
  .sa-metric strong { font-size:1.12rem; }
  .sa-metric small { font-size:.62rem; line-height:1.3; }
- .sa-chart-grid, .sa-chart-grid--2 { grid-template-columns:minmax(0,1fr); gap:.75rem; }
- .sa-chart-card { min-width:0; padding:.85rem .75rem; border-radius:12px; }
+ .sa-chart-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; }
+ .sa-chart-card { min-width:0; padding:.65rem .55rem; border-radius:11px; }
  .sa-chart-head { gap:.25rem; margin-bottom:.45rem; }
- .sa-chart-head h3 { font-size:.95rem; line-height:1.25; }
- .sa-chart-head p { font-size:.74rem; line-height:1.35; }
+ .sa-chart-head h3 { font-size:.78rem; line-height:1.2; }
+ .sa-chart-head p { font-size:.61rem; line-height:1.3; }
  .sa-chart-mark { width:23px; height:23px; flex:none; }
  .sa-chart--products { gap:9px; }
  .sa-product-name,.sa-product-value { font-size:.62rem; }
  .sa-product-track { height:6px; }
+ .sa-donut-wrap { grid-template-columns:1fr; gap:.4rem; }
  .sa-chart--donut { max-width:125px; }
+ .sa-legend { gap:5px; }
+ .sa-legend-item,.sa-legend-item strong { font-size:.6rem; }
  .sa-footnote { font-size:.62rem; }
 }
 @media(max-width:767px) {

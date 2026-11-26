@@ -13,10 +13,8 @@ from ..models.base import utcnow
 from ..security import hash_password, needs_rehash, verify_password
 
 # Each portal has its own login page and accepts only its own role.
-# "home" is the portal's dashboard; "after_login" (optional) is where a successful sign-in lands when no safe ?next= is given
-# (customers land on the storefront Home Page, not the account dashboard).
 PORTALS = {
-    "user": {"role": "user", "login": "/login", "home": "/account", "after_login": "/", "label": "Customer"},
+    "user": {"role": "user", "login": "/login", "home": "/account", "label": "Customer"},
     "owner": {"role": "owner", "login": "/owner/login", "home": "/owner/", "label": "Owner"},
     "admin": {"role": "admin", "login": "/admin/login", "home": "/admin/", "label": "Admin"},
 }

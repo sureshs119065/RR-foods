@@ -1,7 +1,6 @@
 {% extends "owner/layout.html" %}
 {% import "owner/_macros.html" as o %}
 {% import "admin/_macros.html" as m %}
-{% import "shared/_export.html" as ex %}
 {% block title %}Inventory{% endblock %}
 {% block heading %}Inventory{% endblock %}
 {% macro qty_form(kind, row_id, qty, label, next_url) %}
@@ -14,7 +13,7 @@
 {% block content %}
 <div class="pagehead">
   <h2>Stock <span class="hint">({{ page.total }} product{{ '' if page.total == 1 else 's' }})</span></h2>
-  <span class="row">{{ ex.buttons('owner.inventory_export', args) }}<a class="btn btn--ghost btn--sm" href="{{ url_for('owner.stock_history') }}">Stock history</a></span>
+  <a class="btn btn--ghost btn--sm" href="{{ url_for('owner.stock_history') }}">Stock history</a>
 </div>
 
 <form class="filters" method="get" role="search">
@@ -38,7 +37,7 @@
 <table class="table table--stock">
   <thead><tr>
     <th scope="col"><input type="checkbox" id="select-all" aria-label="Select all on this page"></th>
-    <th scope="col">Product</th><th scope="col" class="num">Stock</th><th scope="col" class="num">Alert at</th><th scope="col">Status</th><th scope="col">History</th>
+    <th scope="col">Product</th><th scope="col">Stock</th><th scope="col">Alert at</th><th scope="col">Status</th><th scope="col">History</th>
   </tr></thead>
   <tbody>
   {% for p in page.items %}
@@ -61,7 +60,7 @@
           </details></span>
         </div>
       </td>
-      <td class="num" data-label="Stock">{{ qty_form('product', p.id, p.stock_qty, p.name, next_url) }}</td>
+      <td data-label="Stock">{{ qty_form('product', p.id, p.stock_qty, p.name, next_url) }}</td>
       <td data-label="Alert at">
         <form class="qty" method="post" action="{{ url_for('owner.inventory_threshold', product_id=p.id) }}" data-inline="threshold">
           {{ m.csrf() }}<input type="hidden" name="next" value="{{ next_url }}">
@@ -76,7 +75,7 @@
     <tr class="vline" data-product="{{ p.id }}" data-threshold="{{ p.low_stock_threshold }}">
       <td class="cell-check"><input type="checkbox" name="ids" value="v{{ v.id }}" form="bulk-form" aria-label="Select {{ p.name }} {{ v.option_value }}"></td>
       <td class="cell-main"><span class="vline__tag">{{ v.option_name }}</span> {{ v.option_value }} <span class="hint">{{ v.sku }} · of {{ p.name }}</span></td>
-      <td class="num" data-label="Stock">{{ qty_form('variant', v.id, v.stock_qty, p.name ~ ' ' ~ v.option_value, next_url) }}</td>
+      <td data-label="Stock">{{ qty_form('variant', v.id, v.stock_qty, p.name ~ ' ' ~ v.option_value, next_url) }}</td>
       <td data-label="Alert at"><span class="hint">same as product</span></td>
       <td data-label="Status">{{ o.stock_badge(v.stock_qty, p.low_stock_threshold) }}</td>
       <td class="cell-actions"></td>

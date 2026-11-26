@@ -1,3 +1,4 @@
+import csv
 import io
 import os
 from decimal import Decimal
@@ -332,18 +333,16 @@ def test_bulk_with_no_selection_or_unknown_ids(admin, three):
     assert post(admin, "/admin/products/bulk", {"action": "explode", "ids": [str(three[0].id)]}, page="/admin/products").status_code == 302
 
 
-# ---------------- Excel export (CSV is import-only) ----------------
+# ---------------- CSV ----------------
 def test_export_escapes_formula_injection_and_roundtrips(admin, session, cat):
     make_product(session, category=cat, sku="X1", slug="x1", name='=HYPERLINK("http://evil","click")', mrp=Decimal(50), final_price=Decimal(50))
     make_product(session, category=cat, sku="X2", slug="x2", name="@cmd", mrp=Decimal(60), final_price=Decimal(60))
     session.commit()
-    r = admin.get("/admin/products/export.xlsx")
-    assert r.status_code == 200 and "attachment" in r.headers["Content-Disposition"] and admin.get("/admin/products/export.csv").status_code == 404
-    from openpyxl import load_workbook
-    ws = load_workbook(io.BytesIO(r.get_data())).worksheets[0]
-    head = [c.value for c in ws[1]]
-    rows = [dict(zip(head, [c.value for c in row])) for row in ws.iter_rows(min_row=2)]
-    names = {x["SKU"]: x["Product Name"] for x in rows}
+    r = admin.get("/admin/products/export.csv")
+    assert r.mimetype == "text/csv" and "attachment" in r.headers["Content-Disposition"]
+    assert r.get_data()[:3] == b"\xef\xbb\xbf"                                  # UTF-8 byte order mark, so Excel reads ₹ and accents
+    rows = list(csv.DictReader(io.StringIO(r.get_data().decode("utf-8-sig"))))
+    names = {x["sku"]: x["name"] for x in rows}
     assert names["X1"].startswith("'=") and names["X2"] == "'@cmd"
 
 
@@ -418,5 +417,5 @@ def test_owner_and_customers_cannot_use_product_admin(app, session):
     for role in ("owner", "user"):
         c = app.test_client()
         sign_in(c, role)
-        for url in ("/admin/products", "/admin/products/new", "/admin/categories", "/admin/products/export.xlsx", "/admin/products/import"):
+        for url in ("/admin/products", "/admin/products/new", "/admin/categories", "/admin/products/export.csv", "/admin/products/import"):
             assert c.get(url).status_code == 403, (role, url)
