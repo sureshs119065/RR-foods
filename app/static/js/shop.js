@@ -89,7 +89,7 @@
   function syncSearchViewport() { if (searchO && window.visualViewport) searchO.style.setProperty("--so-vh", Math.round(window.visualViewport.height) + "px"); }
   if (window.visualViewport) { window.visualViewport.addEventListener("resize", syncSearchViewport); syncSearchViewport(); }
   document.addEventListener("click", function (e) {
-    var o = e.target.closest("[data-open]");
+    var o = e.target.closest('[data-open="drawer"],[data-open="search"]');  // not a bare [data-open]: filter accordions use that attribute for "start expanded" and clicks inside them (the checkboxes) must not be cancelled
     if (o) { e.preventDefault(); var w = o.getAttribute("data-open"); if (w === "drawer" && drawer) open(drawer, o, true); if (w === "search" && searchO) { open(searchO, o, false); renderRecent(); } return; }
     if (e.target.closest("[data-close]") || e.target === backdrop || e.target === searchO) { close(); return; }
     var so = e.target.closest("[data-sheet-open]"); if (so) { var sh = $("#filter-form"); if (sh) open(sh, so, true); return; }

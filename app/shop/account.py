@@ -103,6 +103,7 @@ def order_detail(order_number):
     return render_template("shop/order.html", order=order, steps=STEPS, when=when, current=current, labels=order_svc.LABELS, item_products=order_view.item_products([order]),
                            reviewable=reviewable, review_products=products, review_lines=review_lines, my_reviews=my_reviews, moderation=rv_svc.moderation_on(),
                            can_cancel=order.status in order_svc.CANCELLABLE,
+                           shipped=order.status in order_svc.SHIPPED_STATUSES,
                            can_return=False, can_invoice=order.status not in invoice_svc.NOT_INVOICEABLE,
                            return_note=next((h.note for h in reversed(history) if h.to_status == "return_requested"), None), closed_note=next((h.note for h in reversed(history) if h.to_status in ("rejected", "cancelled")), None))
 

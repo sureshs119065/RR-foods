@@ -2664,6 +2664,8 @@ a { color: inherit; }
   transition: opacity 180ms ease;
 }
 .backdrop.is-on { opacity: 1; }
+/* Phone filter sheet: sits above the dimmed backdrop (z 1090), otherwise every tap on its checkboxes lands on the backdrop and closes it. */
+@media (max-width: 1023px) { .sheet { z-index: 1100; } }
 .drawer {
   position: fixed;
   z-index: 1100;

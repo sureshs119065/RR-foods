@@ -16,7 +16,7 @@
       {% if order.status == 'rejected' and order.rejection_reason %} Reason: {{ order.rejection_reason }}{% endif %}
       {% if order.payment_status == 'paid' %}<br>Your payment will be refunded.{% endif %}</div>
   {% endif %}
-  {% if order.status != 'pending_whatsapp' %}
+  {% if order.status not in ('pending_whatsapp', 'cancelled') %}
   <section class="trk" aria-label="Order progress" data-track data-url="{{ url_for('shop.order_status_json', order_number=order.order_number) }}" data-status="{{ order.status }}">
     <div class="trk__head"><span class="ostatus ostatus--{{ order.status }}" data-track-label>{{ labels.get(order.status, order.status) }}</span><span class="muted small trk__live" aria-live="polite" data-track-live>Updates automatically</span></div>
     {{ ot.info(order, item_products) }}
@@ -29,7 +29,7 @@
     </div>
     {% endif %}
   </section>
-  {% if order.status in ('cancelled', 'rejected', 'returned', 'return_requested', 'refunded') %}
+  {% if order.status in ('rejected', 'returned', 'return_requested', 'refunded') %}
     <ol class="track track--h track--terminal" aria-label="Order final status"><li class="is-done"><span class="track__dot" aria-hidden="true"></span><b>Order received</b><span class="muted small">{{ order.created_at|local_display }}</span></li><li class="is-now"><span class="track__dot" aria-hidden="true"></span><b>{{ labels.get(order.status, order.status|title) }}</b><span class="muted small">Current status</span></li></ol>
   {% endif %}
   {% if order.status not in ('cancelled', 'rejected') %}
@@ -85,9 +85,11 @@
   </section>
   {% endif %}
 
+  {% if order.status != 'cancelled' %}
   <section class="panel2"><h2 class="h3">Delivering to</h2>
     <address class="addr"><b>{{ addr.get('full_name') }}</b><br>{{ addr.get('phone') }}<br>{{ addr.get('line1', '') }}{% if addr.get('line2') %}, {{ addr.get('line2') }}{% endif %}<br>{{ addr.get('city', '') }}, {{ addr.get('state', '') }} {{ addr.get('pincode', '') }}</address>
   </section>
+  {% endif %}
 
   {% if order.status in ('return_requested', 'returned', 'refunded') %}
     <div class="alert alert--info" role="status"><b>{{ labels[order.status] }}.</b>
@@ -104,6 +106,7 @@
     {% endif %}
   </div>
   {% if can_cancel %}<p class="muted small">You can cancel until the shop confirms your order.</p>
-  {% elif order.status in ('confirmed', 'packed', 'shipped', 'out_for_delivery') %}<p class="muted small">The shop has confirmed this order, so it can no longer be cancelled here. For any change, please contact the shop on WhatsApp.</p>{% endif %}
+  {% elif shipped and order.status != 'delivered' %}<div class="alert alert--error" id="ship-caution" role="alert"><b>Caution: this order has already been shipped.</b> It can no longer be cancelled here. If you need help, please contact the shop on WhatsApp.</div>
+  {% elif order.status in ('confirmed', 'packed') %}<p class="muted small">The shop has confirmed this order, so it can no longer be cancelled here. For any change, please contact the shop on WhatsApp.</p>{% endif %}
 </div>
 {% endblock %}

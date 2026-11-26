@@ -194,6 +194,7 @@ def _notify_customer(order: Order, to: str, reason: str) -> None:
            link=f"/account/orders/{order.order_number}")
 
 
+SHIPPED_STATUSES = ("shipped", "out_for_delivery", "delivered")  # once the parcel has left the shop it can never be cancelled
 CANCELLABLE = (DRAFT_STATUS, "placed")  # a customer may cancel only until the shop confirms the order; after that only the shop can close it
 
 
@@ -206,7 +207,9 @@ def cancel_by_customer(order_id: int, user) -> Order:
     if order is None or order.user_id != user.id:
         raise OrderError("We could not find that order.")
     if order.status not in CANCELLABLE:
-        raise OrderError("The shop has already confirmed this order, so it can no longer be cancelled here. Please contact the shop on WhatsApp." if order.status in ("confirmed", "packed", "shipped", "out_for_delivery", "delivered")
+        if order.status in SHIPPED_STATUSES:
+            raise OrderError("Caution: this order has already been shipped, so it can no longer be cancelled. Please contact the shop on WhatsApp if you need help.")
+        raise OrderError("The shop has already confirmed this order, so it can no longer be cancelled here. Please contact the shop on WhatsApp." if order.status in ("confirmed", "packed")
                          else "This order is closed, so it can no longer be cancelled.")
     current = order.status
     request_only = current == DRAFT_STATUS

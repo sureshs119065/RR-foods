@@ -5,14 +5,14 @@ from app.extensions import db
 from app.models import Bundle, Combo, Product, SiteSetting
 
 
-def test_about_page_renders_quality_journey(app):
+def test_about_page_no_longer_has_the_quality_journey_section(app):
+    # The "Care at every step" / quality journey section was removed from the About page on request.
     response = app.test_client().get("/about")
     html = response.get_data(as_text=True)
     assert response.status_code == 200
-    for stage in ("Sourcing", "Cleaning and Sorting", "Traditional Processing",
-                  "Quality Testing", "Hygienic Packaging", "Delivery"):
-        assert stage in html
-    assert "100% Quality Assured" in html
+    assert "Care at every step" not in html and "Quality Journey" not in html
+    assert "Sourcing" not in html and "Hygienic Packaging" not in html
+    assert "Discover RR FOODS" in html
 
 
 def test_diwali_combo_is_rendered_from_database(app, session):

@@ -22,15 +22,7 @@ def faq_page():
 
 @bp.get("/about")
 def about():
-    quality_stages = [
-        {"number": 1, "title": "Sourcing", "pose": "sourcing", "prop": "wheat", "description": "We handpick millets, grains and nuts from trusted farmers.\nEvery ingredient is chosen with care, right from the source.", "stat_value": None, "stat_suffix": "", "stat_label": ""},
-        {"number": 2, "title": "Cleaning and Sorting", "pose": "cleaning", "prop": "sieve", "description": "Stone, dust and visible impurities are carefully removed.\nOnly clean ingredients move to the next step.", "stat_value": None, "stat_suffix": "", "stat_label": ""},
-        {"number": 3, "title": "Traditional Processing", "pose": "processing", "prop": "grinder", "description": "Ingredients are stone-ground or slow-roasted, as suited to the product.\nOur recipes are made with 0 preservatives added.", "stat_value": 0, "stat_suffix": "", "stat_label": "preservatives added"},
-        {"number": 4, "title": "Quality Testing", "pose": "testing", "prop": "magnifier", "description": "We check moisture, purity and freshness before packing.\nEach batch gets attention before it moves forward.", "stat_value": None, "stat_suffix": "", "stat_label": ""},
-        {"number": 5, "title": "Hygienic Packaging", "pose": "packaging", "prop": "pack", "description": "Products are sealed in food-grade packaging.\nBatch identification supports careful handling and traceability.", "stat_value": None, "stat_suffix": "", "stat_label": ""},
-        {"number": 6, "title": "Delivery", "pose": "delivery", "prop": "truck", "description": "Your order is prepared and sent on its way.\nWe want every pack to reach your doorstep fresh and safely.", "stat_value": 6, "stat_suffix": "/6", "stat_label": "quality journey stages"},
-    ]
-    return render_template("shop/about.html", quality_stages=quality_stages)
+    return render_template("shop/about.html")
 
 @bp.get("/recipes")
 def recipes():
