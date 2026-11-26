@@ -12,15 +12,15 @@ from tests.test_step6_shop import add, catalog, checkout, cust  # noqa: F401  (f
 def test_buy_now_goes_straight_to_checkout_not_the_cart(cust, catalog):
     _, p = catalog
     r = post(cust, "/buy-now", {"product_id": p.id, "qty": 1}, page=f"/product/{p.slug}")
-    assert r.status_code == 302 and r.headers["Location"].endswith("/checkout")
+    assert r.status_code == 302 and r.headers["Location"].endswith("/checkout?buy_now=1")
     assert "/cart" not in r.headers["Location"]
-    assert cust.get("/checkout").status_code == 200   # the checkout page opens at once, no cart step in between
+    assert cust.get("/checkout?buy_now=1").status_code == 200   # the checkout page opens at once, no cart step in between
 
 
 def test_checkout_sections_are_product_then_address_then_payment(cust, catalog):
     _, p = catalog
     post(cust, "/buy-now", {"product_id": p.id, "qty": 2}, page=f"/product/{p.slug}")
-    html = cust.get("/checkout").get_data(as_text=True)
+    html = cust.get("/checkout?buy_now=1").get_data(as_text=True)
     a, b, c = html.index("1. Product details"), html.index("2. Delivery address"), html.index("3. Payment details")
     assert a < b < c
 

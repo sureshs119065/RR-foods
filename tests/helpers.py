@@ -22,9 +22,9 @@ def token(client, url):
     return m.group(1)
 
 
-def checkout_token(client):
+def checkout_token(client, buy_now=False):
     """The one-time token the checkout page embeds (guards against double submits). Empty if the page did not render one."""
-    html = client.get("/checkout").get_data(as_text=True)
+    html = client.get("/checkout?buy_now=1" if buy_now else "/checkout").get_data(as_text=True)
     m = re.search(r'name="checkout_token" value="([^"]+)"', html)
     return m.group(1) if m else ""
 
@@ -32,8 +32,9 @@ def checkout_token(client):
 def checkout_post(client, data=None, page=None, follow=False):
     """POST /checkout the way a browser does: load the checkout page first to receive its token."""
     data = dict(data or {})
-    data.setdefault("checkout_token", checkout_token(client))
-    return post(client, "/checkout", data, page=page, follow=follow)
+    buy_now = str(data.pop("buy_now", "")) == "1"   # "Buy now" checkout: same page and form, but with ?buy_now=1
+    data.setdefault("checkout_token", checkout_token(client, buy_now))
+    return post(client, "/checkout?buy_now=1" if buy_now else "/checkout", data, page=page, follow=follow)
 
 
 def signup(client, monkeypatch, data):

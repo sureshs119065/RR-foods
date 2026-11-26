@@ -43,10 +43,10 @@ def test_3_festival_and_combo_links_go_to_their_own_pages(cust, session):
 def test_4_8_buy_now_only_records_a_request_not_an_order(cust, session, catalog):
     _, p = catalog
     r = post(cust, "/buy-now", {"product_id": p.id, "qty": 2}, page=f"/product/{p.slug}")
-    assert r.status_code == 302 and r.headers["Location"].endswith("/checkout")
-    html = cust.get("/checkout").get_data(as_text=True)
+    assert r.status_code == 302 and r.headers["Location"].endswith("/checkout?buy_now=1")
+    html = cust.get("/checkout?buy_now=1").get_data(as_text=True)
     assert 'type="date"' not in html and "preferred delivery" not in html.lower()   # 9: no customer-chosen delivery date
-    r = checkout(cust, session, cust.user)
+    r = checkout(cust, session, cust.user, buy_now=1)
     session.expire_all()
     o = session.scalar(select(Order))
     assert o.status == "pending_whatsapp"

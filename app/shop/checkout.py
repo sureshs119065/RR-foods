@@ -22,14 +22,29 @@ def _addresses():
     return list(db.session.scalars(select(Address).where(Address.user_id == g.user.id).order_by(Address.is_default.desc(), Address.id.desc())))
 
 
+def _is_buy_now() -> bool:
+    """/checkout?buy_now=1 is the "Buy now" checkout (one product, cart untouched). Plain /checkout is the whole cart."""
+    return request.values.get("buy_now") == "1"
+
+
 @bp.get("/checkout")
 @user_only
 def checkout_page():
-    view = cart_svc.build(g.user.id, session.get("coupon"))
+    buy_now = _is_buy_now()
+    only = cart_svc.buy_now_items(g.user.id) if buy_now else None
+    if not buy_now:
+        session.pop(cart_svc.BUY_NOW_KEY, None)  # checking out the cart: a leftover "Buy now" choice must not mix in
+    elif not only:
+        flash("That product is no longer available. Please choose it again.", "info")
+        return redirect(url_for("shop.listing"))
+    view = cart_svc.build(g.user.id, session.get("coupon"), only=only)
     if not view.lines:
         flash("Your cart is empty.", "info")
         return redirect(url_for("shop.cart"))
     if not view.can_checkout:
+        if buy_now:
+            flash("; ".join(view.problems) or "This product cannot be ordered right now.", "error")
+            return redirect(url_for("shop.listing"))
         flash("Fix the highlighted problems in your cart first.", "error")
         return redirect(url_for("shop.cart"))
     addrs = _addresses()
@@ -53,7 +68,7 @@ def checkout_page():
         low = msg.lower()
         if "address" in low or "deliver to" in low:
             field_errors.setdefault("address_id", msg)
-    return render_template("shop/checkout.html", errors=errors, field_errors=field_errors, view=view, addrs=addrs, chosen=chosen, last_address=last_address, quotes=quotes, totals=totals, methods=svc.payment_methods(), checkout_token=checkout_token)
+    return render_template("shop/checkout.html", errors=errors, field_errors=field_errors, view=view, addrs=addrs, chosen=chosen, last_address=last_address, quotes=quotes, totals=totals, methods=svc.payment_methods(), checkout_token=checkout_token, buy_now=buy_now)
 
 
 @bp.post("/checkout")
@@ -63,10 +78,12 @@ def checkout_place():
     """The browser sends only: the address, the payment method, text notes and the form's one-time token. Prices, stock, the coupon,
     the delivery fee and the total are all worked out again here from the database; any price-like field sent is logged and ignored."""
     note_tampered_fields()
+    buy_now = _is_buy_now()
+    keep = {"buy_now": 1} if buy_now else {}
     submitted_token = (request.form.get("checkout_token") or "").strip()
     if not _TOKEN_OK.fullmatch(submitted_token):
         flash("This checkout expired. Please review your order and try again.", "info")
-        return redirect(url_for("shop.checkout_page"))
+        return redirect(url_for("shop.checkout_page", **keep))
     if submitted_token != session.get("checkout_token"):
         # Back button / refresh after the order was already saved: show that order instead of an error (and never create a second).
         earlier = svc.order_for_key(g.user.id, submitted_token)
@@ -79,17 +96,19 @@ def checkout_place():
     notes = v.multiline(request.form.get("notes"), "notes", note_errors, label="Order notes", max_=v.MAX["notes"])
     if note_errors:
         flash(note_errors["notes"], "error")
-        return redirect(url_for("shop.checkout_page", address=request.form.get("address_id")))
+        return redirect(url_for("shop.checkout_page", address=request.form.get("address_id"), **keep))
     try:
         order = svc.create_pending_order(g.user, int(request.form.get("address_id") or 0) if (request.form.get("address_id") or "").isdigit() else 0,
                                 request.form.get("method", ""), session.get("coupon"), notes, request.form.get("gift_message"), request.form.get("hide_prices") == "1",
-                                idempotency_key=submitted_token)
+                                idempotency_key=submitted_token, only_items=cart_svc.buy_now_items(g.user.id) if buy_now else None)
         db.session.commit()
         session.pop("checkout_token", None)
+        if buy_now:
+            session.pop(cart_svc.BUY_NOW_KEY, None)
     except svc.CheckoutError as e:
         db.session.rollback()
         flash(str(e), "error")  # e.g. "“Ragi flour” is down to 1. Update your cart and try again." The other cart items are untouched.
-        return redirect(url_for("shop.checkout_page", address=request.form.get("address_id")))
+        return redirect(url_for("shop.checkout_page", address=request.form.get("address_id"), **keep))
     # The cart and the coupon stay as they are: this is only a request until the shop receives the WhatsApp message.
     return redirect(url_for("shop.order_placed", order_number=order.order_number))
 

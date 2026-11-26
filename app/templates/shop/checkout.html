@@ -5,7 +5,7 @@
 <div class="container">
   <h1 class="pg-h">Checkout</h1>
   <ol class="checkout-progress" aria-label="Checkout progress"><li class="is-done"><a href="{{ url_for('shop.cart') }}">Cart</a></li><li class="is-current" aria-current="step"><span>Details</span></li><li><span>Place order</span></li></ol>
-  <form class="cartlay" method="post" action="{{ url_for('shop.checkout_place') }}" data-checkout data-once>
+  <form class="cartlay" method="post" action="{{ url_for('shop.checkout_place', buy_now=1) if buy_now else url_for('shop.checkout_place') }}" data-checkout data-once>
     {{ s.csrf() }}
     <input type="hidden" name="checkout_token" value="{{ checkout_token }}">
     <div>
@@ -18,7 +18,7 @@
         <ul class="mini">
           {% for l in view.lines %}<li><span>{{ l.product.name }}{% if l.label %} <span class="muted">({{ l.label }})</span>{% endif %} × {{ l.qty }}</span><b>{{ s.inr(l.total) }}</b></li>{% endfor %}
         </ul>
-        <a href="{{ url_for('shop.cart') }}">Edit cart</a>
+        {% if buy_now %}<a href="{{ url_for('shop.product', slug=view.lines[0].product.slug) }}">Back to product</a> <span class="muted small">· Only this product is in this order. Your cart is not included.</span>{% else %}<a href="{{ url_for('shop.cart') }}">Edit cart</a>{% endif %}
       </section>
 
       <section class="panel2" aria-labelledby="addr-h">
@@ -38,7 +38,7 @@
           </ul>
         {% else %}<p class="notice">Add a delivery address to continue.</p>{% endif %}
         <p class="cl__err" id="err-address_id" data-field-error {% if not field_errors.address_id %}hidden{% endif %}>{{ field_errors.address_id or '' }}</p>
-        <a class="btn btn--ghost" href="{{ url_for('shop.address_form', next='/checkout') }}">+ Add a new address</a>
+        <a class="btn btn--ghost" href="{{ url_for('shop.address_form', next='/checkout?buy_now=1' if buy_now else '/checkout') }}">+ Add a new address</a>
       </section>
 
       <section class="panel2" aria-labelledby="pay-h">

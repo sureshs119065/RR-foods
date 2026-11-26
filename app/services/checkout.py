@@ -73,8 +73,8 @@ def order_for_key(user_id: int, key: str | None) -> Order | None:
 
 
 def create_pending_order(user, address_id: int, method: str, coupon_code: str | None, note: str | None, gift_message: str | None = None, hide_prices: bool = False,
-                         idempotency_key: str | None = None) -> Order:
-    """Validate the cart and save it as an order request waiting for the WhatsApp message. Takes nothing from stock or coupons.
+                         idempotency_key: str | None = None, only_items: list[CartItem] | None = None) -> Order:
+    """Validate the cart (or, for "Buy now", just the one chosen product) and save it as an order request waiting for the WhatsApp message. Takes nothing from stock or coupons.
 
     Everything here is read from the database (prices, stock, bundle, coupon, delivery fee); the browser only supplies the address,
     the payment method and the text fields. `idempotency_key` is the checkout form's one-time token: it is saved with the order, so the
@@ -94,9 +94,10 @@ def create_pending_order(user, address_id: int, method: str, coupon_code: str | 
     if zone is None or not zone.is_serviceable:
         raise CheckoutError(f"Sorry, we do not deliver to {address.pincode} yet. Choose another address.")
 
-    items = list(db.session.scalars(select(CartItem).where(CartItem.user_id == user.id, CartItem.saved_for_later.is_(False)).order_by(CartItem.id)))
+    # "Buy now" passes just the one chosen product (`only_items`); the saved cart is then not read at all.
+    items = list(only_items) if only_items is not None else list(db.session.scalars(select(CartItem).where(CartItem.user_id == user.id, CartItem.saved_for_later.is_(False)).order_by(CartItem.id)))
     if not items:
-        raise CheckoutError("Your cart is empty. Your order may already have been placed. Check My orders.")
+        raise CheckoutError("Your cart is empty. Your order may already have been placed. Check My orders." if only_items is None else "That product is no longer available. Please choose it again.")
 
     pids = sorted({i.product_id for i in items})
     vids = sorted({i.variant_id for i in items if i.variant_id})

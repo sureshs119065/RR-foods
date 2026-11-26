@@ -151,9 +151,12 @@ def authenticate(portal: str, email: str, password: str) -> tuple[User | None, s
 def login_user(user: User) -> None:
     guest_cart_id = session.get("gid")  # the anonymous cart this browser built before signing in
     guest_coupon = session.get("coupon")
+    guest_buy_now = session.get("buy_now")  # a guest who pressed "Buy now" is sent to sign in and must come back to that product
     session.clear()  # new session on every sign-in (prevents session fixation)
     if guest_cart_id and user.role == "user" and guest_coupon:
         session["coupon"] = guest_coupon  # a code applied while browsing as a guest survives sign-in
+    if guest_buy_now and user.role == "user":
+        session["buy_now"] = guest_buy_now
     session["uid"] = user.id
     session["tok"] = session_token(user)
     session["seen"] = utcnow().timestamp()

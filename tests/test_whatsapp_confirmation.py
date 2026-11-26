@@ -29,7 +29,7 @@ def owner_client(app, session, cust):
 
 def buy_now(c, product, qty=2):
     r = post(c, "/buy-now", {"product_id": product.id, "qty": qty}, page="/")
-    assert r.status_code == 302 and r.headers["Location"].endswith("/checkout")
+    assert r.status_code == 302 and r.headers["Location"].endswith("/checkout?buy_now=1")
     return r
 
 
@@ -47,7 +47,7 @@ def test_buy_now_then_whatsapp_page_does_not_place_an_order(app, cust, session, 
     app.config["ADMIN_WHATSAPP_NUMBER"] = "919876500000"
     try:
         buy_now(cust, p, 2)
-        r = checkout(cust, session, cust.user)
+        r = checkout(cust, session, cust.user, buy_now=1)
         assert r.headers["Location"].startswith("/order-placed/NK")
         o = session.scalar(select(Order))
         assert o.status == "pending_whatsapp"
@@ -55,7 +55,7 @@ def test_buy_now_then_whatsapp_page_does_not_place_an_order(app, cust, session, 
         cust.get(r.headers["Location"])
         assert "not placed" in html.lower() and "Open WhatsApp" in html and "https://wa.me/919876500000?text=" in html
         untouched(session, p)
-        assert session.scalar(select(CartItem.quantity)) == 2              # the cart is still there: the customer can come back
+        assert session.scalar(select(CartItem.quantity)) is None           # Buy now never put anything in the cart
     finally:
         app.config["ADMIN_WHATSAPP_NUMBER"] = ""
 
@@ -63,7 +63,7 @@ def test_buy_now_then_whatsapp_page_does_not_place_an_order(app, cust, session, 
 def test_closing_the_site_without_sending_leaves_no_order(cust, session, catalog, owner_client):
     _, p = catalog
     buy_now(cust, p)
-    checkout(cust, session, cust.user)                # ...and the customer closes the website here
+    checkout(cust, session, cust.user, buy_now=1)     # ...and the customer closes the website here
     untouched(session, p)
     queue = owner_client.get("/owner/orders").get_data(as_text=True)
     o = session.scalar(select(Order))

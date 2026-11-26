@@ -18,6 +18,7 @@ MAX_LINE_QTY = 10
 MAX_GUEST_LINES = 50          # a guest browser may hold at most this many lines (keeps anonymous rows bounded)
 GUEST_CART_DAYS = 14
 GUEST_SESSION_KEY = "gid"
+BUY_NOW_KEY = "buy_now"       # session: the one product a "Buy now" click chose. It is never written to the cart.
 TWO = Decimal("0.01")
 
 
@@ -84,6 +85,27 @@ def merge_guest_cart(user, guest_session_id: str | None) -> int:
         moved += 1
     db.session.flush()
     return moved
+
+
+def buy_now_items(user_id: int | None = None) -> list[CartItem]:
+    """The single product chosen with "Buy now", as an in-memory cart line (never saved, never added to the session).
+    Empty when nothing was chosen or the product was removed meanwhile. The saved cart is not read or changed."""
+    spec = session.get(BUY_NOW_KEY)
+    if not isinstance(spec, dict):
+        return []
+    try:
+        pid, vid, qty = int(spec["product_id"]), spec.get("variant_id"), int(spec["qty"])
+    except (KeyError, TypeError, ValueError):
+        return []
+    product = db.session.get(Product, pid)
+    if product is None:
+        return []
+    variant = db.session.get(ProductVariant, int(vid)) if vid else None
+    if vid and (variant is None or variant.product_id != product.id):
+        return []
+    item = CartItem(user_id=user_id, product_id=product.id, variant_id=variant.id if variant else None, quantity=max(1, min(qty, MAX_LINE_QTY)))
+    item.product, item.variant = product, variant
+    return [item]
 
 
 def purge_guest_carts(days: int = GUEST_CART_DAYS) -> int:
@@ -231,15 +253,16 @@ class CartView:
         return bool(self.lines) and not self.problems and not self.coupon_error
 
 
-def build(owner, coupon_code: str | None = None, zone: DeliveryZone | None = None) -> CartView:
-    """`owner` is a CartOwner, or a user id (kept so existing callers work). None builds an empty cart."""
+def build(owner, coupon_code: str | None = None, zone: DeliveryZone | None = None, only: list[CartItem] | None = None) -> CartView:
+    """`owner` is a CartOwner, or a user id (kept so existing callers work). None builds an empty cart.
+    `only` (the "Buy now" line) prices just those lines and ignores the saved cart completely."""
     if owner is None:
         empty = Totals(q2(0), q2(0), Decimal(0), None, Decimal(0), q2(0))
         return CartView([], [], None, None, empty, [], free_delivery_threshold())
     owner = as_owner(owner)
     user_id = owner.user_id
-    lines = [make_line(i) for i in load_items(owner, False)]
-    saved = [make_line(i) for i in load_items(owner, True)]
+    lines = [make_line(i) for i in (only if only is not None else load_items(owner, False))]
+    saved = [] if only is not None else [make_line(i) for i in load_items(owner, True)]
     subtotal = q2(sum((l.total for l in lines), Decimal(0)))
     coupon, err, discount = None, None, Decimal(0)
     if coupon_code and lines:

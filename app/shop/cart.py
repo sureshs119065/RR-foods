@@ -108,7 +108,7 @@ def _add_one(owner, product_id, variant_id, qty, *, replace=False):
 @limiter.limit(limits.limit("cart_add"))
 @guest_cart
 def buy_now():
-    """Add the selected quantity once, then go straight to checkout (guests are asked to sign in there)."""
+    """Buy only the selected product: go straight to a checkout that holds just that product and leaves the cart alone."""
     errs: dict = {}
     note_tampered_fields()
     pid = to_int(request.form.get("product_id"), "p", errs, min_=1, max_=2_000_000_000)
@@ -118,11 +118,36 @@ def buy_now():
         log_suspicious("invalid_product_or_quantity", f"product_id={request.form.get('product_id')} qty={request.form.get('qty')}")
         flash("Choose a valid quantity before continuing.", "error")
         return redirect(request.form.get("next") or url_for("shop.listing"))
-    msg, ok = _add_one(svc.cart_owner(create=True), pid, vid, qty, replace=True)
+    msg, qty, ok = _check_buy_now(pid, vid, qty)
     if not ok:
         flash(msg, "error")
         return redirect(request.form.get("next") or url_for("shop.listing"))
-    return redirect(url_for("shop.checkout_page"))
+    # Buy now never touches the cart: the chosen product is remembered on its own and checkout orders only that.
+    session[svc.BUY_NOW_KEY] = {"product_id": pid, "variant_id": vid, "qty": qty}
+    return redirect(url_for("shop.checkout_page", buy_now=1))
+
+
+def _check_buy_now(product_id, variant_id, qty):
+    """Same product/option/stock rules as adding to the cart, but nothing is saved. Returns (message, quantity, ok)."""
+    p = db.session.scalar(select(Product).where(Product.id == product_id, LIVE))
+    if p is None:
+        log_suspicious("unknown_or_hidden_product", f"product_id={product_id}")
+        return "That product is not available.", qty, False
+    options = active_variants(p)
+    v = None
+    if options:
+        v = next((x for x in options if x.id == variant_id), None)
+        if v is None:
+            if variant_id:
+                log_suspicious("invalid_variant", f"product_id={p.id} variant_id={variant_id}")
+            return "Choose an option first.", qty, False
+    elif variant_id:
+        log_suspicious("invalid_variant", f"product_id={p.id} variant_id={variant_id}")
+        return "That option does not exist.", qty, False
+    stock = v.stock_qty if v else p.stock_qty
+    if stock <= 0:
+        return f"Sorry, {p.name} is out of stock.", qty, False
+    return "", min(qty, stock, svc.MAX_LINE_QTY), True
 
 
 @bp.post("/cart/add")
