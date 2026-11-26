@@ -100,6 +100,42 @@ def register_cli(app):
         db.session.commit()
         click.echo(f"Created {role} {email}")
 
+    @app.cli.command("reset-site-data")
+    @click.option("--coupons", is_flag=True, help="Also delete every coupon (for example the sample WELCOME10).")
+    @click.option("--dry-run", is_flag=True, help="Show how many rows would be deleted, then roll everything back.")
+    @click.option("--yes", is_flag=True, help="Skip the confirmation prompt.")
+    def reset_site_data_command(coupons, dry_run, yes):
+        """Delete ALL accounts and everything that belongs to them (orders, carts, wishlists, reviews, questions,
+        notifications, messages, addresses, points, audit and login logs). Products, categories, banners, offers,
+        delivery pincodes, FAQs and site settings are kept. Create your real admin and owner afterwards with create-user."""
+        from sqlalchemy import delete, func, select
+        # Children first, so nothing is blocked by a foreign key (orders.user_id has no ON DELETE rule).
+        names = ["review_votes", "reviews", "stock_alerts", "product_questions", "notifications", "push_subscriptions",
+                 "customer_messages", "customer_message_threads", "cart_items", "wishlist", "recipe_favourites",
+                 "points_ledger", "coupon_usages", "payments", "order_status_history", "order_items", "orders",
+                 "addresses", "inventory_logs", "audit_logs", "login_lockouts", "email_otp", "search_terms", "users"]
+        if coupons:
+            names.insert(names.index("users"), "coupons")
+        tables = [(n, db.metadata.tables[n]) for n in names if n in db.metadata.tables]
+        counts = {n: db.session.scalar(select(func.count()).select_from(t)) or 0 for n, t in tables}
+        for n, c in counts.items():
+            click.echo(f"  {n:28s} {c}")
+        if not (yes or dry_run):
+            click.confirm("Delete ALL of the rows listed above? This cannot be undone (take a database backup first).", abort=True)
+        for n, t in tables:
+            db.session.execute(delete(t))
+        if dry_run:
+            db.session.rollback()
+            click.echo("Dry run: nothing was deleted.")
+            return
+        db.session.commit()
+        try:
+            from .services import home_cache
+            home_cache.bust()
+        except Exception:
+            pass
+        click.echo("Done. There are now no accounts: run  flask create-user EMAIL \"Name\" --role admin  and again with --role owner.")
+
     @app.cli.command("reset-password")
     @click.argument("email")
     @click.password_option(prompt="New password")
