@@ -56,6 +56,10 @@ def register_cli(app):
             for error in result.errors:
                 click.echo(f"ERROR: {error}", err=True)
             raise click.ClickException("No products were imported. Fix the CSV errors and retry.")
+        for archived in db.session.scalars(select(Product).where(func.upper(Product.sku).in_(keep_skus), Product.is_deleted.is_(True))).all():
+            archived.restore()  # an earlier --archive-others run hid these SKUs; the file says they are live again
+            click.echo(f"Restored archived product {archived.sku}")
+        db.session.flush()
         click.echo(f"RR FOODS import {'check' if dry_run else 'complete'}: {result.created} created/{result.updated} updated, 0 errors "
                    f"({result.created + result.updated} products).")
         if archive_others:
