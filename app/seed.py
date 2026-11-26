@@ -51,7 +51,10 @@ def get_or_create_category(name: str, sort_order: int = 0) -> Category:
 
 def import_products_csv(path: str | Path | None = None, default_stock: int = 25) -> dict:
     """Load products from a CSV with the same columns as the old site (id,name,category,price,weight,image,...)."""
-    path = Path(path) if path else SEED_DIR / "products.csv"
+    if not path:
+        raise ValueError("import_products_csv needs a path. The RR FOODS catalogue is app/seed_data/seed_products.csv "
+                         "(use `flask import-rr-foods`).")
+    path = Path(path)
     created = updated = 0
     with open(path, newline="", encoding="utf-8-sig") as fh:
         rows = list(csv.DictReader(fh))
@@ -129,7 +132,11 @@ def seed_all() -> dict:
     out["passwords"]["user@nurseskitchen.local"] = note
     db.session.flush()
 
-    out["products"] = import_products_csv()
+    from .admin.csvio import import_csv  # the 20 RR FOODS catalogue products (same loader as `flask import-rr-foods`)
+    res = import_csv((SEED_DIR / "seed_products.csv").read_bytes(), create_categories=True, default_stock=0)
+    if res.errors:
+        raise ValueError("seed_products.csv: " + "; ".join(res.errors))
+    out["products"] = {"created": res.created, "updated": res.updated}
 
     # Sample coupon and offer labels (edit or delete in the admin panel in Step 4)
     if not db.session.scalar(select(Coupon).where(func.upper(Coupon.code) == "WELCOME10")):
