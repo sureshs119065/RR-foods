@@ -801,3 +801,75 @@ html body .rv__list .rc__img > img { inset: 4px; width: calc(100% - 8px); height
   html body .gal__main img, html body .gal__zoom img { inset: 10px; width: calc(100% - 20px); height: calc(100% - 20px); }
   html body :is(.pc__img, .rc__img) > img, html body .rr-loop .rc__img > img { inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); }
 }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   14. MOBILE LAYOUT FIXES (phones and narrow windows, under 900px). Many older layers fight over the header, so these use the
+   #sh id to win. Desktop (900px and up) is untouched.
+   --------------------------------------------------------------------------------------------------------------- */
+/* never scroll sideways, media never wider than the screen */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html, body { max-width: 100%; overflow-x: clip; }
+img, video, canvas, svg, iframe { max-width: 100%; }
+html body :is(h1, h2, h3, p, li, a, td, th) { overflow-wrap: anywhere; }
+
+@media (max-width: 899px) {
+  /* header: [menu] [logo] ........ [search] [account] [cart]; links, wide search and extras live in the menu drawer */
+  html body header#sh.rr-header .sh__row.rr-header__row {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    grid-template-areas: "menu brand actions";
+    align-items: center;
+    column-gap: 8px;
+    min-height: 60px;
+    padding-block: 4px;
+  }
+  html body header#sh.rr-header .sh__menu { display: inline-flex !important; grid-area: menu; }
+  html body header#sh.rr-header .brand { grid-area: brand; justify-self: start; }
+  html body header#sh.rr-header .rr-brand__logo { width: 46px; height: 46px; }
+  html body header#sh.rr-header .sh__links,
+  html body header#sh.rr-header .sh__search.rr-header__search,
+  html body header#sh.rr-header .rr-action-notifications,
+  html body header#sh.rr-header .rr-action-wishlist,
+  html body header#sh.rr-header .rr-action-track,
+  html body header#sh.rr-header .sh__action-label { display: none !important; }
+  html body header#sh.rr-header .sh__actions { grid-area: actions; display: flex; gap: 2px; justify-content: flex-end; }
+  html body header#sh.rr-header .sh__actions .sh__searchbtn { display: inline-flex !important; }
+  html body header#sh.rr-header .sh__actions .icon-btn { width: 42px; height: 42px; min-width: 42px; }
+
+  /* page edges */
+  html body .container { padding-inline: 14px; }
+
+  /* forms: 16px text stops iPhones zooming in on focus; 44px touch targets */
+  html body :is(input:not([type=checkbox]):not([type=radio]), select, textarea) { font-size: 16px; min-height: 44px; }
+  html body .sh__search input { font-size: 16px; }
+  html body :is(.btn, button.btn, a.btn) { min-height: 44px; }
+
+  /* product page: one column, buy buttons full width, spec tables scroll inside their box */
+  html body .pdp__grid { grid-template-columns: minmax(0, 1fr) !important; gap: 16px; }
+  html body .gal { position: static; }
+  html body .buybar, html body .pricebox { grid-template-columns: 1fr 1fr; gap: 10px; }
+  html body .pdp-spec-table-wrap { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  html body .specs { width: 100%; }
+  html body .specs :is(th, td) { padding: 8px 10px; }
+
+  /* cart and checkout: summary stacks under the list */
+  html body .cartlay { display: grid; grid-template-columns: minmax(0, 1fr) !important; gap: 16px; }
+  html body .cl { min-width: 0; }
+  html body .cl__main { min-width: 0; }
+  html body .coupon__row { flex-wrap: wrap; }
+  html body .coupon__row :is(input, .btn) { flex: 1 1 100%; }
+  html body .stickybar { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+  html body .cart-suggestions__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+  /* floating WhatsApp button: smaller, bottom corner, never hides the last content */
+  html body .wa-fab { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); right: 12px; width: 48px; min-height: 48px; }
+  html body .sf, html body footer { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+}
+
+@media (max-width: 380px) {
+  html body .container { padding-inline: 10px; }
+  html body .pgrid { gap: 8px; }
+  html body header#sh.rr-header .rr-brand__logo { width: 40px; height: 40px; }
+  html body header#sh.rr-header .sh__actions .icon-btn { width: 38px; height: 38px; min-width: 38px; }
+  html body .rr-loop .rc, html body .rr-loop__track > .rc { flex-basis: 148px; width: 148px; }
+}
