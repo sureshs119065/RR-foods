@@ -650,3 +650,107 @@ html body .bd__name { width: 100%; min-height: 2.6em; }
   html body .bd__item { flex-basis: 80px; }
   html body .bd__thumb { width: 62px; height: 62px; }
 }
+/* ---------------------------------------------------------------------------------------------------------------
+   12. PRODUCT CARDS (final, authoritative): full jar visible, equal heights, curved rectangles, marketplace look.
+   Source photos are portrait (2:3), so the image box is portrait too and nothing is cropped (object-fit: contain).
+   Applies to listing/search/category grids (.pc) and home carousels (.rc, .rr-loop).
+   --------------------------------------------------------------------------------------------------------------- */
+html body .pgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+@media (min-width: 640px)  { html body .pgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
+@media (min-width: 1024px) { html body .pgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; } }
+@media (min-width: 1360px) { html body .pgrid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+html body :is(.pc, .rc) {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #e3ebe5;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 50, 30, .06);
+}
+html body :is(.pc, .rc):hover { border-color: #c4d6c8; box-shadow: 0 8px 22px rgba(15, 50, 30, .12); }
+
+/* image box: same shape for every card, full product inside, soft white/green backdrop, small padding */
+html body :is(.pc__img, .rc__img),
+html body .rr-loop .rc__img {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  padding: 10px;
+  margin: 0;
+  background: linear-gradient(180deg, #ffffff 0%, #f6faf6 100%);
+  border-bottom: 1px solid #eef3ef;
+  border-radius: 0;
+  overflow: hidden;
+}
+html body :is(.pc__img, .rc__img) img,
+html body .rr-loop .rc__img img {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  padding: 0;
+  margin: 0;
+  object-fit: contain;
+  object-position: center;
+  transform: none !important;
+}
+html body :is(.pc__img, .rc__img) img { transition: transform .25s ease; }
+@media (hover: hover) { html body :is(.pc, .rc):hover :is(.pc__img, .rc__img) img { transform: scale(1.04) !important; } }
+html body .pc--out .pc__img img { opacity: .55; }
+
+/* text block: fixed 2-line name so prices and buttons line up across a row */
+html body :is(.pc__link) { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+html body :is(.pc__body, .rc__body) {
+  display: flex; flex-direction: column; flex: 1 1 auto; gap: 4px; min-width: 0; padding: 10px 12px 8px;
+}
+html body :is(.pc__name, .rc__name) {
+  margin: 0; min-height: 2.6em; font-size: 14px; line-height: 1.3; font-weight: 700; color: #16301f;
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+html body .rc__name a { color: inherit; text-decoration: none; }
+html body :is(.pc__meta, .rc__meta) { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 18px; font-size: 12px; color: #5d6f63; }
+html body :is(.pc__price, .rc__price) { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; margin: auto 0 0; padding-top: 4px; }
+html body :is(.pc__price, .rc__price) b { font-size: 17px; color: #0b7d3e; }
+html body :is(.pc__price, .rc__price) s { font-size: 12px; color: #8a978e; }
+html body :is(.pc__off, .rc__save) { font-size: 12px; font-weight: 700; color: #c2410c; }
+html body .rr-loop .rc__save { display: inline; }
+
+/* button always pinned to the bottom, same size everywhere */
+html body :is(.pc__add, .rc__act) { margin: 0; padding: 0 12px 12px; display: block; }
+html body a.pc__add { margin: 0 12px 12px; padding: 0; width: calc(100% - 24px); }
+html body :is(.pc__add, .rc__act) .btn, html body a.pc__add {
+  display: flex; align-items: center; justify-content: center; width: 100%; min-height: 42px; border-radius: 10px; font-size: 14px; font-weight: 700;
+}
+
+/* home carousels: fixed card widths so every card is identical */
+html body .rr-loop__track { align-items: stretch; }
+html body .rr-loop .rc, html body .rr-loop__track > .rc { flex: 0 0 200px; width: 200px; height: auto; margin: 0 14px 0 0; border-radius: 16px; }
+@media (max-width: 640px) {
+  html body .rr-loop .rc, html body .rr-loop__track > .rc { flex-basis: 164px; width: 164px; margin-right: 10px; }
+  html body :is(.pc__body, .rc__body) { padding: 8px 10px 6px; }
+  html body :is(.pc__name, .rc__name) { font-size: 13px; }
+  html body :is(.pc__price, .rc__price) b { font-size: 15px; }
+  html body :is(.pc__add, .rc__act) { padding: 0 10px 10px; }
+  html body a.pc__add { margin: 0 10px 10px; width: calc(100% - 20px); }
+  html body :is(.pc__add, .rc__act) .btn, html body a.pc__add { min-height: 38px; font-size: 13px; }
+}
+/* compact "recently viewed" rows keep their small square thumbs */
+html body .rv__list .rc__img { aspect-ratio: auto; width: 84px; height: 84px; padding: 4px; border-radius: 10px; }
