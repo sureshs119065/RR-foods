@@ -188,7 +188,7 @@ class ProductVariant(TimestampMixin, SoftDeleteMixin, db.Model):
 
 
 class Offer(TimestampMixin, db.Model):
-    """Labels such as "Deal of the Day" or "Buy 1 Get 1", attached to products."""
+    """Offer labels (approved offers only), attached to products."""
 
     __tablename__ = "offers"
 

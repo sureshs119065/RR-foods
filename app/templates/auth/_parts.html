@@ -12,11 +12,11 @@
 </svg>
 {%- endmacro %}
 
-{# The 100% Organic / Diabetic Friendly / Pure & Healthy strip. Rendered twice by _layout (left panel on desktop, under the card on mobile); CSS shows one. #}
+{# The catalogue-tagline strip (Traditional Ingredients / Meaningful Nutrition / Better Everyday Food Choices). Rendered twice by _layout (left panel on desktop, under the card on mobile); CSS shows one. #}
 {% macro strip(cls="") %}
 <ul class="auth-strip {{ cls }}">
-  <li>{{ ic('leaf', 34) }}<span>100% Organic</span></li>
-  <li>{{ ic('heart', 34) }}<span>Diabetic Friendly</span></li>
-  <li>{{ ic('shield', 34) }}<span>Pure &amp; Healthy</span></li>
+  <li>{{ ic('leaf', 34) }}<span>Traditional Ingredients</span></li>
+  <li>{{ ic('heart', 34) }}<span>Meaningful Nutrition</span></li>
+  <li>{{ ic('shield', 34) }}<span>Better Everyday Food Choices</span></li>
 </ul>
 {% endmacro %}

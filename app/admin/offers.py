@@ -25,7 +25,7 @@ def _form(offer: Offer | None):
         if len(name) < 2:
             errors["name"] = "Enter a name."
         if len(tag) < 2:
-            errors["tag"] = "Enter the label shown on products, for example “Deal of the Day”."
+            errors["tag"] = "Enter the label shown on products."
         if starts and ends and ends <= starts:
             errors["ends_at"] = "The end must be after the start."
         if not errors:

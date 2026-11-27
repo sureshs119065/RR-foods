@@ -5,7 +5,7 @@
 {% block content %}
 {% include "admin/_offers_nav.html" %}
 <div class="pagehead"><div><h2>Product offer labels</h2><p class="hint">Manage every promotion from this Offers section: product labels, festival events, coupons and combo bundles.</p></div><a class="btn" href="{{ url_for('admin.offer_new') }}">Add offer</a></div>
-<p class="hint">Offer labels such as “Deal of the Day” or “Buy 1 Get 1”. Attach them to products in the product form.</p>
+<p class="hint">Offer labels shown on products. Add one only for an offer the client has approved, then attach it to products in the product form.</p>
 <div class="table-wrap"><table class="table">
   <thead><tr><th>Label</th><th>Name</th><th>Products</th><th>Runs</th><th>Status</th><th>Actions</th></tr></thead>
   <tbody>

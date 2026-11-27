@@ -145,10 +145,11 @@ def test_settings_validation_and_save(admin, session):
     assert session.get(SiteSetting, "header_carousel_interval_ms").value == 8000  # bad submissions changed nothing
 
 
-def test_quick_templates_prefill_the_form(admin):
-    html = admin.get("/admin/header-banners/new?template=flash").get_data(as_text=True)
-    assert 'value="Flash Sale"' in html and "FLASH SALE" in html
-    assert admin.get("/admin/header-banners/new?template=bogus").status_code == 200
+def test_no_placeholder_quick_templates_are_shipped(admin):
+    html = admin.get("/admin/header-banners").get_data(as_text=True)
+    assert "Quick start" not in html and "Flash" not in html and "Today's special" not in html
+    assert admin.get("/admin/header-banners/new?template=flash").status_code == 200  # unknown template: blank form
+    assert 'value="Flash Sale"' not in admin.get("/admin/header-banners/new?template=flash").get_data(as_text=True)
 
 
 # ---------------- public API: schedule, order, cache ----------------

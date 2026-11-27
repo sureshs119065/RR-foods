@@ -1,5 +1,19 @@
 ## Unreleased
 
+- **Only the client's offers are shown (27 Nov 2026).** The client's offers are the 8 % product discount and the Rs 999 combo; nothing else.
+  Removed: the seeded coupon `WELCOME10` ("Sample: 10% off your first order", which showed on every product page and on /offers), the seeded
+  offer labels "Deal of the Day" and "Buy 1 Get 1", the four seeded home banners (Diwali Mega Sale, Today's Special, Flash Sale, Extra 10% off with
+  coupon), the admin one-click banner presets (festival / today / flash / coupon), the "Festival & seasonal offers" placeholder on /offers, and the
+  unsupported claims "100% Organic", "Diabetic Friendly", "Organic Products" on the sign-in pages (the catalogue's own guidelines forbid them).
+  **Home page:** "No maida" is removed (hero line and the trust strip). Meta description and category subtitle no longer mention sweets, snacks or "fast delivery".
+  **Existing databases:** run `flask remove-sample-offers --dry-run`, then `flask remove-sample-offers` once. It deletes only rows that exactly match the old seed.
+  **New Arrivals is unchanged** (shelf, tags and `flask mark-new-arrivals` work as before).
+- **Combo names match the Excel "Combo Offer" sheet (27 Nov 2026).** The product-page combo list now says "Multi Millet Pasta" (not "Millet Pasta Sample") and
+  "Multi Millet Chapati Maavu (Multi Millet Grain Atta)". The combo card no longer appears on the **Soup Base Mix** page: only Moringa Leaf Soup Mix is in the combo.
+  Open points for the client: the product's own name is still "Millet Pasta Sample" (the master sheet's name, flagged there as provisional); "Biotin" is left out of the
+  kanji mix name (the Excel flags it as an unsubstantiated claim); the sheet's "Soup Mix (selected variant)" is shown as Moringa Leaf Soup Mix.
+- **8 % discount: client confirmation pending.** The sheet never labels it; it exists only as `=MRP*0.92` in "Selling Price". See `docs/CLIENT-CONFIRMATION.md`.
+
 - **Catalogue data check against the Excel (26 Nov 2026).** Product names, MRP, selling price (8 % discount), pack size, ingredients, descriptions and the Rs 999 combo were compared with `data/RR_FOODS_PRODUCT_CATALOGUE_-_FINAL.xlsx`; all 20 products match. Fixes: (1) removed the old `app/seed_data/rr_foods_products.csv` and `products.csv` (wrong prices such as Idli Podi Rs 199, Soup Mix Rs 299, Kanji Mix Rs 199, wrong pack sizes, 10-99 % discounts and products not in the Excel); `seed_all()` now loads `seed_products.csv`. (2) Combo item names now match the store product names ("Millet Pasta Sample", "Karuppu Kavuni + Karuppu Uluthu Kanji Mix"). (3) "Samai" spelled "Saamai" like the other Little Millet products (Excel, seed CSV, product pages).
 
 - **Shop listing toolbar and categories.** One toolbar row (title + count left; Sort, In stock toggle, Filters button right). One category chip row under it: All, Bestsellers, then the top-level categories, each with a catalogue-wide product count (`services/storefront.shop_counts()`, cached like the other shop fragments; a top-level count includes its sub-categories). Active chip is filled dark green; mobile is a single scroll-snap row with a fade edge, desktop wraps with equal gaps. The separate "Categories" chip is gone. Filters: 240px sidebar from 1024px, bottom sheet below that, same form; the Filters button only shows on mobile. The form now has Price, Diet and In stock. The toolbar In stock toggle mirrors the sidebar field (one real `avail` input). **Diet** reads the product tags the admin already edits (`vegetarian`/`veg`, `vegan`, `gluten-free`/`gluten free`) and only appears when at least one live product carries such a tag. Rating and discount filters left the form but their URL parameters still work.

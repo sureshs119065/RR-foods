@@ -25,6 +25,41 @@ def register_cli(app):
             pass
         click.echo(f"Tagged {n} product(s) as New Arrival.")
 
+    @app.cli.command("remove-sample-offers")
+    @click.option("--dry-run", is_flag=True, help="List what would be removed, change nothing.")
+    def remove_sample_offers_command(dry_run):
+        """Remove the placeholder offers an older seed created. New Arrival tags and the New Arrivals shelf are left alone.
+
+        The client's only offers are the 8% product discount and the Rs 999 combo. This deletes ONLY rows that match the old seed
+        exactly (coupon WELCOME10 'Sample: ...', offer labels Deal of the Day / Buy 1 Get 1, the four sample header
+        banners). Real coupons, banners and prices are never touched. Safe to repeat.
+        """
+        from sqlalchemy import func, select
+        from .models import Coupon, HeaderBanner, Offer
+        from .services import home_cache
+        found = []
+        for c in db.session.scalars(select(Coupon).where(func.upper(Coupon.code) == "WELCOME10")).all():
+            if (c.description or "").startswith("Sample:"):
+                found.append(("coupon", c.code, c))
+        for o in db.session.scalars(select(Offer).where(Offer.tag.in_(("Deal of the Day", "Buy 1 Get 1")))).all():
+            if (o.description or "").startswith("Label shown on products tagged"):
+                found.append(("offer label", o.tag, o))
+        sample_banners = {"Diwali Mega Sale", "Today's Special", "Flash Sale", "Extra 10% off with coupon"}
+        for b in db.session.scalars(select(HeaderBanner).where(HeaderBanner.title.in_(sample_banners))).all():
+            found.append(("header banner", b.title, b))
+        for kind, name, _ in found:
+            click.echo(f"{'Would remove' if dry_run else 'Removing'} {kind}: {name}")
+        if dry_run:
+            return
+        for _, _, row in found:
+            db.session.delete(row)
+        db.session.commit()
+        try:
+            home_cache.bust()
+        except Exception:
+            pass
+        click.echo("Done.")
+
     @app.cli.command("import-rr-foods")
     @click.option("--path", default="app/seed_data/seed_products.csv", show_default=True,
                   type=click.Path(exists=True, dir_okay=False, readable=True))

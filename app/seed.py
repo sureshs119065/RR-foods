@@ -138,13 +138,10 @@ def seed_all() -> dict:
         raise ValueError("seed_products.csv: " + "; ".join(res.errors))
     out["products"] = {"created": res.created, "updated": res.updated}
 
-    # Sample coupon and offer labels (edit or delete in the admin panel in Step 4)
-    if not db.session.scalar(select(Coupon).where(func.upper(Coupon.code) == "WELCOME10")):
-        db.session.add(Coupon(code="WELCOME10", description="Sample: 10% off your first order", discount_type="percent",
-                              discount_value=10, min_cart_value=299, per_user_limit=1, usage_limit=1000))
-    for tag in ("Deal of the Day", "Buy 1 Get 1", "New Arrival"):
-        if not db.session.scalar(select(Offer).where(Offer.tag == tag)):
-            db.session.add(Offer(name=tag, tag=tag, description=f"Label shown on products tagged '{tag}'"))
+    # No sample coupon, "Deal of the Day" / "Buy 1 Get 1" labels or promo banners are seeded: the client's only offers are the
+    # 8% product discount (set per product in seed_products.csv) and the Rs 999 combo (see `flask seed-combo`).
+    if not db.session.scalar(select(Offer).where(Offer.tag == "New Arrival")):
+        db.session.add(Offer(name="New Arrival", tag="New Arrival", description="Label shown on products tagged 'New Arrival'"))
 
     # Sample serviceable pincodes (Coimbatore). Replace with your real delivery area.
     for pin in ("641001", "641002", "641003", "641004", "641005"):
@@ -168,23 +165,6 @@ def seed_all() -> dict:
 
 
 def seed_header_banners() -> int:
-    now = utcnow()
-    samples = [
-        dict(title="Diwali Mega Sale", subtitle="Festival offers on sweets and snacks", badge_text="FESTIVAL",
-             bg_color="#7a1f3d", button_text="Shop festival offers", link_type="url", link_target="/offers",
-             start_at=now - timedelta(days=1), end_at=now + timedelta(days=12), countdown_enabled=True),
-        dict(title="Today's Special", subtitle="Freshly packed breakfast mixes", badge_text="TODAY",
-             bg_color="#1b5e3b", button_text="See today's special", link_type="category", link_target="breakfast"),
-        dict(title="Flash Sale", subtitle="Ends soon. Prices drop for a few hours", badge_text="FLASH SALE",
-             bg_color="#b4234f", button_text="Grab the deal", link_type="url", link_target="/offers",
-             start_at=now - timedelta(hours=1), end_at=now + timedelta(hours=6), countdown_enabled=True),
-        dict(title="Extra 10% off with coupon", subtitle="Use code WELCOME10 on orders above 299", badge_text="COUPON",
-             bg_color="#0f3d27", button_text="Copy offer", link_type="coupon", link_target="WELCOME10"),
-    ]
-    added = 0
-    for i, data in enumerate(samples):
-        if db.session.scalar(select(HeaderBanner.id).where(HeaderBanner.title == data["title"])):
-            continue
-        db.session.add(HeaderBanner(sort_order=i, text_color="#ffffff", **data))
-        added += 1
-    return added
+    """No sample banners are created. The client's offers are the 8% discount and the Rs 999 combo only;
+    add real banners in Admin > Header banners when the client supplies them."""
+    return 0
