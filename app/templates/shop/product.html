@@ -77,6 +77,7 @@
         <b class="price__now" id="price-now">{{ s.inr(p.final_price) }}</b>
         <s class="muted price__mrp" id="price-mrp" {% if not pct %}hidden{% endif %}>{{ s.inr(p.mrp) }}</s>
         <span class="price__off" id="price-off" {% if not pct %}hidden{% endif %}>{{ pct }}% off</span>
+        {% set net_wt = (catalogue_content.catalogue_net_weight if catalogue_content and catalogue_content.catalogue_net_weight else p.pack_size) %}{% if net_wt and not variants %}<span class="price__wt" title="Net weight">{{ net_wt }}</span>{% endif %}
       </p>
       <p class="muted small">Inclusive of all taxes</p>
 
@@ -105,6 +106,7 @@
         </fieldset>
         {% endif %}
         <p id="stock-note">{% if variants %}<span class="muted">Select an option to see availability.</span>{% else %}{{ s.stock_note(stock, p.low_stock_threshold) }}{% endif %}</p>
+        {% if stock > 0 %}
         <div class="qtyrow">
           <label for="qty">Quantity</label>
           <div class="stepper"><button type="button" data-step="-1" aria-label="Decrease quantity">−</button><input id="qty" name="qty" type="number" inputmode="numeric" min="1" max="10" value="1"><button type="button" data-step="1" aria-label="Increase quantity">+</button></div>
@@ -114,6 +116,7 @@
           <button class="btn btn--cart" type="submit" {% if not variants and stock <= 0 %}disabled{% endif %} data-add>Add to cart</button>
           <button class="btn btn--buy" type="submit" formaction="{{ url_for('shop.buy_now') }}" {% if not variants and stock <= 0 %}disabled{% endif %} data-buy>Buy now</button>
         </div>
+        {% endif %}
       </form>
       {% if stock <= 0 %}
       <form class="notify" id="notify" method="post" action="{{ url_for('shop.stock_alert_toggle', slug=p.slug) }}" data-notify>

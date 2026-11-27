@@ -873,3 +873,42 @@ html body :is(h1, h2, h3, p, li, a, td, th) { overflow-wrap: anywhere; }
   html body header#sh.rr-header .sh__actions .icon-btn { width: 38px; height: 38px; min-width: 38px; }
   html body .rr-loop .rc, html body .rr-loop__track > .rc { flex-basis: 148px; width: 148px; }
 }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   15. Product page bottom bar, Notify bar and WhatsApp button position (mobile).
+   The bottom nav is 3.5rem tall. The buy bar sits on top of it as ONE row (price | Add to cart | Buy now). When the product is
+   out of stock the template drops quantity and the buy buttons, and the same bar holds only "Notify me when available".
+   The WhatsApp button always floats above whatever sits at the bottom, never over Account/Cart.
+   --------------------------------------------------------------------------------------------------------------- */
+@media (max-width: 899px) {
+  html body .buybar {
+    position: fixed; left: 0; right: 0; bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px)); z-index: 35;
+    display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 8px;
+    box-sizing: border-box; padding: 8px 12px; background: #fff; border-top: 1px solid #e3ebe5; box-shadow: 0 -4px 14px rgba(15, 50, 30, .08);
+  }
+  html body .buybar__price { display: grid; line-height: 1.1; margin: 0; }
+  html body .buybar__price b { font-size: 1rem; }
+  html body .buybar .btn { min-height: 46px; width: 100%; padding: 0 8px; font-size: 14px; white-space: nowrap; justify-content: center; }
+
+  /* out of stock: one full-width Notify button in the same place */
+  html body .buy .notify {
+    position: fixed; left: 0; right: 0; bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px)); z-index: 35;
+    box-sizing: border-box; margin: 0; padding: 8px 12px; background: #fff; border: 0; border-top: 1px solid #e3ebe5;
+    border-radius: 0; box-shadow: 0 -4px 14px rgba(15, 50, 30, .08);
+  }
+  html body .buy .notify .notify__t { display: none; }
+  html body .buy .notify .btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; font-size: 15px; font-weight: 700; }
+
+  /* WhatsApp: above the bottom nav (and above the buy / notify bar on product pages) */
+  html body .wa-fab { bottom: calc(3.5rem + 14px + env(safe-area-inset-bottom, 0px)); right: 12px; }
+  html body:has(.buybar) .wa-fab, html body:has(.buy .notify) .wa-fab { bottom: calc(3.5rem + 76px + env(safe-area-inset-bottom, 0px)); }
+  /* keep the end of the page clear of the fixed bars */
+  html body:has(.buybar) main, html body:has(.buy .notify) main { padding-bottom: 84px; }
+}
+
+/* Product page: net weight / pack size pill next to the price */
+html body .price { flex-wrap: wrap; align-items: center; row-gap: 6px; }
+html body .price__wt {
+  display: inline-flex; align-items: center; padding: 4px 12px; border: 1px solid #cfe0d3; border-radius: 999px;
+  background: #f1f8f2; color: #16301f; font-size: 14px; font-weight: 700; line-height: 1.2; white-space: nowrap;
+}

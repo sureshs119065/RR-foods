@@ -272,7 +272,7 @@
         note.innerHTML = s <= 0 ? '<span class="stock stock--out">Out of stock</span>' : (s <= low || s <= 5) ? '<span class="stock stock--low">Only ' + s + " left</span>" : '<span class="stock stock--ok">In stock</span>';
         var dis = s <= 0; $$("[data-add],[data-buy]", form).forEach(function (b) { b.disabled = dis; });
         var fbtButton = $(".fbt button"); if (fbtButton) fbtButton.disabled = dis;
-        qty.max = Math.max(1, Math.min(10, s)); if (+qty.value > +qty.max) qty.value = qty.max;
+        if (qty) { qty.max = Math.max(1, Math.min(10, s)); if (+qty.value > +qty.max) qty.value = qty.max; }
       });
     });
     $$("[data-step]", form).forEach(function (b) { b.addEventListener("click", function () { var v = (parseInt(qty.value, 10) || 1) + parseInt(b.dataset.step, 10); qty.value = Math.min(+qty.max || 10, Math.max(1, v)); }); });
