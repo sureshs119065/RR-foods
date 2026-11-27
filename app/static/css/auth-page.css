@@ -226,3 +226,11 @@ html body .auth-card form.otp__resend { margin: .75rem 0 0; }
 @keyframes auth-fade { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
 @keyframes auth-drift { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(-3%, 2.5%, 0) scale(1.08); } }
 @keyframes auth-sway { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
+
+/* forgot password: message under the email field (red = not registered / invalid, green = link sent) */
+html body .auth-card .forgot-msg { margin: -.25rem 0 0; padding: 0 .25rem; font-weight: 600; font-size: .9375rem; line-height: 1.4; }
+html body .auth-card .forgot-msg[hidden] { display: none; }
+html body .auth-card .forgot-msg--error { color: #b3261e; }
+html body .auth-card .forgot-msg--error a { color: #b3261e; text-decoration: underline; font-weight: 700; }
+html body .auth-card .forgot-msg--ok { color: #14532d; padding: .6rem .8rem; border-radius: 10px; background: #e6f4ea; }
+html body .auth-card .btn:disabled { opacity: .7; cursor: not-allowed; }

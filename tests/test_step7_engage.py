@@ -526,7 +526,7 @@ def test_forgot_password_full_flow(app, session):
     assert "Forgot your password?" in c.get("/login").get_data(as_text=True)
     assert "Forgot your password?" not in c.get("/owner/login").get_data(as_text=True)
     r = forgot(c, "reset@x.com")
-    assert "If an account exists" in r.get_data(as_text=True)
+    assert "Reset link sent!" in r.get_data(as_text=True)
     link = link_for(session, user)
     assert link.startswith("/reset/")
     assert c.get(link).status_code == 200
@@ -546,16 +546,62 @@ def test_forgot_password_full_flow(app, session):
     assert session.scalar(select(AuditLog).where(AuditLog.action == "auth.password_reset"))
 
 
-def test_forgot_password_does_not_reveal_accounts_and_skips_staff_and_blocked(app, session):
+def forgot_json(c, email):
+    return c.post("/forgot", json={"email": email}, headers={"X-CSRFToken": token(c, "/forgot"), "Accept": "application/json"})
+
+
+def test_forgot_unknown_email_is_404_and_sends_nothing(app, session):
     make_user(session, "owner", "boss@x.com")
+    c = app.test_client()
+    for e in ("nobody@x.com", "boss@x.com"):                                    # unknown address, and a staff account
+        r = forgot_json(c, e)
+        assert r.status_code == 404
+        assert r.get_json() == {"success": False, "message": "This email is not registered. Please check your email or sign up."}
+    assert session.scalar(select(func.count(Notification.id)).where(Notification.kind == "password_reset")) == 0
+    page = forgot(c, "nobody@x.com")                                            # the no-JavaScript form shows it too
+    assert page.status_code == 404 and "This email is not registered" in page.get_data(as_text=True) and 'href="/register"' in page.get_data(as_text=True)
+
+
+def test_forgot_known_email_is_200_trims_and_lowercases(app, session):
+    user = make_user(session, "user", "reset@x.com")
+    c = app.test_client()
+    r = forgot_json(c, "  Reset@X.com ")
+    assert r.status_code == 200 and r.get_json() == {"success": True, "message": "Reset link sent to your email."}
+    assert link_for(session, user).startswith("/reset/")
+
+
+def test_forgot_validates_format_and_blocked_accounts(app, session):
     blocked = make_user(session, "user", "blocked@x.com")
     blocked.is_blocked = True
     session.commit()
     c = app.test_client()
-    texts = {forgot(c, e).get_data(as_text=True).count("If an account exists") for e in ("nobody@x.com", "boss@x.com", "blocked@x.com")}
-    assert texts == {1}
-    assert session.scalar(select(func.count(Notification.id)).where(Notification.kind == "password_reset")) == 0
     assert forgot(c, "not-an-email").status_code == 422
+    assert forgot_json(c, "").status_code == 422
+    assert forgot_json(c, "blocked@x.com").status_code == 403
+    assert session.scalar(select(func.count(Notification.id)).where(Notification.kind == "password_reset")) == 0
+
+
+def test_forgot_server_errors_return_500(app, session, monkeypatch):
+    make_user(session, "user", "err@x.com")
+    c = app.test_client()
+    from app.auth import recovery
+    monkeypatch.setattr(recovery, "queue_email", lambda *a, **k: False)         # mail switched off
+    r = forgot_json(c, "err@x.com")
+    assert r.status_code == 500 and r.get_json()["success"] is False
+
+    def boom(*a, **k):
+        raise RuntimeError("smtp down")
+    monkeypatch.setattr(recovery, "queue_email", boom)
+    r = forgot_json(c, "err@x.com")
+    assert r.status_code == 500 and r.get_json()["success"] is False and "smtp" not in r.get_data(as_text=True)
+
+
+def test_forgot_json_requests_share_the_per_email_limit(app, session, monkeypatch):
+    monkeypatch.setitem(app.config["RATE_LIMITS"], "password_reset_email", "3 per hour")   # the test config relaxes it
+    make_user(session, "user", "rl2@x.com")
+    c = app.test_client()
+    codes = [forgot_json(c, "rl2@x.com").status_code for _ in range(4)]
+    assert codes == [200, 200, 200, 429]
 
 
 def test_reset_links_expire_and_die_with_a_password_change(app, session, monkeypatch):

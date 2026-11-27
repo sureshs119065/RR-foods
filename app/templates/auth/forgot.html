@@ -6,15 +6,17 @@
 {% block card_sub %}{% if not sent %}<p class="auth-card__sub">Enter your email and we will send you a link.</p>{% endif %}{% endblock %}
 {% block content %}
   {% if sent %}
-    <div class="alert alert--success" role="status">If an account exists for that email, we have sent a link to reset the password. It works for 1 hour.</div>
+    <div class="alert alert--success" role="status">Reset link sent! Check your inbox. The link works for 15 minutes.</div>
     <p><a href="/login">Back to sign in</a></p>
   {% else %}
-    {% if error %}<div class="alert alert--error" role="alert" id="forgot-err">{{ error }}</div>{% endif %}
-    <form method="post" class="form" novalidate>
+    <form method="post" class="form" novalidate data-forgot>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label class="field field--ph"><span>Email</span><span class="field__box">{{ ic('mail') }}<input type="email" name="email" placeholder="Email Address" autocomplete="email" inputmode="email" autocapitalize="none" {% if error %}aria-invalid="true" aria-describedby="forgot-err"{% endif %} required autofocus></span></label>
-      <button class="btn btn--block" type="submit">Send reset link</button>
+      <label class="field field--ph{% if error %} field--error{% endif %}"><span>Email</span><span class="field__box">{{ ic('mail') }}<input type="email" name="email" placeholder="Email Address" autocomplete="email" inputmode="email" autocapitalize="none" aria-describedby="forgot-err" {% if error %}aria-invalid="true"{% endif %} required autofocus></span></label>
+      <p class="forgot-msg forgot-msg--error" id="forgot-err" role="alert" data-forgot-error{% if not error %} hidden{% endif %}><span data-forgot-text>{{ (error or '').rstrip('.') if not_registered else (error or '') }}</span>{% if not_registered %} <a href="/register" data-forgot-signup>Sign up</a>{% else %} <a href="/register" data-forgot-signup hidden>Sign up</a>{% endif %}</p>
+      <p class="forgot-msg forgot-msg--ok" role="status" data-forgot-ok hidden>Reset link sent! Check your inbox.</p>
+      <button class="btn btn--block" type="submit" data-forgot-btn>Send reset link</button>
     </form>
     <p class="muted otp__new"><a class="otp__create" href="/login">Back to sign in</a></p>
+    <script src="{{ asset_url('js/forgot.js') }}" defer></script>
   {% endif %}
 {% endblock %}

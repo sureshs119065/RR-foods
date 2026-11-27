@@ -38,5 +38,7 @@ def limit(name: str):
 
 
 def email_key() -> str:
-    """Limiter key for per-address limits: the (normalised, capped) email in the submitted form."""
-    return "email:" + (request.form.get("email", "") or "").strip().lower()[:255]
+    """Limiter key for per-address limits: the (normalised, capped) email in the submitted form or JSON body."""
+    data = request.get_json(silent=True) if request.is_json else None
+    raw = data.get("email", "") if isinstance(data, dict) else request.form.get("email", "")
+    return "email:" + str(raw or "").strip().lower()[:255]

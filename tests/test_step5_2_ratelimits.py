@@ -94,14 +94,18 @@ def test_429_tells_the_browser_when_to_retry(app, monkeypatch):
     assert r.status_code == 429 and r.headers.get("Retry-After")
 
 
-def test_password_reset_request_per_ip(app, monkeypatch):
+def test_password_reset_request_per_ip(app, session, monkeypatch):
+    for i in range(3):
+        make_user(session, "user", f"a{i}@x.com")   # unknown emails now answer 404, so use registered ones
     limited(monkeypatch, app, password_reset_request="2 per minute")
     c = app.test_client()
     codes = [post(c, "/forgot", {"email": f"a{i}@x.com"}, page="/forgot").status_code for i in range(3)]
     assert codes[:2] == [200, 200] and codes[2] == 429
 
 
-def test_password_reset_request_per_email_blocks_mail_bombing(app, monkeypatch):
+def test_password_reset_request_per_email_blocks_mail_bombing(app, session, monkeypatch):
+    for e in ("victim@x.com", "someone-else@x.com"):
+        make_user(session, "user", e)
     limited(monkeypatch, app, password_reset_email="2 per hour")
     c = app.test_client()
     codes = [post(c, "/forgot", {"email": "victim@x.com"}, page="/forgot").status_code for _ in range(3)]

@@ -3,7 +3,7 @@
 {% block robots %}noindex,nofollow{% endblock %}
 {% block title %}Choose a new password | RR FOODS{% endblock %}
 {% block card_title %}{% if invalid %}This link has expired{% else %}Choose a new password{% endif %}{% endblock %}
-{% block card_sub %}{% if invalid %}<p class="auth-card__sub">Reset links work once and for 1 hour.</p>{% endif %}{% endblock %}
+{% block card_sub %}{% if invalid %}<p class="auth-card__sub">Reset links work once and for 15 minutes.</p>{% endif %}{% endblock %}
 {% block content %}
   {% if invalid %}
     <a class="btn btn--block" href="/forgot">Get a new link</a>
