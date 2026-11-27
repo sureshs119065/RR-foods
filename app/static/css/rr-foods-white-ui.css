@@ -47,10 +47,9 @@ html[data-shop] .promo--berry h3, html[data-shop] .promo--leaf h3, html[data-sho
 .content-placeholder, .pc__ph, .combo-card__placeholder, .diwali-card__art { background: #FFFFFF !important; border: 1px dashed #DCE8DD; }
 .product-quick-filters .chip:first-child { background: #FFFFFF; border-color: #DCE8DD; }
 
-/* brand chrome that stays dark green (solid) */
+/* brand chrome that stays dark green (solid); the admin/owner sidebar is white, see rr-sidebar-white.css */
 html[data-shop] .sf { background: #183D2B !important; color: #FFFFFF !important; }
 html[data-shop] .ann { background: #183D2B !important; color: #FFFFFF !important; }
-.adm__side { background: #183D2B !important; }
 
 /* ---------- 2. buttons ---------- */
 html .btn, html button.btn, html a.btn, html .btn--accent, html[data-shop] .btn--accent, html .sh__go, html .sh__cart, html .diwali-card__add, html .diwali__celebrate {

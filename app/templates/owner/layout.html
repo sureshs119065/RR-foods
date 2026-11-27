@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-polish-final.css', v='6') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-inbox.css', v='1') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/confirm-dialog.css', v='1') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rr-sidebar-white.css', v='1') }}">
   <script src="{{ url_for('static', filename='js/confirm-dialog.js', v='1') }}" defer></script>
   <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/dash-polish.js', v='1') }}" defer></script>
@@ -33,7 +34,10 @@
 {% endmacro %}
 <div class="adm">
   <aside class="adm__side" id="adm-side" aria-label="Owner menu">
-    <a class="adm__brand" href="{{ url_for('owner.dashboard') }}"><img class="adm__brand-logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="54" height="54" alt="RR FOODS logo"><span class="label">RR FOODS <small>OWNER</small></span></a>
+    <div class="adm__sidehead">
+      <a class="adm__brand" href="{{ url_for('owner.dashboard') }}"><img class="adm__brand-logo" src="{{ url_for('static', filename='img/rr-foods-brand-logo.png') }}" width="54" height="54" alt="RR FOODS logo"><span class="label">RR FOODS <small>OWNER</small></span></a>
+      <button type="button" class="adm__collapse-btn" id="nav-collapse" aria-pressed="false" aria-controls="adm-side" aria-label="Collapse sidebar" title="Collapse sidebar">{{ m.icon('chevrons') }}</button>
+    </div>
     <nav>
       <ul class="nav">
         {{ nav_item('owner.dashboard', 'Dashboard', 'home', 'owner.dashboard') }}
@@ -46,7 +50,6 @@
         <li class="nav__sep" role="separator"></li>
         {{ nav_item('owner.password', 'Change password', 'key', 'owner.password') }}
         <li><form method="post" action="{{ url_for('auth.logout') }}">{{ m.csrf() }}<button type="submit">{{ m.icon('out') }}<span class="label">Sign out</span></button></form></li>
-        <li class="adm__collapse"><button type="button" id="nav-collapse" aria-pressed="false">{{ m.icon('chevrons') }}<span class="label">Collapse menu</span></button></li>
       </ul>
     </nav>
   </aside>

@@ -22,12 +22,17 @@
   if (collapse) {
     var saved = false;
     try { saved = localStorage.getItem("adm-collapsed") === "1"; } catch (e) {}
-    shell.classList.toggle("adm--mini", saved);
-    collapse.setAttribute("aria-pressed", String(saved));
+    var setMini = function (mini) {
+      shell.classList.toggle("adm--mini", mini);
+      var name = mini ? "Expand sidebar" : "Collapse sidebar";
+      collapse.setAttribute("aria-pressed", String(mini));
+      collapse.setAttribute("aria-label", name);
+      collapse.setAttribute("title", name);
+    };
+    setMini(saved);
     collapse.addEventListener("click", function () {
       var mini = !shell.classList.contains("adm--mini");
-      shell.classList.toggle("adm--mini", mini);
-      collapse.setAttribute("aria-pressed", String(mini));
+      setMini(mini);
       try { localStorage.setItem("adm-collapsed", mini ? "1" : "0"); } catch (e) {}
     });
   }

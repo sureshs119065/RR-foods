@@ -17,14 +17,12 @@
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: var(--tap); height: var(--tap); min-height: var(--tap); border: 0; border-radius: var(--radius); background: transparent; color: var(--c-ink); cursor: pointer; }
 .icon-btn:hover { background: var(--c-line); }
 .adm__main { padding: var(--sp-4) var(--sp-3) calc(var(--sp-7) + var(--safe-bottom)); min-width: 0; }
-.adm__collapse { display: none; }
 @media (min-width: 1024px) {
   .adm { display: grid; grid-template-columns: 15rem minmax(0, 1fr); transition: grid-template-columns var(--dur) var(--ease); }
   .adm--mini { grid-template-columns: 4.5rem minmax(0, 1fr); }
   .adm__side { position: sticky; top: 0; height: 100dvh; width: auto; transform: none; visibility: visible; }
   .adm__backdrop, #nav-toggle { display: none; }
   .adm__main { padding: var(--sp-5) var(--sp-6) var(--sp-7); }
-  .adm__collapse { display: block; }
   .adm--mini .nav .label, .adm--mini .adm__brand .label { display: none; }
   .adm--mini .nav a, .adm--mini .nav button { justify-content: center; padding: 0; }
 }

@@ -1,0 +1,63 @@
+/* Admin + owner sidebar: white background (loaded last so it wins over the older green rail rules). */
+.adm__side {
+  background: #FFFFFF !important;
+  color: #252A26 !important;
+  border-right: 1px solid #E3EBE4;
+  box-shadow: 1px 0 0 rgb(24 61 43 / .03);
+}
+.adm__side .adm__brand { color: #183D2B !important; }
+.adm__side .adm__brand .label small { color: #5E7466 !important; }
+.adm__side .adm__brand-logo { background: #FFFFFF; }
+
+.adm__side .nav a,
+.adm__side .nav button { color: #2F3B33 !important; }
+.adm__side .nav a:hover,
+.adm__side .nav button:hover { background: #EEF7EF !important; color: #183D2B !important; }
+.adm__side .nav a[aria-current="page"] { background: #E6F4E8 !important; color: #183D2B !important; font-weight: 750; }
+.adm__side .nav a[aria-current="page"]::before { background: #245C3A !important; }
+.adm__side .nav svg { color: #245C3A; }
+.adm__side .nav__sep { background: #E3EBE4 !important; }
+.adm__side .nav__count { background: #C62828; color: #FFFFFF; }
+
+/* header row: logo on the left, collapse toggle on the right (desktop only) */
+.adm__sidehead { display: flex; align-items: center; justify-content: space-between; gap: .25rem; padding-right: .6rem; border-bottom: 1px solid #EDF2EE; margin-bottom: .35rem; }
+.adm__sidehead .adm__brand { flex: 1; min-width: 0; }
+.adm__collapse-btn { display: none; align-items: center; justify-content: center; flex: none; width: 34px; height: 34px; padding: 0; border: 1px solid #DCE8DD; border-radius: 10px; background: #FFFFFF; color: #245C3A; cursor: pointer; transition: background .2s, border-color .2s; }
+.adm__collapse-btn:hover { background: #EEF7EF; border-color: #245C3A; }
+.adm__collapse-btn:focus-visible { outline: 2px solid #245C3A; outline-offset: 2px; }
+.adm__collapse-btn svg { transition: transform .25s ease; }
+.adm--mini .adm__collapse-btn svg { transform: rotate(180deg); }
+
+@media (min-width: 1024px) {
+  .adm__collapse-btn { display: inline-flex; }
+  .adm--mini .adm__sidehead { flex-direction: column; padding: .5rem 0; gap: .35rem; }
+  .adm--mini .adm__sidehead .adm__brand { flex: none; padding: .35rem; min-height: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .adm__collapse-btn svg { transition: none; } }
+
+/* ---- Farmora-style look: soft pills, green edge bar, quiet dividers ---- */
+.adm__side { scrollbar-width: thin; scrollbar-color: #C9D3CC transparent; }
+.adm__side::-webkit-scrollbar { width: 6px; }
+.adm__side::-webkit-scrollbar-thumb { background: #C9D3CC; border-radius: 6px; }
+.adm__side::-webkit-scrollbar-track { background: transparent; }
+
+.adm__side .adm__sidehead { border-bottom: 1px solid #E8EEE9; margin-bottom: .6rem; }
+.adm__side .adm__brand { gap: .75rem; }
+.adm__side .adm__brand .label { font-size: 1.15rem; font-weight: 800; letter-spacing: .01em; }
+.adm__side .adm__brand .label small { font-size: .72rem; letter-spacing: .12em; font-weight: 700; margin-top: .2rem; }
+
+.adm__side .nav { gap: 4px; padding: .25rem .75rem; }
+.adm__side .nav a,
+.adm__side .nav button { border-radius: 12px; font-weight: 600; font-size: .95rem; min-height: 2.9rem; transform: none !important; }
+.adm__side .nav a:hover,
+.adm__side .nav button:hover { transform: none !important; }
+.adm__side .nav a[aria-current="page"] { background: #E8F5EA !important; color: #1D5A38 !important; font-weight: 750; }
+.adm__side .nav a[aria-current="page"] svg { color: #1D5A38; }
+.adm__side .nav a[aria-current="page"]::before {
+  left: -.75rem !important; top: 12% !important; bottom: 12% !important; width: 4px !important;
+  border-radius: 0 4px 4px 0 !important; background: #1D5A38 !important; animation: none !important;
+}
+.adm__side .nav__sep { margin: .5rem .25rem !important; }
+@media (min-width: 1024px) {
+  .adm--mini .adm__side .nav { padding: .25rem .5rem; }
+}
