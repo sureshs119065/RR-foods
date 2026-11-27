@@ -754,3 +754,50 @@ html body .rr-loop .rc, html body .rr-loop__track > .rc { flex: 0 0 200px; width
 }
 /* compact "recently viewed" rows keep their small square thumbs */
 html body .rv__list .rc__img { aspect-ratio: auto; width: 84px; height: 84px; padding: 4px; border-radius: 10px; }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   13. Image fit fix: an img with height:100% inside a box sized only by aspect-ratio does not get a definite height, so the
+   tall jar photo overflowed and its bottom was clipped. Pin every product image to its box with absolute insets instead.
+   --------------------------------------------------------------------------------------------------------------- */
+/* product detail page: main picture (square box, whole jar visible) */
+html body .gal__main {
+  position: relative;
+  display: block;
+  width: min(100%, 520px);
+  aspect-ratio: 1 / 1;
+  margin-inline: auto;
+  background: #fff;
+  border: 1px solid #e3ebe5;
+  border-radius: 20px;
+  overflow: hidden;
+}
+html body .gal__zoom {
+  position: absolute; inset: 0; display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none;
+}
+html body .gal__main img,
+html body .gal__zoom img {
+  position: absolute; inset: 14px;
+  width: calc(100% - 28px); height: calc(100% - 28px);
+  max-width: none; padding: 0; margin: 0;
+  object-fit: contain; object-position: center;
+}
+html body .gal__main .tag { position: absolute; top: 14px; left: 14px; z-index: 2; }
+html body .gal__t { border-radius: 12px; background: #fff; }
+html body .gal__t img { object-fit: contain; padding: 3px; box-sizing: border-box; }
+
+/* cards (listing, frequently bought together, you may also like, carousels) */
+html body :is(.pc__img, .rc__img) { display: block; }
+html body :is(.pc__img, .rc__img) > img,
+html body .rr-loop .rc__img > img {
+  position: absolute; inset: 10px;
+  width: calc(100% - 20px); height: calc(100% - 20px);
+  max-width: none; max-height: none; object-fit: contain;
+}
+html body .pc__ph { position: absolute; inset: 10px; width: auto; height: auto; }
+html body :is(.pc__img, .rc__img) .tag { z-index: 2; }
+html body .rv__list .rc__img > img { inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); }
+@media (max-width: 640px) {
+  html body .gal__main { width: 100%; }
+  html body .gal__main img, html body .gal__zoom img { inset: 10px; width: calc(100% - 20px); height: calc(100% - 20px); }
+  html body :is(.pc__img, .rc__img) > img, html body .rr-loop .rc__img > img { inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); }
+}
