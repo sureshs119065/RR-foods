@@ -957,3 +957,10 @@ html[data-shop] body .pdp-catalogue-grid > .pdp-info-card--wide { grid-column: 1
 @media (max-width: 767px) {
   html[data-shop] body .pdp-catalogue-grid > .pdp-info-card { height: auto; }
 }
+
+/* Change password: email-code option (customer, admin, owner) */
+html body .pw-form .pw-lead { margin: 0 0 4px; line-height: 1.5; color: #20352a; }
+html body .pw-form .pw-note { margin: 0; padding: 10px 12px; border-radius: 10px; background: #eaf5ed; border: 1px solid #cfe0d3; color: #16301f; font-size: 14px; line-height: 1.45; }
+html body .pw-form .pw-alt { margin: 4px 0 0; text-align: center; font-size: 14px; }
+html body .pw-form .pw-alt a { color: #0b7d3e; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+html body .pw-form input[name="code"] { letter-spacing: .4em; text-align: center; font-size: 22px; font-weight: 700; }

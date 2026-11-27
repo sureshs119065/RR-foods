@@ -111,30 +111,98 @@ def change_password():
     return _change_password("account/password.html", "/account")
 
 
+def _mask_email(email: str) -> str:
+    local, _, domain = (email or "").partition("@")
+    return (local[:2] + "*" * min(5, max(2, len(local) - 2)) if len(local) > 2 else local[:1] + "**") + "@" + domain
+
+
+def _finish_password_change(new: str, done_url: str, via: str):
+    g.user.password_hash = hash_password(new)
+    session["tok"] = session_token(g.user)  # keeps this device signed in, signs out all others
+    audit("auth.password_changed", entity_id=g.user.id, actor_id=g.user.id, after={"via": via})
+    db.session.commit()
+    flash("Password changed. Other devices were signed out.", "success")
+    return redirect(done_url)
+
+
 def _change_password(template: str, done_url: str):
+    """Change password for a signed-in customer, admin or owner.
+
+    Two ways to prove it is you: the current password, or (when it is forgotten) a 6 digit code emailed to the account's OWN address.
+    The code is only ever sent to the signed-in account's email, never to an address typed in, and it uses the shared code engine in
+    otp.py with its own purpose ("pwchange"), so it can never be used to sign in or to create an account.
+    """
+    from flask import current_app
+    from .otp import CodeError, check_code, issue_code   # imported here: otp.py imports this module
+
     errors: dict[str, str] = {}
-    if request.method == "POST":
-        current = request.form.get("current", "")
-        new = request.form.get("new", "")
-        confirm = request.form.get("confirm", "")
-        if len(current) > v.MAX["password"] or not verify_password(g.user.password_hash, current):
-            errors["current"] = "Your current password is not correct."
+    ctx = {"errors": errors, "mode": "password", "masked_email": _mask_email(g.user.email), "notice": None}
+    if request.method == "GET":
+        if request.args.get("forgot"):
+            ctx["mode"] = "otp_request"
+        return render_template(template, **ctx)
+
+    action = request.form.get("action", "password")
+    email = normalize_email(g.user.email)
+
+    if action == "send_code":
+        try:
+            info = issue_code(email, purpose="pwchange", note="Use it to change your password.",
+                              unavailable="Email codes are not available right now. Please use your current password.")
+        except CodeError as exc:
+            errors["code"] = exc.message
+            # a 429 for the short resend wait means a code was just sent, so stay on the "enter code" step
+            waiting = exc.status == 429 and exc.extra.get("retry_after", 3600) <= current_app.config["OTP_RESEND_SECONDS"]
+            ctx["mode"] = "otp_verify" if waiting else "otp_request"
+            return render_template(template, **ctx), exc.status
+        audit("auth.password_code_sent", entity_id=g.user.id, actor_id=g.user.id)
+        db.session.commit()
+        ctx["mode"] = "otp_verify"
+        ctx["notice"] = f"We sent a 6 digit code to {ctx['masked_email']}. It is valid for {info['expires_in'] // 60} minutes. Check your spam folder too."
+        return render_template(template, **ctx)
+
+    new = request.form.get("new", "")
+    confirm = request.form.get("confirm", "")
+
+    if action == "change_with_code":
+        ctx["mode"] = "otp_verify"
+        import re
+        code = re.sub(r"\D", "", request.form.get("code", ""))
+        if len(code) != 6:
+            errors["code"] = "Enter the 6 digit code from your email."
         problems = password_problems(new, g.user.email, g.user.name)
         if problems:
             errors["new"] = " ".join(problems)
-        elif new == current:
+        elif len(new) <= v.MAX["password"] and verify_password(g.user.password_hash, new):
             errors["new"] = "Choose a password different from the current one."
         elif new != confirm:
             errors["confirm"] = "The two passwords do not match."
         if not errors:
-            g.user.password_hash = hash_password(new)
-            session["tok"] = session_token(g.user)  # keeps this device signed in, signs out all others
-            audit("auth.password_changed", entity_id=g.user.id, actor_id=g.user.id)
-            db.session.commit()
-            flash("Password changed. Other devices were signed out.", "success")
-            return redirect(done_url)
-        return render_template(template, errors=errors), 422
-    return render_template(template, errors=errors)
+            try:
+                check_code(email, code, "pwchange")
+            except CodeError as exc:
+                errors["code"] = exc.message
+                if exc.extra.get("locked") or exc.extra.get("expired"):
+                    ctx["mode"] = "otp_request"      # needs a fresh code
+        if errors:
+            return render_template(template, **ctx), 422
+        return _finish_password_change(new, done_url, "email_code")
+
+    # default: current password
+    current = request.form.get("current", "")
+    if len(current) > v.MAX["password"] or not verify_password(g.user.password_hash, current):
+        errors["current"] = "Your current password is not correct."
+    problems = password_problems(new, g.user.email, g.user.name)
+    if problems:
+        errors["new"] = " ".join(problems)
+    elif new == current:
+        errors["new"] = "Choose a password different from the current one."
+    elif new != confirm:
+        errors["confirm"] = "The two passwords do not match."
+    if errors:
+        return render_template(template, **ctx), 422
+    return _finish_password_change(new, done_url, "current_password")
+
 
 from . import recovery  # noqa: E402,F401  (forgot/reset routes)
 from . import otp  # noqa: E402,F401  (customer email sign-in code routes)
