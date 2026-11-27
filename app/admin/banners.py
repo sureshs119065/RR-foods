@@ -14,9 +14,17 @@ from .helpers import checked, clean, local_input, log, parse_local_dt, to_int
 COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 MAX_BANNERS_TOTAL = 50
 
-# One-click starting points. None are shipped: the client's offers are the 8% discount and the Rs 999 combo only, so there is
-# no placeholder text (festival / flash sale / today's special / coupon) an admin could publish by accident.
-TEMPLATES: dict = {}
+# One-click starting points. The admin still edits the text, colours and dates.
+TEMPLATES = {
+    "festival": dict(title="Festival Sale", subtitle="Special festival offers on sweets and snacks", badge_text="FESTIVAL", button_text="Shop festival offers",
+                     bg_color="#7a1f3d", link_type="url", link_target="/offers", countdown_enabled=True),
+    "today": dict(title="Today's Special", subtitle="Fresh picks chosen for today", badge_text="TODAY", button_text="See today's special",
+                  bg_color="#1b5e3b", link_type="url"),
+    "flash": dict(title="Flash Sale", subtitle="Ends soon", badge_text="FLASH SALE", button_text="Grab the deal",
+                  bg_color="#b4234f", link_type="url", countdown_enabled=True),
+    "coupon": dict(title="Extra savings with a coupon", subtitle="Use the code at checkout", badge_text="COUPON", button_text="Get the offer",
+                   bg_color="#0f3d27", link_type="coupon"),
+}
 
 
 def _snap(b: HeaderBanner) -> dict:

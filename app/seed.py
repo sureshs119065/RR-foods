@@ -6,7 +6,6 @@ import csv
 import os
 import re
 import secrets
-from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -138,10 +137,11 @@ def seed_all() -> dict:
         raise ValueError("seed_products.csv: " + "; ".join(res.errors))
     out["products"] = {"created": res.created, "updated": res.updated}
 
-    # No sample coupon, "Deal of the Day" / "Buy 1 Get 1" labels or promo banners are seeded: the client's only offers are the
-    # 8% product discount (set per product in seed_products.csv) and the Rs 999 combo (see `flask seed-combo`).
-    if not db.session.scalar(select(Offer).where(Offer.tag == "New Arrival")):
-        db.session.add(Offer(name="New Arrival", tag="New Arrival", description="Label shown on products tagged 'New Arrival'"))
+    # No sample coupon and no "Deal of the Day" / "Buy 1 Get 1" labels: the client catalogue has only the 8 % product
+    # discount and the Rs 999 combo. Add real coupons and offers in the admin panel when the client confirms them.
+    for tag in ("New Arrival",):
+        if not db.session.scalar(select(Offer).where(Offer.tag == tag)):
+            db.session.add(Offer(name=tag, tag=tag, description=f"Label shown on products tagged '{tag}'"))
 
     # Sample serviceable pincodes (Coimbatore). Replace with your real delivery area.
     for pin in ("641001", "641002", "641003", "641004", "641005"):
@@ -165,6 +165,12 @@ def seed_all() -> dict:
 
 
 def seed_header_banners() -> int:
-    """No sample banners are created. The client's offers are the 8% discount and the Rs 999 combo only;
-    add real banners in Admin > Header banners when the client supplies them."""
-    return 0
+    """One real banner, taken from the client catalogue: the Rs 999 combo. Festival, flash-sale and coupon banners are
+    created by the admin when there is a real offer."""
+    title = "₹999 Traditional Grains & Everyday Essentials Combo"
+    if db.session.scalar(select(HeaderBanner.id).where(HeaderBanner.title == title)):
+        return 0
+    db.session.add(HeaderBanner(sort_order=0, text_color="#ffffff", title=title,
+                                subtitle="Seven RR FOODS favourites in one pantry combo", badge_text="COMBO",
+                                bg_color="#1b5e3b", button_text="See the combo", link_type="url", link_target="/offers"))
+    return 1

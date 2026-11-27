@@ -750,18 +750,17 @@ CATALOGUE_COMBO_OFFER = {'title': 'RR FOODS – ₹999 TRADITIONAL GRAINS & EVER
                 'quick meals and everyday cooking to a traditional podi and kanji preparation, this combo brings a '
                 'variety of RR Foods products together for the family pantry.',
  'price': '₹999',
- # One pack of each, exactly the 7 lines of the Excel "Combo Offer" sheet. SKUs are the catalogue SKUs (app/seed_data/seed_products.csv);
- # names are the Excel combo-sheet names (column "Combo Product (Bundle Name)"). Two deliberate exceptions, both flagged for the client:
- # "Soup Mix (selected variant)" is shown as Moringa Leaf Soup Mix (the sheet maps it to that product), and "Biotin" is left out of the
- # kanji mix name because the Excel flags it as an unsubstantiated label claim.
+ # One pack of each. SKUs are the exact catalogue SKUs (see app/seed_data/seed_products.csv); names are the
+ # website product names. Names match the store product names (Excel master sheet); "Biotin" from the Excel label name is a flagged claim and is not shown.
  'items': [{'sku': 'RR-MN-005', 'name': 'Multi Millet Instant Noodles', 'pack': '180 g', 'mrp': 129},
-           {'sku': 'RR-PCB-006', 'name': 'Multi Millet Pasta', 'pack': '180 g', 'mrp': 129},
-           {'sku': 'RR-MV-006', 'name': 'Multi Millet Vermicelli (Semiya)', 'pack': '200 g', 'mrp': 99},
-           {'sku': 'RR-BTM-001', 'name': 'Multi Millet Chapati Maavu (Multi Millet Grain Atta)', 'pack': '500 g', 'mrp': 129},
+           {'sku': 'RR-PCB-006', 'name': 'Millet Pasta Sample', 'pack': '180 g', 'mrp': 129},
+           {'sku': 'RR-MV-006', 'name': 'Multi Millet Vermicelli', 'pack': '200 g', 'mrp': 99},
+           {'sku': 'RR-BTM-001', 'name': 'Multi Millet Chapati Mix', 'pack': '500 g', 'mrp': 129},
            {'sku': 'RR-BTM-005', 'name': 'Moringa Leaf Soup Mix', 'pack': '130 g', 'mrp': 159},
-           {'sku': 'RR-BTM-004', 'name': 'Traditional Tirunelveli Idli Podi', 'pack': '250 g', 'mrp': 150},
+           {'sku': 'RR-BTM-004', 'name': 'Traditional Tirunelveli-style Idli Podi', 'pack': '250 g', 'mrp': 150},
            {'sku': 'RR-TNF-004', 'name': 'Karuppu Kavuni + Karuppu Uluthu Kanji Mix', 'pack': '275 g', 'mrp': 349}]}
-for _number in (5, 11, 13, 15, 17, 18, 20):  # not 19 (Soup Base Mix): it is not in the combo
+# Soup Base Mix (19) is not in the combo: the Excel still asks whether the 130 g soup is Moringa or Soup Base.
+for _number in (5, 11, 13, 15, 17, 18, 20):
     PRODUCT_CATALOGUE[_number - 1]["combo_offer"] = CATALOGUE_COMBO_OFFER
 
 

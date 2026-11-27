@@ -62,10 +62,7 @@ LOCAL_NAME_CHANGES = {
 COMMON_NOTE = ("Serving suggestions and recipe ideas are editorial suggestions, not manufacturer instructions.")
 MILLET_NOTE = "These benefits describe the grain ingredients, not measured nutrient levels in the finished RR FOODS product. "
 OTHER_NOTE = "These notes describe the ingredients, not measured nutrient levels in the finished RR FOODS product. "
-# Product pages that show the combo card: exactly the 7 products in the Excel "Combo Offer" sheet (Soup Mix = Moringa Leaf Soup Mix,
-# product 18). Soup Base Mix (19) is NOT in the combo, so its page does not show it. Product 16 (Inippu Ellu Idli Podi) is not in it either.
-COMBO_PRODUCTS = (5, 11, 13, 15, 17, 18, 20)
-PRODUCT_NAME_OVERRIDES = {}   # product names are exactly the Excel master-sheet names (tests/test_rr_catalogue.py enforces this)
+COMBO_PRODUCTS = (5, 11, 13, 15, 17, 18, 19, 20)       # product pages that show the combo card (unchanged from before)
 
 
 def blank(value):
@@ -118,7 +115,7 @@ def build(xlsx):
             raise SystemExit(f"Product {n}: Excel selling price {r['Selling Price']} is not {DISCOUNT_PERCENT}% below MRP ({price})")
         weight = f"{int(r['Net Weight (g)'])} g"
         item = {
-            "number": n, "sku": sku, "name": PRODUCT_NAME_OVERRIDES.get(n, r["Product Name"].strip()),
+            "number": n, "sku": sku, "name": r["Product Name"].strip(),
             "local_name": blank(r["Alternate / Label Name"]) or None,
             "strapline": blank(r["Tagline"]) or None,
             "description": blank(r["Description"]),

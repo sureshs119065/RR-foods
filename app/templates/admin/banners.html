@@ -6,6 +6,14 @@
   <h2>Header offer banners</h2>
   <a class="btn" href="{{ url_for('admin.banner_new') }}">Add banner</a>
 </div>
+<div class="panel">
+  <h3>Quick start</h3>
+  <div class="row">
+    {% for key, label in [("festival", "Festival offer"), ("today", "Today's special"), ("flash", "Flash sale"), ("coupon", "Coupon offer")] %}
+      <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.banner_new', template=key) }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+</div>
 
 <p class="hint">Drag the rows to change the order (or use the Up and Down buttons). Only banners that are on and inside their dates are shown to customers.</p>
 <p id="sort-status" class="hint" role="status" aria-live="polite"></p>

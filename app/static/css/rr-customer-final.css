@@ -335,7 +335,7 @@ html[data-shop] body .op::before {
   background: linear-gradient(90deg, rgba(9, 52, 30, .95) 0%, rgba(9, 52, 30, .82) 46%, rgba(9, 52, 30, .12) 100%);
 }
 html[data-shop] body .op--combo { background-image: url("../img/bestsellers-bg.jpg"); }
-html[data-shop] body .op--offer { background-image: url("../img/new-arrivals-bg.jpg"); }
+html[data-shop] body .op--offer { background-image: url("../img/offers-bg.jpg"); }
 html[data-shop] body .op__body { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; max-width: 58%; }
 html[data-shop] body .op__tag {
   padding: 4px 10px; border-radius: 4px;

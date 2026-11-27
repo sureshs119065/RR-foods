@@ -1,7 +1,7 @@
 {% extends "shop/layout.html" %}
 {% block title %}RR FOODS | Healthy, home-style food delivered{% endblock %}
 {% block head_extra %}
-  <meta name="description" content="Shop millet noodles, vermicelli, pasta, chapati mix, idli podi, soup mixes and more from RR FOODS. Traditional ingredients, everyday food choices.">
+  <meta name="description" content="Shop healthy mixes, snacks, sweets and breakfast essentials from RR FOODS. Fresh stock and fast delivery.">
   <link rel="canonical" href="{{ url_for('shop.home', _external=True) }}">
   <link rel="stylesheet" href="{{ url_for('shop.banner_colors') }}?v={{ carousel.banners|map(attribute='id')|join('-') }}{{ carousel.banners|map(attribute='bg_color')|join('')|replace('#', '') }}{{ carousel.banners|map(attribute='text_color')|join('')|replace('#', '') }}">
   <script type="application/ld+json">{{ [{"@context": "https://schema.org", "@type": "Organization", "name": "RR FOODS", "url": request.host_url.rstrip('/'), "logo": url_for('static', filename='img/rr-foods-brand-logo.png', _external=True)},
@@ -38,7 +38,7 @@
       <p class="hero__badge">Fresh • Healthy • Trusted</p>
       <h1 id="hero-t" class="hero__t">Healthy, Home-style <span>Millet Foods</span></h1>
       <p class="hero__p">Traditional taste, delivered to your door</p>
-      <p class="rr-hero__reasons">Home-style · Delivered in Tamil Nadu</p>
+      <p class="rr-hero__reasons">No maida · Home-style · Delivered in Tamil Nadu</p>
       <div class="hero__btns"><a class="btn btn--accent btn--lg rr-hero__cta" href="{{ url_for('shop.listing') }}">Shop Now →</a></div>
     </div>
     {% if hero_p %}
@@ -51,7 +51,7 @@
 {% endif %}
 {# One-line reasons to buy, shown under the hero or banner carousel (replaces the old, taller "Shop with confidence" strip). #}
 <ul class="rr-trust container" aria-label="Why shop with RR FOODS">
-  <li>Home-style</li><li>Delivered in Tamil Nadu</li>
+  <li>No maida</li><li>Home-style</li><li>Delivered in Tamil Nadu</li>
 </ul>
 
 {% if reels_enabled and home_reels %}
@@ -99,7 +99,7 @@
 
   {% if cats and cats|length >= 4 %}
   <section class="sec rr-categories-section" id="categories" aria-labelledby="cats-h">
-    <div class="sec__row"><div><h2 id="cats-h" class="sec__h">Shop by Category</h2><p class="sec__sub">Browse our millet noodles, vermicelli and other RR FOODS products.</p></div><a href="{{ url_for('shop.listing') }}">View all →</a></div>
+    <div class="sec__row"><div><h2 id="cats-h" class="sec__h">Shop by Category</h2><p class="sec__sub">Browse our millet mixes, noodles, snacks and sweets.</p></div><a href="{{ url_for('shop.listing') }}">View all →</a></div>
     <div class="rr-category-track-wrap">
     <button class="rowarrow rr-category-arrow rr-category-prev" type="button" data-row-prev="rr-category-track" aria-label="Previous categories">{{ s.icon('left') }}</button>
     <ul class="ctiles rr-category-track" id="rr-category-track" tabindex="0" aria-label="Categories, scroll sideways for more">
