@@ -141,81 +141,6 @@
 
   <div class="det{% if catalogue_content %} det--catalogue{% else %} det--store-content{% endif %}">
     {% if catalogue_content %}
-      <section class="pdp-catalogue-intro" aria-labelledby="pdp-about-heading">
-        {% if catalogue_content.local_name %}<div class="pdp-catalogue-intro__eyebrow">{{ catalogue_content.local_name }}</div>{% endif %}
-        <h2 id="pdp-about-heading">About {{ p.name }}</h2>
-        {% if catalogue_content.strapline %}<p class="pdp-catalogue-intro__strapline">{{ catalogue_content.strapline }}</p>{% endif %}
-        <p>{{ catalogue_content.description }}</p>
-      </section>
-
-      <details class="pdp-more" data-readmore>
-        <summary class="pdp-more__btn"><span class="pdp-more__more">Read more</span><span class="pdp-more__less">Read less</span><span class="pdp-more__chev" aria-hidden="true"></span></summary>
-        <div class="pdp-more__body">
-
-      {% if catalogue_content.nutrition_context %}
-      <section class="pdp-full-card pdp-nutrition-card" aria-labelledby="pdp-nutrition-heading">
-        <div class="pdp-full-card__heading">
-          <span class="pdp-full-card__icon" aria-hidden="true">✳</span>
-          <div><h3 id="pdp-nutrition-heading">Nutritional benefits of the ingredients</h3>
-            <p>Ingredient-level information from the RR FOODS catalogue</p></div>
-        </div>
-        {% if catalogue_content.nutrition_heading %}<p class="pdp-nutrition-subtitle">{{ catalogue_content.nutrition_heading }}</p>{% endif %}
-        <ul class="pdp-detail-list pdp-detail-list--nutrition">
-          {% for item in catalogue_content.nutrition_context %}
-            <li>{{ item }}</li>
-          {% endfor %}
-        </ul>
-        <p class="pdp-content-caveat">{{ catalogue_content.nutrition_disclaimer }}</p>
-      </section>
-      {% endif %}
-
-      {% if catalogue_content.blend_details %}
-      <section class="pdp-full-card pdp-blend-card" aria-labelledby="pdp-blend-heading">
-        <div class="pdp-full-card__heading"><span class="pdp-full-card__icon" aria-hidden="true">✦</span><div>
-          <h3 id="pdp-blend-heading">Why choose this blend?</h3><p>Highlights provided in the product catalogue</p>
-        </div></div>
-        <ul class="pdp-detail-list">{% for item in catalogue_content.blend_details %}<li>{{ item }}</li>{% endfor %}</ul>
-      </section>
-      {% endif %}
-
-      <div class="pdp-catalogue-grid">
-        {% if catalogue_content.ingredients %}
-        <section class="pdp-info-card" aria-labelledby="pdp-ingredients-heading">
-          <span class="pdp-info-card__icon" aria-hidden="true">✳</span>
-          <h3 id="pdp-ingredients-heading">Ingredients</h3>
-          <p>{{ catalogue_content.ingredients }}</p>
-        </section>
-        {% endif %}
-        {% if catalogue_content.perfect_for %}
-        <section class="pdp-info-card" aria-labelledby="pdp-perfect-heading">
-          <span class="pdp-info-card__icon" aria-hidden="true">♡</span>
-          <h3 id="pdp-perfect-heading">Perfect for</h3>
-          <ul>{% for item in catalogue_content.perfect_for %}<li>{{ item }}</li>{% endfor %}</ul>
-        </section>
-        {% endif %}
-        {% if catalogue_content.serving %}
-        <section class="pdp-info-card" aria-labelledby="pdp-serving-heading">
-          <span class="pdp-info-card__icon" aria-hidden="true">♨</span>
-          <h3 id="pdp-serving-heading">Serving suggestions</h3>
-          <p>{{ catalogue_content.serving }}</p>
-        </section>
-        {% endif %}
-        {% if catalogue_content.recipe_ideas %}
-        <section class="pdp-info-card" aria-labelledby="pdp-recipes-heading">
-          <span class="pdp-info-card__icon" aria-hidden="true">▤</span>
-          <h3 id="pdp-recipes-heading">Recipe ideas</h3>
-          <ul class="pdp-recipe-list">{% for item in catalogue_content.recipe_ideas %}<li>{{ item }}</li>{% endfor %}</ul>
-        </section>
-        {% endif %}
-        {% if catalogue_content.preparation %}
-        <section class="pdp-info-card pdp-info-card--wide" aria-labelledby="pdp-prep-heading">
-          <span class="pdp-info-card__icon" aria-hidden="true">✓</span>
-          <h3 id="pdp-prep-heading">Preparation</h3>
-          <ol class="pdp-detail-list pdp-detail-list--steps">{% for item in catalogue_content.preparation %}<li>{{ item|replace('1. ','')|replace('2. ','')|replace('3. ','')|replace('4. ','') }}</li>{% endfor %}</ol>
-        </section>
-        {% endif %}
-      </div>
-
       <section class="pdp-spec-card" aria-labelledby="pdp-details-heading">
         <div class="pdp-spec-card__heading"><span aria-hidden="true">▦</span><div><h3 id="pdp-details-heading">Product and pack details</h3><p>Information transcribed from the supplied RR FOODS catalogue and current product listing.</p></div></div>
         <div class="pdp-spec-table-wrap"><table class="specs"><tbody>
@@ -230,6 +155,72 @@
           {% if catalogue_content.allergen %}<tr><th scope="row">Allergen information</th><td>{{ catalogue_content.allergen }}</td></tr>{% endif %}
         </tbody></table></div>
       </section>
+
+      <section class="pdp-catalogue-intro" aria-labelledby="pdp-about-heading">
+        {% if catalogue_content.local_name %}<div class="pdp-catalogue-intro__eyebrow">{{ catalogue_content.local_name }}</div>{% endif %}
+        <h2 id="pdp-about-heading">About {{ p.name }}</h2>
+        {% if catalogue_content.strapline %}<p class="pdp-catalogue-intro__strapline">{{ catalogue_content.strapline }}</p>{% endif %}
+        <p>{{ catalogue_content.description }}</p>
+      </section>
+
+      <details class="pdp-more" data-readmore>
+        <summary class="pdp-more__btn"><span class="pdp-more__more">Read more</span><span class="pdp-more__less">Read less</span><span class="pdp-more__chev" aria-hidden="true"></span></summary>
+        <div class="pdp-more__body">
+
+      {# Order inside Read more: nutrition, ingredients, perfect for, preparation, recipe ideas, serving suggestions. Every box is the same size. #}
+      <div class="pdp-catalogue-grid">
+        {% if catalogue_content.nutrition_context %}
+        <section class="pdp-info-card pdp-nutrition-card" aria-labelledby="pdp-nutrition-heading">
+          <span class="pdp-info-card__icon" aria-hidden="true">✳</span>
+          <h3 id="pdp-nutrition-heading">Nutritional benefits</h3>
+          {% if catalogue_content.nutrition_heading %}<p class="pdp-nutrition-subtitle">{{ catalogue_content.nutrition_heading }}</p>{% endif %}
+          <ul class="pdp-detail-list pdp-detail-list--nutrition">{% for item in catalogue_content.nutrition_context %}<li>{{ item }}</li>{% endfor %}</ul>
+          {% if catalogue_content.nutrition_disclaimer %}<p class="pdp-content-caveat">{{ catalogue_content.nutrition_disclaimer }}</p>{% endif %}
+        </section>
+        {% endif %}
+        {% if catalogue_content.ingredients %}
+        <section class="pdp-info-card" aria-labelledby="pdp-ingredients-heading">
+          <span class="pdp-info-card__icon" aria-hidden="true">✦</span>
+          <h3 id="pdp-ingredients-heading">Ingredients</h3>
+          <p>{{ catalogue_content.ingredients }}</p>
+        </section>
+        {% endif %}
+        {% if catalogue_content.perfect_for %}
+        <section class="pdp-info-card" aria-labelledby="pdp-perfect-heading">
+          <span class="pdp-info-card__icon" aria-hidden="true">♡</span>
+          <h3 id="pdp-perfect-heading">Perfect for</h3>
+          <ul>{% for item in catalogue_content.perfect_for %}<li>{{ item }}</li>{% endfor %}</ul>
+        </section>
+        {% endif %}
+        {% if catalogue_content.preparation %}
+        <section class="pdp-info-card" aria-labelledby="pdp-prep-heading">
+          <span class="pdp-info-card__icon" aria-hidden="true">✓</span>
+          <h3 id="pdp-prep-heading">Preparation</h3>
+          <ol class="pdp-detail-list pdp-detail-list--steps">{% for item in catalogue_content.preparation %}<li>{{ item|replace('1. ','')|replace('2. ','')|replace('3. ','')|replace('4. ','') }}</li>{% endfor %}</ol>
+        </section>
+        {% endif %}
+        {% if catalogue_content.recipe_ideas %}
+        <section class="pdp-info-card" aria-labelledby="pdp-recipes-heading">
+          <span class="pdp-info-card__icon" aria-hidden="true">▤</span>
+          <h3 id="pdp-recipes-heading">Recipe ideas</h3>
+          <ul class="pdp-recipe-list">{% for item in catalogue_content.recipe_ideas %}<li>{{ item }}</li>{% endfor %}</ul>
+        </section>
+        {% endif %}
+        {% if catalogue_content.serving %}
+        <section class="pdp-info-card" aria-labelledby="pdp-serving-heading">
+          <span class="pdp-info-card__icon" aria-hidden="true">♨</span>
+          <h3 id="pdp-serving-heading">Serving suggestions</h3>
+          <p>{{ catalogue_content.serving }}</p>
+        </section>
+        {% endif %}
+        {% if catalogue_content.blend_details %}
+        <section class="pdp-info-card pdp-blend-card" aria-labelledby="pdp-blend-heading">
+          <span class="pdp-info-card__icon" aria-hidden="true">★</span>
+          <h3 id="pdp-blend-heading">Why choose this blend?</h3>
+          <ul>{% for item in catalogue_content.blend_details %}<li>{{ item }}</li>{% endfor %}</ul>
+        </section>
+        {% endif %}
+      </div>
 
       {% if catalogue_content.combo_offer %}
       <section class="pdp-combo-card" aria-labelledby="pdp-combo-heading">
@@ -254,6 +245,15 @@
         </div>
       </details>
     {% else %}
+      <section class="pdp-spec-card" aria-labelledby="pdp-details-heading">
+        <div class="pdp-spec-card__heading"><span aria-hidden="true">▦</span><div><h3 id="pdp-details-heading">Product details</h3><p>Current product listing information.</p></div></div>
+        <div class="pdp-spec-table-wrap"><table class="specs"><tbody>
+          {% if p.brand %}<tr><th scope="row">Brand</th><td>{{ p.brand }}</td></tr>{% endif %}
+          {% if p.pack_size %}<tr><th scope="row">Pack size</th><td>{{ p.pack_size }}</td></tr>{% endif %}
+          <tr><th scope="row">SKU</th><td>{{ p.sku }}</td></tr>
+          {% if p.specifications %}{% for k, v in p.specifications.items() %}<tr><th scope="row">{{ k }}</th><td>{{ v }}</td></tr>{% endfor %}{% endif %}
+        </tbody></table></div>
+      </section>
       {% if p.description %}
       <section class="pdp-catalogue-intro" aria-labelledby="pdp-about-heading">
         <h2 id="pdp-about-heading">{{ p.name }}</h2>
@@ -282,15 +282,6 @@
         </section>
         {% endif %}
       </div>
-      <section class="pdp-spec-card" aria-labelledby="pdp-details-heading">
-        <div class="pdp-spec-card__heading"><span aria-hidden="true">▦</span><div><h3 id="pdp-details-heading">Product details</h3><p>Current product listing information.</p></div></div>
-        <div class="pdp-spec-table-wrap"><table class="specs"><tbody>
-          {% if p.brand %}<tr><th scope="row">Brand</th><td>{{ p.brand }}</td></tr>{% endif %}
-          {% if p.pack_size %}<tr><th scope="row">Pack size</th><td>{{ p.pack_size }}</td></tr>{% endif %}
-          <tr><th scope="row">SKU</th><td>{{ p.sku }}</td></tr>
-          {% if p.specifications %}{% for k, v in p.specifications.items() %}<tr><th scope="row">{{ k }}</th><td>{{ v }}</td></tr>{% endfor %}{% endif %}
-        </tbody></table></div>
-      </section>
       {% if p.video_id %}
       <section class="pdp-video-card"><h3>How to prepare {{ p.name }}</h3><div class="product-recipe-video__frame"><iframe src="https://www.youtube-nocookie.com/embed/{{ p.video_id|e }}" title="Recipe video for {{ p.name|e }}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div></section>
       {% endif %}

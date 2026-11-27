@@ -912,3 +912,32 @@ html body .price__wt {
   display: inline-flex; align-items: center; padding: 4px 12px; border: 1px solid #cfe0d3; border-radius: 999px;
   background: #f1f8f2; color: #16301f; font-size: 14px; font-weight: 700; line-height: 1.2; white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   16. Product page description: every info box (nutrition, ingredients, perfect for, preparation, recipe ideas, serving
+   suggestions) is the same size, on mobile and desktop. 2 columns on desktop, 1 on mobile; all rows share one height.
+   --------------------------------------------------------------------------------------------------------------- */
+html[data-shop] body .pdp-catalogue-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  align-items: stretch;
+  gap: 16px;
+  margin: 0 0 16px;
+}
+html[data-shop] body .pdp-catalogue-grid > .pdp-info-card {
+  grid-column: auto;
+  align-self: stretch;
+  height: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  border-radius: 16px;
+  align-content: start;
+}
+html[data-shop] body .pdp-catalogue-grid .pdp-info-card--wide { grid-column: auto; }
+html[data-shop] body .pdp-info-card .pdp-nutrition-subtitle { font-weight: 700; color: #16301f; }
+html[data-shop] body .pdp-info-card .pdp-content-caveat { font-size: 12px; color: #5d6f63; }
+@media (max-width: 767px) {
+  html[data-shop] body .pdp-catalogue-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+}
