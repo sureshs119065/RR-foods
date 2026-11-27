@@ -941,3 +941,19 @@ html[data-shop] body .pdp-info-card .pdp-content-caveat { font-size: 12px; color
 @media (max-width: 767px) {
   html[data-shop] body .pdp-catalogue-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
 }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   17. Description boxes, no empty space: same order, but long boxes (Nutrition, Serving, Blend) span the full width and the
+   short boxes sit in pairs of similar length. Rows size to their content; the two boxes in a row always match each other.
+   --------------------------------------------------------------------------------------------------------------- */
+html[data-shop] body .pdp-catalogue-grid { grid-auto-rows: auto; align-items: stretch; gap: 14px; }
+html[data-shop] body .pdp-catalogue-grid > .pdp-info-card { height: auto; align-self: stretch; }
+html[data-shop] body .pdp-catalogue-grid > .pdp-info-card--wide { grid-column: 1 / -1; }
+/* full-width nutrition list flows in two columns so the box stays short */
+@media (min-width: 768px) {
+  html[data-shop] body .pdp-nutrition-card .pdp-detail-list--nutrition { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; }
+  html[data-shop] body .pdp-blend-card ul { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; }
+}
+@media (max-width: 767px) {
+  html[data-shop] body .pdp-catalogue-grid > .pdp-info-card { height: auto; }
+}

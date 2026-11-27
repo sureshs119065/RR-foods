@@ -170,7 +170,7 @@
       {# Order inside Read more: nutrition, ingredients, perfect for, preparation, recipe ideas, serving suggestions. Every box is the same size. #}
       <div class="pdp-catalogue-grid">
         {% if catalogue_content.nutrition_context %}
-        <section class="pdp-info-card pdp-nutrition-card" aria-labelledby="pdp-nutrition-heading">
+        <section class="pdp-info-card pdp-info-card--wide pdp-nutrition-card" aria-labelledby="pdp-nutrition-heading">
           <span class="pdp-info-card__icon" aria-hidden="true">✳</span>
           <h3 id="pdp-nutrition-heading">Nutritional benefits</h3>
           {% if catalogue_content.nutrition_heading %}<p class="pdp-nutrition-subtitle">{{ catalogue_content.nutrition_heading }}</p>{% endif %}
@@ -207,14 +207,14 @@
         </section>
         {% endif %}
         {% if catalogue_content.serving %}
-        <section class="pdp-info-card" aria-labelledby="pdp-serving-heading">
+        <section class="pdp-info-card pdp-info-card--wide" aria-labelledby="pdp-serving-heading">
           <span class="pdp-info-card__icon" aria-hidden="true">♨</span>
           <h3 id="pdp-serving-heading">Serving suggestions</h3>
           <p>{{ catalogue_content.serving }}</p>
         </section>
         {% endif %}
         {% if catalogue_content.blend_details %}
-        <section class="pdp-info-card pdp-blend-card" aria-labelledby="pdp-blend-heading">
+        <section class="pdp-info-card pdp-info-card--wide pdp-blend-card" aria-labelledby="pdp-blend-heading">
           <span class="pdp-info-card__icon" aria-hidden="true">★</span>
           <h3 id="pdp-blend-heading">Why choose this blend?</h3>
           <ul>{% for item in catalogue_content.blend_details %}<li>{{ item }}</li>{% endfor %}</ul>
