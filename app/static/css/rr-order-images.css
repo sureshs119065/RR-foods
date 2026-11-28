@@ -3,29 +3,34 @@
 /* Customer tracker: the thumbnails next to "N items" */
 html[data-shop] body .ot__info .ot__thumbs { gap: 8px; }
 html[data-shop] body .ot__info .ot__thumb,
-html[data-shop] body .ot__info .ot__more { width: 68px; height: 68px; border-radius: 12px; }
-html[data-shop] body .ot__info .ot__thumb { object-fit: contain; padding: 4px; background: #fff; border: 1px solid #dfe6e1; }
-html[data-shop] body .ot__info .ot__thumb--ph { font-size: 1.4rem; }
+html[data-shop] body .ot__info .ot__more { width: 112px; height: 112px; border-radius: 16px; }
+html[data-shop] body .ot__info .ot__thumb { object-fit: contain; padding: 6px; background: #fff; border: 1px solid #dfe6e1; }
+html[data-shop] body .ot__info .ot__thumb--ph { font-size: 2.2rem; }
 html[data-shop] body .ot__info .ot__more { font-size: .95rem; }
 html[data-shop] body .ot__info .ot__cell--items { gap: .85rem; }
-html[data-shop] body .ot__info .ot__cell--items b { font-size: 1rem; }
+html[data-shop] body .ot__info .ot__cell--items b { font-size: 1.1rem; }
+html[data-shop] body .ot__info { padding: .9rem 1rem; }
 
 /* Owner order lists (compact strip) */
 html body.owner-panel .ot__strip--compact .ot__thumb,
-html body.owner-panel .ot__strip--compact .ot__more { width: 52px; height: 52px; border-radius: 10px; }
-html body.owner-panel .ot__strip--compact .ot__thumb { object-fit: contain; padding: 3px; }
+html body.owner-panel .ot__strip--compact .ot__more { width: 96px; height: 96px; border-radius: 14px; }
+html body.owner-panel .ot__strip--compact .ot__thumb { object-fit: contain; padding: 5px; background: #fff; }
+html body.owner-panel .ot__strip--compact .ot__thumb--ph { font-size: 2rem; }
+html body.owner-panel .ot__strip--compact .ot__thumbs { gap: 8px; }
+html body.owner-panel .ot__strip--compact .ot__cell--items b { font-size: 1rem; }
+html body.owner-panel .ot__strip--compact { gap: .6rem 2rem; padding: .7rem 1rem; }
 
 /* Product list used inside live tracking (owner) */
 html body .ot__plist { list-style: none; margin: 14px 0 6px; padding: 0; display: flex; flex-wrap: wrap; gap: 12px; }
-html body .ot__pitem { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 8px 14px 8px 8px; background: #f7faf8; border: 1px solid #e3e9e5; border-radius: 14px; }
+html body .ot__pitem { display: flex; align-items: center; gap: 18px; min-width: 0; padding: 12px 24px 12px 12px; background: #f7faf8; border: 1px solid #e3e9e5; border-radius: 16px; }
 html body .ot__ptext { display: grid; gap: 2px; min-width: 0; }
-html body .ot__ptext b { color: #183D2B; font-size: .95rem; line-height: 1.25; overflow-wrap: anywhere; }
-html body .ot__ptext small { color: #66746a; font-size: .8rem; }
+html body .ot__ptext b { color: #183D2B; font-size: 1.1rem; line-height: 1.25; overflow-wrap: anywhere; }
+html body .ot__ptext small { color: #66746a; font-size: .9rem; }
 
 /* One product image */
-html body .ot__pimg { flex: none; width: 84px; height: 84px; border-radius: 12px; object-fit: contain; padding: 4px; background: #fff; border: 1px solid #dfe6e1; box-sizing: border-box; }
-html body .ot__pimg--sm { width: 64px; height: 64px; }
-html body .ot__pimg.ot__thumb--ph { display: inline-grid; place-items: center; font-size: 1.6rem; font-weight: 800; color: #245c3a; background: #e8f1ea; text-transform: uppercase; }
+html body .ot__pimg { flex: none; width: 140px; height: 140px; border-radius: 14px; object-fit: contain; padding: 8px; background: #fff; border: 1px solid #dfe6e1; box-sizing: border-box; }
+html body .ot__pimg--sm { width: 88px; height: 88px; padding: 6px; }
+html body .ot__pimg.ot__thumb--ph { display: inline-grid; place-items: center; font-size: 2.4rem; font-weight: 800; color: #245c3a; background: #e8f1ea; text-transform: uppercase; }
 
 /* Owner "Items" list: image + name on the left, qty and total on the right */
 html body .lines .lines__row { align-items: center; }
@@ -38,6 +43,10 @@ html[data-shop] body .mini--img .mini__txt { flex: 1; min-width: 0; }
 
 @media (max-width: 600px) {
   html body .ot__pitem { width: 100%; }
+  html body .ot__pimg { width: 104px; height: 104px; }
+  html body .ot__pimg--sm { width: 76px; height: 76px; }
   html[data-shop] body .ot__info .ot__thumb,
-  html[data-shop] body .ot__info .ot__more { width: 60px; height: 60px; }
+  html[data-shop] body .ot__info .ot__more { width: 88px; height: 88px; }
+  html body.owner-panel .ot__strip--compact .ot__thumb,
+  html body.owner-panel .ot__strip--compact .ot__more { width: 80px; height: 80px; }
 }
