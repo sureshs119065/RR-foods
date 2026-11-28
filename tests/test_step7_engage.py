@@ -510,26 +510,51 @@ def test_cod_refund_marks_payment_refunded(app, cust, session, catalog):
     assert done.status == "refunded" and done.payment_status == "refunded" and done.payments[0].status == "refunded"
 
 
-# ================================================================ forgot password
+# ================================================================ forgot password (email -> 6 digit code -> change password)
 def forgot(c, email):
     return post(c, "/forgot", {"email": email}, page="/forgot")
 
 
-def link_for(session, user):
-    n = session.scalar(select(Notification).where(Notification.user_id == user.id, Notification.kind == "password_reset").order_by(Notification.id.desc()))
-    return n.link if n else None
+def forgot_json(c, email):
+    return c.post("/forgot", json={"email": email}, headers={"X-CSRFToken": token(c, "/forgot"), "Accept": "application/json"})
 
 
-def test_forgot_password_full_flow(app, session):
-    user = make_user(session, "user", "reset@x.com")
+def verify_json(c, email, code):
+    return c.post("/forgot/verify", json={"email": email, "code": code}, headers={"X-CSRFToken": token(c, "/forgot"), "Accept": "application/json"})
+
+
+def capture_codes(monkeypatch):
+    """Replace the mail sender used by the code engine; returns the list of (to, subject, text) it was asked to send."""
+    sent = []
+    import app.auth.otp as otp
+    monkeypatch.setattr(otp, "send_now", lambda to, subject, text, html=None: sent.append((to, subject, text)))
+    return sent
+
+
+def code_of(sent):
+    return re.search(r"code is (\d{6})", sent[-1][2]).group(1)
+
+
+def test_forgot_password_full_flow(app, session, monkeypatch):
+    sent = capture_codes(monkeypatch)
+    make_user(session, "user", "reset@x.com")
     c = app.test_client()
     assert "Forgot your password?" in c.get("/login").get_data(as_text=True)
     assert "Forgot your password?" not in c.get("/owner/login").get_data(as_text=True)
-    r = forgot(c, "reset@x.com")
-    assert "Reset link sent!" in r.get_data(as_text=True)
-    link = link_for(session, user)
-    assert link.startswith("/reset/")
-    assert c.get(link).status_code == 200
+    r = forgot(c, "reset@x.com")                                               # step 1: the no-JavaScript form shows the code step
+    page = r.get_data(as_text=True)
+    assert r.status_code == 200 and "Verify your email" in page and "reset@x.com" in page
+    assert sent[0][0] == "reset@x.com" and "reset your password" in sent[0][2]
+    code = code_of(sent)
+    wrong = "000000" if code != "000000" else "111111"
+    bad = verify_json(c, "reset@x.com", wrong)                                 # step 2: a wrong code is refused
+    assert bad.status_code == 400 and bad.get_json()["success"] is False
+    ok = verify_json(c, "reset@x.com", code)
+    assert ok.status_code == 200 and ok.get_json()["redirect"].startswith("/reset/")
+    link = ok.get_json()["redirect"]
+    assert c.get(link).status_code == 200                                      # step 3: the change-password page
+    assert "Change your password" in c.get(link).get_data(as_text=True)
+    assert verify_json(c, "reset@x.com", code).status_code == 400              # the code works only once
     weak = post(c, link, {"new": "short", "confirm": "short"}, page=link)
     assert weak.status_code == 422
     mismatch = post(c, link, {"new": "Brand-new-Pass1", "confirm": "Different-Pass1"}, page=link)
@@ -543,34 +568,68 @@ def test_forgot_password_full_flow(app, session):
     old = app.test_client()
     bad = old.post("/login", data={"email": "reset@x.com", "password": PW, "csrf_token": token(old, "/login")})
     assert bad.status_code != 302
+    assert session.scalar(select(AuditLog).where(AuditLog.action == "auth.reset_code_verified"))
     assert session.scalar(select(AuditLog).where(AuditLog.action == "auth.password_reset"))
 
 
-def forgot_json(c, email):
-    return c.post("/forgot", json={"email": email}, headers={"X-CSRFToken": token(c, "/forgot"), "Accept": "application/json"})
+def test_forgot_verify_form_post_redirects_to_the_change_password_page(app, session, monkeypatch):
+    sent = capture_codes(monkeypatch)
+    make_user(session, "user", "form@x.com")
+    c = app.test_client()
+    forgot(c, "form@x.com")
+    r = post(c, "/forgot/verify", {"email": "form@x.com", "code": code_of(sent)}, page="/forgot")
+    assert r.status_code == 302 and r.headers["Location"].startswith("/reset/")
 
 
-def test_forgot_unknown_email_is_404_and_sends_nothing(app, session):
+def test_forgot_code_cannot_be_used_for_sign_in_or_for_another_address(app, session, monkeypatch):
+    sent = capture_codes(monkeypatch)
+    make_user(session, "user", "one@x.com")
+    make_user(session, "user", "two@x.com")
+    c = app.test_client()
+    forgot_json(c, "one@x.com")
+    code = code_of(sent)
+    r = c.post("/login/otp/verify", json={"email": "one@x.com", "code": code}, headers={"X-CSRFToken": token(c, "/login")})
+    assert r.status_code == 400                                                 # a reset code does not sign anyone in
+    assert verify_json(c, "two@x.com", code).status_code == 400                # nor works for another address
+
+
+def test_forgot_code_locks_after_too_many_wrong_guesses(app, session, monkeypatch):
+    sent = capture_codes(monkeypatch)
+    make_user(session, "user", "lock@x.com")
+    c = app.test_client()
+    forgot_json(c, "lock@x.com")
+    code = code_of(sent)
+    wrong = "000000" if code != "000000" else "111111"
+    for _ in range(5):
+        verify_json(c, "lock@x.com", wrong)
+    assert verify_json(c, "lock@x.com", code).status_code == 400                # even the right code is dead now
+
+
+def test_forgot_unknown_email_is_404_and_sends_nothing(app, session, monkeypatch):
+    sent = capture_codes(monkeypatch)
     make_user(session, "owner", "boss@x.com")
     c = app.test_client()
     for e in ("nobody@x.com", "boss@x.com"):                                    # unknown address, and a staff account
         r = forgot_json(c, e)
         assert r.status_code == 404
         assert r.get_json() == {"success": False, "message": "This email is not registered. Please check your email or sign up."}
-    assert session.scalar(select(func.count(Notification.id)).where(Notification.kind == "password_reset")) == 0
+    assert sent == []
     page = forgot(c, "nobody@x.com")                                            # the no-JavaScript form shows it too
     assert page.status_code == 404 and "This email is not registered" in page.get_data(as_text=True) and 'href="/register"' in page.get_data(as_text=True)
 
 
-def test_forgot_known_email_is_200_trims_and_lowercases(app, session):
-    user = make_user(session, "user", "reset@x.com")
+def test_forgot_known_email_is_200_trims_and_lowercases(app, session, monkeypatch):
+    sent = capture_codes(monkeypatch)
+    make_user(session, "user", "reset@x.com")
     c = app.test_client()
     r = forgot_json(c, "  Reset@X.com ")
-    assert r.status_code == 200 and r.get_json() == {"success": True, "message": "Reset link sent to your email."}
-    assert link_for(session, user).startswith("/reset/")
+    body = r.get_json()
+    assert r.status_code == 200 and body["success"] is True and body["expires_in"] == 300 and body["cooldown"] > 0
+    assert sent[0][0] == "reset@x.com"
 
 
-def test_forgot_validates_format_and_blocked_accounts(app, session):
+def test_forgot_validates_format_and_blocked_accounts(app, session, monkeypatch):
+    sent = capture_codes(monkeypatch)
     blocked = make_user(session, "user", "blocked@x.com")
     blocked.is_blocked = True
     session.commit()
@@ -578,37 +637,49 @@ def test_forgot_validates_format_and_blocked_accounts(app, session):
     assert forgot(c, "not-an-email").status_code == 422
     assert forgot_json(c, "").status_code == 422
     assert forgot_json(c, "blocked@x.com").status_code == 403
-    assert session.scalar(select(func.count(Notification.id)).where(Notification.kind == "password_reset")) == 0
+    assert verify_json(c, "blocked@x.com", "123456").status_code == 400
+    assert verify_json(c, "x@x.com", "12").status_code == 422
+    assert sent == []
 
 
-def test_forgot_server_errors_return_500(app, session, monkeypatch):
+def test_forgot_server_errors_return_an_error_and_no_stack_trace(app, session, monkeypatch):
     make_user(session, "user", "err@x.com")
     c = app.test_client()
-    from app.auth import recovery
-    monkeypatch.setattr(recovery, "queue_email", lambda *a, **k: False)         # mail switched off
+    import app.auth.otp as otp
+    from app.services.mailer import MailUnavailable
+
+    def off(*a, **k):
+        raise MailUnavailable("email is not configured")
+    monkeypatch.setattr(otp, "send_now", off)                                   # mail switched off
     r = forgot_json(c, "err@x.com")
-    assert r.status_code == 500 and r.get_json()["success"] is False
+    assert r.status_code == 503 and r.get_json()["success"] is False
 
     def boom(*a, **k):
         raise RuntimeError("smtp down")
-    monkeypatch.setattr(recovery, "queue_email", boom)
+    monkeypatch.setattr(otp, "send_now", boom)
     r = forgot_json(c, "err@x.com")
-    assert r.status_code == 500 and r.get_json()["success"] is False and "smtp" not in r.get_data(as_text=True)
+    assert r.status_code == 503 and r.get_json()["success"] is False and "smtp" not in r.get_data(as_text=True)
 
 
-def test_forgot_json_requests_share_the_per_email_limit(app, session, monkeypatch):
-    monkeypatch.setitem(app.config["RATE_LIMITS"], "password_reset_email", "3 per hour")   # the test config relaxes it
+def test_forgot_resend_wait_and_per_email_limit(app, session, monkeypatch):
+    capture_codes(monkeypatch)
     make_user(session, "user", "rl2@x.com")
     c = app.test_client()
+    assert forgot_json(c, "rl2@x.com").status_code == 200
+    again = forgot_json(c, "rl2@x.com")                                         # too soon: the code engine's resend wait
+    assert again.status_code == 429 and again.get_json()["retry_after"] > 0
+    monkeypatch.setitem(app.config, "OTP_RESEND_SECONDS", 0)
+    monkeypatch.setitem(app.config["RATE_LIMITS"], "password_reset_email", "3 per hour")   # the test config relaxes it
     codes = [forgot_json(c, "rl2@x.com").status_code for _ in range(4)]
-    assert codes == [200, 200, 200, 429]
+    assert codes == [200, 200, 200, 429]                                        # the per-address limit also applies to JSON requests
 
 
 def test_reset_links_expire_and_die_with_a_password_change(app, session, monkeypatch):
+    sent = capture_codes(monkeypatch)
     user = make_user(session, "user", "ex@x.com")
     c = app.test_client()
     forgot(c, "ex@x.com")
-    link = link_for(session, user)
+    link = verify_json(c, "ex@x.com", code_of(sent)).get_json()["redirect"]
     from app.auth import recovery
     monkeypatch.setattr(recovery, "MAX_AGE", -1)
     assert c.get(link).status_code == 400                                       # expired
@@ -622,10 +693,12 @@ def test_reset_links_expire_and_die_with_a_password_change(app, session, monkeyp
     assert c.get(link[:-3] + "xyz").status_code == 400
 
 
-def test_forgot_password_is_rate_limited(app, session):
-    make_user(session, "user", "rl@x.com")
+def test_forgot_password_is_rate_limited(app, session, monkeypatch):
+    capture_codes(monkeypatch)
+    for i in range(7):
+        make_user(session, "user", f"rl{i}@x.com")
     c = app.test_client()
-    codes = [forgot(c, "rl@x.com").status_code for _ in range(7)]
+    codes = [forgot(c, f"rl{i}@x.com").status_code for i in range(7)]
     assert codes[:5] == [200] * 5 and 429 in codes[5:]
 
 

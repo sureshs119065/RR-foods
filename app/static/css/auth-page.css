@@ -234,3 +234,10 @@ html body .auth-card .forgot-msg--error { color: #b3261e; }
 html body .auth-card .forgot-msg--error a { color: #b3261e; text-decoration: underline; font-weight: 700; }
 html body .auth-card .forgot-msg--ok { color: #14532d; padding: .6rem .8rem; border-radius: 10px; background: #e6f4ea; }
 html body .auth-card .btn:disabled { opacity: .7; cursor: not-allowed; }
+
+/* ================= login page product photo: green panel, no white boxes =================
+   The pack photos have white backgrounds. They multiply into whatever is behind them, so they sit on their own green panel
+   (isolated, so the blend happens against that panel and not against the page): the white turns into the panel's green. */
+html body .auth-photo { isolation: isolate; box-sizing: border-box; padding: .9rem 1.1rem 0; border: 2px solid #7fbf63; border-radius: 1.25rem; overflow: hidden;
+  background: linear-gradient(180deg, #e6f4d6 0%, #cfeab9 100%); box-shadow: 0 8px 18px -10px rgb(20 83 45 / .45); }
+html body .auth-photo img { mix-blend-mode: multiply; }

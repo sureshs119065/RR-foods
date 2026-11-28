@@ -107,6 +107,7 @@ def test_password_reset_request_per_email_blocks_mail_bombing(app, session, monk
     for e in ("victim@x.com", "someone-else@x.com"):
         make_user(session, "user", e)
     limited(monkeypatch, app, password_reset_email="2 per hour")
+    monkeypatch.setitem(app.config, "OTP_RESEND_SECONDS", 0)       # so only the per-address limit can answer 429 here
     c = app.test_client()
     codes = [post(c, "/forgot", {"email": "victim@x.com"}, page="/forgot").status_code for _ in range(3)]
     assert codes == [200, 200, 429]

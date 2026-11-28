@@ -2,11 +2,11 @@
 {% from 'auth/_parts.html' import ic %}
 {% block robots %}noindex,nofollow{% endblock %}
 {% block title %}Choose a new password | RR FOODS{% endblock %}
-{% block card_title %}{% if invalid %}This link has expired{% else %}Choose a new password{% endif %}{% endblock %}
-{% block card_sub %}{% if invalid %}<p class="auth-card__sub">Reset links work once and for 15 minutes.</p>{% endif %}{% endblock %}
+{% block card_title %}{% if invalid %}This session has expired{% else %}Change your password{% endif %}{% endblock %}
+{% block card_sub %}<p class="auth-card__sub">{% if invalid %}Verify your email again to change your password. You have 15 minutes after verifying.{% else %}Your email is verified. Choose a new password for your account.{% endif %}</p>{% endblock %}
 {% block content %}
   {% if invalid %}
-    <a class="btn btn--block" href="/forgot">Get a new link</a>
+    <a class="btn btn--block" href="/forgot">Verify email again</a>
   {% else %}
     <form method="post" class="form" novalidate>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -15,7 +15,8 @@
         <span class="field__box">{{ ic('lock') }}<input type="password" name="{{ name }}" autocomplete="new-password" {% if errors.get(name) %}aria-invalid="true" aria-describedby="{{ name }}-err"{% endif %} required></span>
         {% if errors.get(name) %}<small class="error" id="{{ name }}-err">{{ errors[name] }}</small>{% endif %}</label>
       {% endfor %}
-      <button class="btn btn--block" type="submit">Save password</button>
+      <p class="muted">Use at least 8 characters, with a letter and a number.</p>
+      <button class="btn btn--block" type="submit">Change password</button>
     </form>
   {% endif %}
 {% endblock %}

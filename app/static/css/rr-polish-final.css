@@ -964,3 +964,17 @@ html body .pw-form .pw-note { margin: 0; padding: 10px 12px; border-radius: 10px
 html body .pw-form .pw-alt { margin: 4px 0 0; text-align: center; font-size: 14px; }
 html body .pw-form .pw-alt a { color: #0b7d3e; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 html body .pw-form input[name="code"] { letter-spacing: .4em; text-align: center; font-size: 22px; font-weight: 700; }
+
+/* ---- Home "Our Story": millets, grains and nuts picture, nutrition quote on the light-green side ---- */
+html body .home-bottom__story {
+  background-image: linear-gradient(90deg, rgba(236, 247, 226, .96) 0%, rgba(236, 247, 226, .82) 42%, rgba(236, 247, 226, 0) 72%), url("/static/img/our-story-bg.webp");
+  background-position: center right; background-size: cover; background-repeat: no-repeat;
+}
+html body .home-bottom__story-copy { max-width: 440px; }
+html body .home-bottom__story h2 { color: #14532d !important; }
+html body .home-bottom__story .home-bottom__quote { margin: 0 0 16px; padding: 0 0 0 14px; border-left: 4px solid #4f9a4a; }
+html body .home-bottom__story .home-bottom__quote p { margin: 0; color: #1f3a27; font-size: clamp(15px, 1.5vw, 17px); font-style: italic; font-weight: 600; line-height: 1.5; }
+html body .home-bottom__story a { background: #14532d; color: #fff; }
+@media (max-width: 640px) {
+  html body .home-bottom__story { background-image: linear-gradient(180deg, rgba(236, 247, 226, .95) 0%, rgba(236, 247, 226, .85) 60%, rgba(236, 247, 226, .35) 100%), url("/static/img/our-story-bg.webp"); }
+}

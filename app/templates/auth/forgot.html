@@ -2,21 +2,41 @@
 {% from 'auth/_parts.html' import ic %}
 {% block robots %}noindex,nofollow{% endblock %}
 {% block title %}Forgot password | RR FOODS{% endblock %}
+{% block card_class %}otp{% endblock %}
+{% block card_attrs %}data-forgot data-step-now="{{ step }}" data-send-url="{{ url_for('auth.forgot') }}" data-verify-url="{{ url_for('auth.forgot_verify') }}" data-expires="{{ info.get('expires_in', 300) }}" data-cooldown="{{ info.get('cooldown', 45) }}"{% endblock %}
 {% block card_title %}Forgot your password?{% endblock %}
-{% block card_sub %}{% if not sent %}<p class="auth-card__sub">Enter your email and we will send you a link.</p>{% endif %}{% endblock %}
+{% block card_sub %}<p class="auth-card__sub" data-forgot-sub>{% if step == 'code' %}Enter the code we emailed you, then choose a new password.{% else %}Enter your email and we will send you a 6 digit code.{% endif %}</p>{% endblock %}
 {% block content %}
-  {% if sent %}
-    <div class="alert alert--success" role="status">Reset link sent! Check your inbox. The link works for 15 minutes.</div>
-    <p><a href="/login">Back to sign in</a></p>
-  {% else %}
-    <form method="post" class="form" novalidate data-forgot>
+  <div class="sr-only" id="forgot-live" role="status" aria-live="polite"></div>
+
+  {# STEP 1: email #}
+  <div data-step="email"{% if step != 'email' %} hidden{% endif %}>
+    <form method="post" action="{{ url_for('auth.forgot') }}" class="form" novalidate data-email-form>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label class="field field--ph{% if error %} field--error{% endif %}"><span>Email</span><span class="field__box">{{ ic('mail') }}<input type="email" name="email" placeholder="Email Address" autocomplete="email" inputmode="email" autocapitalize="none" aria-describedby="forgot-err" {% if error %}aria-invalid="true"{% endif %} required autofocus></span></label>
-      <p class="forgot-msg forgot-msg--error" id="forgot-err" role="alert" data-forgot-error{% if not error %} hidden{% endif %}><span data-forgot-text>{{ (error or '').rstrip('.') if not_registered else (error or '') }}</span>{% if not_registered %} <a href="/register" data-forgot-signup>Sign up</a>{% else %} <a href="/register" data-forgot-signup hidden>Sign up</a>{% endif %}</p>
-      <p class="forgot-msg forgot-msg--ok" role="status" data-forgot-ok hidden>Reset link sent! Check your inbox.</p>
-      <button class="btn btn--block" type="submit" data-forgot-btn>Send reset link</button>
+      <label class="field field--ph{% if error and step == 'email' %} field--error{% endif %}"><span>Email</span><span class="field__box">{{ ic('mail') }}<input type="email" name="email" value="{{ email }}" placeholder="Email Address" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="255" aria-describedby="forgot-err" {% if error and step == 'email' %}aria-invalid="true"{% endif %} required autofocus></span></label>
+      <p class="forgot-msg forgot-msg--error" id="forgot-err" role="alert" data-forgot-error{% if not (error and step == 'email') %} hidden{% endif %}><span data-forgot-text>{{ (error or '').rstrip('.') if not_registered else (error or '') }}</span> <a href="/register" data-forgot-signup{% if not not_registered %} hidden{% endif %}>Sign up</a></p>
+      <button class="btn btn--block" type="submit" data-send-btn>Send OTP</button>
     </form>
     <p class="muted otp__new"><a class="otp__create" href="/login">Back to sign in</a></p>
-    <script src="{{ asset_url('js/forgot.js') }}" defer></script>
-  {% endif %}
+  </div>
+
+  {# STEP 2: the 6 digit code #}
+  <div data-step="code"{% if step != 'code' %} hidden{% endif %}>
+    <h2 class="otp__h">Verify your email</h2>
+    <p class="muted">We sent a 6 digit code to <b data-email-label>{{ email }}</b>. <button type="button" class="otp__link" data-change-email>Change email</button></p>
+    <form method="post" action="{{ url_for('auth.forgot_verify') }}" class="form" novalidate data-code-form>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="email" value="{{ email }}" data-code-email>
+      <div class="otp__boxes" role="group" aria-label="6 digit verification code" data-boxes hidden>
+        {% for i in range(6) %}<input class="otp__box" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="{{ 'one-time-code' if i == 0 else 'off' }}" aria-label="Digit {{ i + 1 }} of 6" data-box>{% endfor %}
+      </div>
+      {# Works without JavaScript: one plain box. forgot.js swaps it for the six boxes above. #}
+      <label class="field" data-plain-code><span>6 digit code</span><span class="field__box">{{ ic('lock') }}<input type="text" name="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="------" required></span></label>
+      <p class="otp__timer muted" data-timer aria-live="off"></p>
+      <p class="otp__err" data-error role="alert"{% if not (error and step == 'code') %} hidden{% endif %}>{{ error if step == 'code' else '' }}</p>
+      <button class="btn btn--block" type="submit" data-verify-btn>Verify OTP</button>
+    </form>
+    <p class="muted otp__resend">Did not get it? <button type="button" class="otp__link" data-resend disabled>Resend OTP</button> <span data-resend-wait></span></p>
+  </div>
+  <script src="{{ asset_url('js/forgot.js') }}" defer></script>
 {% endblock %}
