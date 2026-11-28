@@ -58,7 +58,7 @@
   <span class="ot__cell"><small>Expected delivery</small><b>{% if order.delivery_date %}{{ order.delivery_date.strftime('%d %b') }}{% if order.delivery_slot %} · {{ order.delivery_slot }}{% endif %}{% elif order.delivery_slot %}{{ order.delivery_slot }}{% else %}To be scheduled{% endif %}</b></span>
   {%- endif %}
   <span class="ot__cell"><small>Payment</small>{{ pay_chip(order) }}</span>
-  {{ items_cell(order, prods) }}
+  {{ product_strip(order, prods) }}
 </div>
 {%- endmacro %}
 

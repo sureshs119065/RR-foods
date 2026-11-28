@@ -50,3 +50,11 @@ html[data-shop] body .mini--img .mini__txt { flex: 1; min-width: 0; }
   html body.owner-panel .ot__strip--compact .ot__thumb,
   html body.owner-panel .ot__strip--compact .ot__more { width: 80px; height: 80px; }
 }
+
+/* Customer tracker: product card matches the owner live-tracking card, image slightly bigger (150px vs 140px) */
+html[data-shop] body .ot__info .ot__plist { grid-column: 1 / -1; margin: 4px 0 0; }
+html[data-shop] body .ot__info .ot__pitem { background: #fff; }
+html[data-shop] body .ot__info .ot__pimg { width: 150px; height: 150px; }
+@media (max-width: 600px) {
+  html[data-shop] body .ot__info .ot__pimg { width: 112px; height: 112px; }
+}
