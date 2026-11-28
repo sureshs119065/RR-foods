@@ -14,7 +14,7 @@ from ..security import hash_password, needs_rehash, verify_password
 
 # Each portal has its own login page and accepts only its own role.
 PORTALS = {
-    "user": {"role": "user", "login": "/login", "home": "/account", "label": "Customer"},
+    "user": {"role": "user", "login": "/login", "home": "/", "label": "Customer"},
     "owner": {"role": "owner", "login": "/owner/login", "home": "/owner/", "label": "Owner"},
     "admin": {"role": "admin", "login": "/admin/login", "home": "/admin/", "label": "Admin"},
 }
