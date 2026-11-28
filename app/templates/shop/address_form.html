@@ -1,20 +1,57 @@
 {% extends "shop/layout.html" %}
 {% block title %}{{ 'Edit' if a else 'Add' }} address | RR FOODS{% endblock %}
 {% block robots %}noindex,nofollow{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ asset_url('css/rr-address-form.css') }}">
+{% endblock %}
+{% macro fld(name, label, ac, mode, ml, full=False, optional=False, ph='') %}
+<label class="field{% if full %} addr-full{% endif %}{% if errors.get(name) %} field--error{% endif %}">
+  <span>{{ label }}{% if optional %} <i>(optional)</i>{% endif %}</span>
+  <input name="{{ name }}" value="{{ form.get(name) or '' }}" autocomplete="{{ ac }}" maxlength="{{ ml }}" placeholder="{{ ph }}"
+         {% if mode in ('tel','numeric') %}inputmode="{{ mode }}"{% endif %}{% if name == 'phone' %} type="tel"{% endif %}{% if name == 'label' %} list="addr-labels"{% endif %}
+         {% if errors.get(name) %} aria-invalid="true" aria-describedby="addr-{{ name }}-err"{% endif %}>
+  {% if errors.get(name) %}<small class="error" id="addr-{{ name }}-err">{{ errors[name] }}</small>{% endif %}
+</label>
+{% endmacro %}
 {% block content %}
-<div class="container narrow2">
-  <h1 class="pg-h">{{ 'Edit address' if a else 'Add address' }}</h1>
-  <form method="post" class="form" novalidate>
+<div class="addr-page">
+  <a class="addr-back" href="{{ url_for('shop.addresses') }}">&larr; Back to my addresses</a>
+  <header class="addr-head">
+    <h1>{{ 'Edit address' if a else 'Add new address' }}</h1>
+    <p>We use this address to deliver your RR FOODS orders.</p>
+  </header>
+
+  <form method="post" class="addr-form" novalidate>
     {{ s.csrf() }}<input type="hidden" name="next" value="{{ next }}">
-    {% for name, label, ac, mode, ml in [("label","Save as (Home, Work…)","off","text",40),("full_name","Full name","name","text",120),("phone","Mobile number","tel","tel",15),("line1","House no., street","address-line1","text",200),("line2","Area, landmark (optional)","address-line2","text",200),("city","City","address-level2","text",80),("state","State","address-level1","text",80),("pincode","Pincode","postal-code","numeric",6)] %}
-    <label class="field {% if errors.get(name) %}field--error{% endif %}">
-      <span>{{ label }}</span>
-      <input name="{{ name }}" value="{{ form.get(name) or '' }}" autocomplete="{{ ac }}" maxlength="{{ ml }}" {% if mode in ('tel','numeric') %}inputmode="{{ mode }}"{% endif %} {% if name == 'phone' %}type="tel"{% endif %} {% if errors.get(name) %}aria-invalid="true" aria-describedby="addr-{{ name }}-err"{% endif %}>
-      {% if errors.get(name) %}<small class="error" id="addr-{{ name }}-err">{{ errors[name] }}</small>{% endif %}
-    </label>
-    {% endfor %}
-    {% if not a or not a.is_default %}<label class="opt"><input type="checkbox" name="make_default" value="1"> Make this my default address</label>{% endif %}
-    <button class="btn btn--block" type="submit">Save address</button>
+
+    <section class="addr-card">
+      <h2><span class="addr-step">1</span> Contact details</h2>
+      <div class="addr-grid">
+        {{ fld('label', 'Save address as', 'off', 'text', 40, full=True, ph='Home, Work, Parents…') }}
+        {{ fld('full_name', 'Full name', 'name', 'text', 120, ph='Name of the receiver') }}
+        {{ fld('phone', 'Mobile number', 'tel', 'tel', 15, ph='10-digit mobile number') }}
+      </div>
+      <datalist id="addr-labels"><option value="Home"><option value="Work"><option value="Other"></datalist>
+    </section>
+
+    <section class="addr-card">
+      <h2><span class="addr-step">2</span> Delivery address</h2>
+      <div class="addr-grid">
+        {{ fld('line1', 'House no., street', 'address-line1', 'text', 200, full=True, ph='Flat / house no., building, street') }}
+        {{ fld('line2', 'Area, landmark', 'address-line2', 'text', 200, full=True, optional=True, ph='Area, nearby landmark') }}
+        {{ fld('city', 'City', 'address-level2', 'text', 80) }}
+        {{ fld('state', 'State', 'address-level1', 'text', 80) }}
+        {{ fld('pincode', 'Pincode', 'postal-code', 'numeric', 6, ph='6-digit pincode') }}
+      </div>
+      {% if not a or not a.is_default %}
+      <label class="addr-default"><input type="checkbox" name="make_default" value="1"> Make this my default address</label>
+      {% endif %}
+    </section>
+
+    <div class="addr-actions">
+      <a class="addr-cancel" href="{{ url_for('shop.addresses') }}">Cancel</a>
+      <button class="btn" type="submit">Save address</button>
+    </div>
   </form>
 </div>
 {% endblock %}

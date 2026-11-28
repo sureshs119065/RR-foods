@@ -1,6 +1,9 @@
 {% extends "shop/layout.html" %}
 {% block title %}Your cart | RR FOODS{% endblock %}
 {% block robots %}noindex,nofollow{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ asset_url('css/rr-cart-fix.css') }}">
+{% endblock %}
 {% macro line(l, saved=False) %}
 <li class="cl {% if l.error %}cl--bad{% endif %}">
   <a class="cl__img" href="{{ url_for('shop.product', slug=l.product.slug) }}" tabindex="-1" aria-hidden="true">{% if l.image %}<img src="{{ l.image.thumb_url or l.image.url }}" alt="" loading="lazy" decoding="async" width="96" height="96">{% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}</a>
@@ -86,27 +89,38 @@
     </aside>
     {% endif %}
 
-    {% if suggestions %}
-      <section class="sec cart-suggestions" aria-labelledby="cart-suggest-title">
-        <h2 id="cart-suggest-title" class="sec__h">You may also like</h2>
-        <div class="cart-suggestions__grid">
-          {% for product in suggestions %}
-            <article class="cart-suggestion">
-              <a href="{{ url_for('shop.product', slug=product.slug) }}" class="cart-suggestion__name">{{ product.name }}</a>
-              <span class="cart-suggestion__price">{{ s.inr(product.final_price) }}</span>
-              {% set options = product.variants|selectattr('is_active')|rejectattr('is_deleted')|list %}
-              {% if not options %}
-                <form method="post" action="{{ url_for('shop.cart_add') }}" data-quick-add>
-                  {{ s.csrf() }}<input type="hidden" name="product_id" value="{{ product.id }}"><input type="hidden" name="qty" value="1">
-                  <button class="btn btn--cart btn--sm" type="submit">Add to cart</button>
-                </form>
-              {% else %}<a class="btn btn--ghost btn--sm" href="{{ url_for('shop.product', slug=product.slug) }}">Choose option</a>{% endif %}
-            </article>
-          {% endfor %}
-        </div>
-      </section>
-    {% endif %}
   </div>
+  {% if suggestions %}
+  <section class="cart-suggestions" aria-labelledby="cart-suggest-title">
+    <h2 id="cart-suggest-title" class="sec__h">You may also like</h2>
+    <div class="cart-suggestions__grid">
+      {% for product in suggestions %}
+      {% set im = product.primary_image %}{% set fallback_img = product_image_fallback(product) %}
+      {% set pct = s.off_pct(product.mrp, product.final_price)|int %}
+      <article class="cart-suggestion">
+        <a class="cart-suggestion__media" href="{{ url_for('shop.product', slug=product.slug) }}" tabindex="-1" aria-hidden="true">
+          {% if im %}<img src="{{ im.thumb_url or im.url }}" alt="" loading="lazy" decoding="async" width="400" height="400" data-product-image data-product-full="{{ im.url or '' }}" data-product-fallback="{{ fallback_img or '' }}">
+          {% elif fallback_img %}<img src="{{ fallback_img }}" alt="" loading="lazy" decoding="async" width="400" height="400">
+          {% else %}<span class="pc__ph" aria-hidden="true"></span>{% endif %}
+          {% if pct %}<span class="cart-suggestion__off">{{ pct }}% off</span>{% endif %}
+        </a>
+        <div class="cart-suggestion__body">
+          <a href="{{ url_for('shop.product', slug=product.slug) }}" class="cart-suggestion__name">{{ product.name }}</a>
+          {% if product.pack_size %}<span class="cart-suggestion__pack">{{ product.pack_size }}</span>{% endif %}
+          <span class="cart-suggestion__price"><b>{{ s.inr(product.final_price) }}</b>{% if pct %} <s>{{ s.inr(product.mrp) }}</s>{% endif %}</span>
+        </div>
+        {% set options = product.variants|selectattr('is_active')|rejectattr('is_deleted')|list %}
+        {% if not options %}
+        <form method="post" action="{{ url_for('shop.cart_add') }}" data-quick-add>
+          {{ s.csrf() }}<input type="hidden" name="product_id" value="{{ product.id }}"><input type="hidden" name="qty" value="1">
+          <button class="btn btn--cart btn--sm" type="submit">Add to cart</button>
+        </form>
+        {% else %}<a class="btn btn--ghost btn--sm" href="{{ url_for('shop.product', slug=product.slug) }}">Choose option</a>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
   {% endif %}
 </div>
 {{ s.skeleton_templates() }}
