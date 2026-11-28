@@ -78,7 +78,8 @@ def order_detail(order_id):
         .where(OrderStatusHistory.order_id == order.id).order_by(OrderStatusHistory.created_at, OrderStatusHistory.id)).all()
     cancel_note = next((h.note for h, _ in reversed(history) if h.to_status == "cancelled" and h.note), None)
     was_placed = any(h.to_status == "placed" for h, _ in history)
-    return render_template("owner/order_detail.html", order=order, history=history, svc=svc, cancel_note=cancel_note, was_placed=was_placed)
+    return render_template("owner/order_detail.html", order=order, history=history, svc=svc, cancel_note=cancel_note, was_placed=was_placed,
+                           prods=order_view.item_products([order]))
 
 
 @bp.get("/orders/<int:order_id>/invoice.pdf")

@@ -32,7 +32,8 @@ STEP_OF = {}
 def orders():
     q = select(Order).where(Order.user_id == g.user.id).options(selectinload(Order.items)).order_by(Order.created_at.desc(), Order.id.desc())
     page = db.paginate(q, page=page_number(), per_page=10, error_out=False)
-    return render_template("shop/orders.html", page=page, labels=order_svc.LABELS, rate_orders=_orders_to_rate(page.items))
+    return render_template("shop/orders.html", page=page, labels=order_svc.LABELS, rate_orders=_orders_to_rate(page.items),
+                           item_products=order_view.item_products(page.items))
 
 
 def _orders_to_rate(orders) -> set[int]:

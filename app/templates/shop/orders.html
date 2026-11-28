@@ -1,19 +1,57 @@
 {% extends "shop/layout.html" %}
+{% import "shared/_order_timeline.html" as ot %}
 {% block title %}My orders | RR FOODS{% endblock %}
 {% block robots %}noindex,nofollow{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ asset_url('css/rr-orders-list.css') }}">
+{% endblock %}
 {% block content %}
-<div class="container">
-  <h1 class="pg-h">My orders</h1>
+<div class="container narrow2 ol-page">
+  <header class="ol-head">
+    <h1 class="pg-h">My orders</h1>
+    <p class="muted">Track, reorder or review your RR FOODS purchases.</p>
+  </header>
+
   {% for o in page.items %}
-  <article class="ocard">
-    <div class="ocard__top">
-      <div><a href="{{ url_for('shop.order_detail', order_number=o.order_number) }}"><b>{{ o.order_number }}</b></a><br><span class="muted small">{{ o.created_at|local_display }}</span></div>
-      <span class="ostatus ostatus--{{ o.status }}">{{ labels.get(o.status, o.status) }}</span>
+  {% set total_qty = o.items|sum(attribute='quantity') %}
+  <article class="ol-card">
+    <div class="ol-card__top">
+      <div class="ol-card__id">
+        <a href="{{ url_for('shop.order_detail', order_number=o.order_number) }}">Order {{ o.order_number }}</a>
+        <span class="ol-card__date">Placed {{ o.created_at|local_display }} · {{ total_qty }} item{{ '' if total_qty == 1 else 's' }}</span>
+      </div>
+      <span class="ol-chip ol-chip--{{ o.status }}">{{ labels.get(o.status, o.status) }}</span>
     </div>
-    <p class="ocard__items">{% for it in o.items[:3] %}{{ it.name }} × {{ it.quantity }}{% if not loop.last %}, {% endif %}{% endfor %}{% if o.items|length > 3 %} and {{ o.items|length - 3 }} more{% endif %}</p>
-    <div class="ocard__bot"><b>{{ s.inr(o.total) }}</b>{% if o.payment_status == 'pending' and o.status in ('placed', 'confirmed') %}<span class="ostatus ostatus--placed">Not paid</span>{% elif o.payment_status == 'paid' %}<span class="ostatus ostatus--delivered">Paid</span>{% endif %}<span class="ocard__actions"><a class="btn btn--ghost" href="{{ url_for('shop.order_detail', order_number=o.order_number) }}">Track order</a>
-      {% if o.id in rate_orders %}<a class="btn btn--ghost" href="{{ url_for('shop.order_detail', order_number=o.order_number) }}#rate">Rate this order</a>{% endif %}
-      <form method="post" action="{{ url_for('shop.order_reorder', order_number=o.order_number) }}" class="inline-form">{{ s.csrf() }}<button class="btn" type="submit" aria-label="Reorder {{ o.order_number }}">Reorder</button></form></span></div>
+
+    <ul class="ol-items">
+      {% for it in o.items[:3] %}
+      <li class="ol-item">
+        <a class="ol-item__media" href="{{ url_for('shop.order_detail', order_number=o.order_number) }}" tabindex="-1" aria-hidden="true">{{ ot.item_img(it, item_products, 'ol__img') }}</a>
+        <div class="ol-item__txt">
+          <b>{{ it.name }}</b>
+          <span>{% if it.pack_size %}{{ it.pack_size }} · {% endif %}Qty {{ it.quantity }} · {{ s.inr(it.unit_price) }} each</span>
+        </div>
+        <b class="ol-item__total">{{ s.inr(it.line_total) }}</b>
+      </li>
+      {% endfor %}
+      {% if o.items|length > 3 %}
+      <li class="ol-more"><a href="{{ url_for('shop.order_detail', order_number=o.order_number) }}">+ {{ o.items|length - 3 }} more item{{ '' if o.items|length - 3 == 1 else 's' }}</a></li>
+      {% endif %}
+    </ul>
+
+    <div class="ol-card__bot">
+      <div class="ol-total">
+        <span>Order total</span>
+        <b>{{ s.inr(o.total) }}</b>
+        {% if o.payment_status == 'pending' and o.status in ('placed', 'confirmed') %}<span class="ol-chip ol-chip--warn">Not paid</span>
+        {% elif o.payment_status == 'paid' %}<span class="ol-chip ol-chip--delivered">Paid</span>{% endif %}
+      </div>
+      <div class="ol-actions">
+        <a class="btn btn--ghost" href="{{ url_for('shop.order_detail', order_number=o.order_number) }}">Track order</a>
+        {% if o.id in rate_orders %}<a class="btn btn--ghost" href="{{ url_for('shop.order_detail', order_number=o.order_number) }}#rate">Rate this order</a>{% endif %}
+        <form method="post" action="{{ url_for('shop.order_reorder', order_number=o.order_number) }}">{{ s.csrf() }}<button class="btn" type="submit" aria-label="Reorder {{ o.order_number }}">Reorder</button></form>
+      </div>
+    </div>
   </article>
   {% else %}
   {{ s.empty_state('No orders yet', 'When you place an order it will show up here.', 'Start shopping', url_for('shop.listing'), 'package') }}

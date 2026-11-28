@@ -2,6 +2,9 @@
 {% import "shared/_order_timeline.html" as ot %}
 {% block title %}Order {{ order.order_number }} | RR FOODS{% endblock %}
 {% block robots %}noindex,nofollow{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ asset_url('css/rr-order-images.css') }}">
+{% endblock %}
 {% block content %}
 {% set addr = order.shipping_address or {} %}
 <div class="container narrow2">
@@ -49,7 +52,7 @@
   {% endif %}
 
   <section class="panel2"><h2 class="h3">Items</h2>
-    <ul class="mini">{% for it in order.items %}<li><span>{{ it.name }} × {{ it.quantity }}<br><span class="muted small">{{ s.inr(it.unit_price) }} each</span></span><b>{{ s.inr(it.line_total) }}</b></li>{% endfor %}</ul>
+    <ul class="mini mini--img">{% for it in order.items %}<li>{{ ot.item_img(it, item_products, 'ot__pimg ot__pimg--sm') }}<span class="mini__txt">{{ it.name }} × {{ it.quantity }}<br><span class="muted small">{{ s.inr(it.unit_price) }} each</span></span><b>{{ s.inr(it.line_total) }}</b></li>{% endfor %}</ul>
     <dl class="totals">
       <div><dt>Items</dt><dd>{{ s.inr(order.subtotal) }}</dd></div>
       {% if order.discount_total %}<div class="good"><dt>Coupon {{ order.coupon_code or '' }}</dt><dd>− {{ s.inr(order.discount_total) }}</dd></div>{% endif %}

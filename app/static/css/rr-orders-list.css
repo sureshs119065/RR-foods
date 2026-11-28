@@ -1,0 +1,54 @@
+/* RR FOODS - My orders list: card per order, product images, clear status and actions. */
+html[data-shop] body .ol-page { max-width: 880px; margin: 0 auto; padding-bottom: 40px; }
+html[data-shop] body .ol-head { margin: 8px 0 20px; }
+html[data-shop] body .ol-head h1 { margin: 0 0 4px; }
+html[data-shop] body .ol-head p { margin: 0; font-size: .95rem; }
+
+html[data-shop] body .ol-card { margin: 0 0 18px; background: #fff; border: 1px solid #e3e9e4; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 2px rgb(24 61 43 / .04), 0 6px 18px rgb(24 61 43 / .05); }
+html[data-shop] body .ol-card__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 20px; background: #f6faf7; border-bottom: 1px solid #e3e9e4; }
+html[data-shop] body .ol-card__id { display: grid; gap: 2px; min-width: 0; }
+html[data-shop] body .ol-card__id a { color: #183D2B; font-size: 1rem; font-weight: 750; text-decoration: none; overflow-wrap: anywhere; }
+html[data-shop] body .ol-card__id a:hover { text-decoration: underline; }
+html[data-shop] body .ol-card__date { color: #66746a; font-size: .82rem; }
+
+/* status chips */
+html[data-shop] body .ol-chip { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px; background: #eef2ef; color: #3b4a40; font-size: .8rem; font-weight: 700; white-space: nowrap; }
+html[data-shop] body :is(.ol-chip--confirmed, .ol-chip--packed, .ol-chip--shipped, .ol-chip--out_for_delivery) { background: #e4f2e8; color: #1B5E3B; }
+html[data-shop] body .ol-chip--delivered { background: #d6efdd; color: #14532d; }
+html[data-shop] body :is(.ol-chip--placed, .ol-chip--pending_whatsapp, .ol-chip--warn) { background: #fff4d6; color: #8a5a00; }
+html[data-shop] body :is(.ol-chip--cancelled, .ol-chip--rejected) { background: #fde8e8; color: #B3262D; }
+html[data-shop] body :is(.ol-chip--returned, .ol-chip--return_requested, .ol-chip--refunded) { background: #e8eefb; color: #2b4a8a; }
+
+/* product rows */
+html[data-shop] body .ol-items { list-style: none; margin: 0; padding: 6px 20px; }
+html[data-shop] body .ol-item { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid #eef3ef; }
+html[data-shop] body .ol-item:last-of-type { border-bottom: 0; }
+html[data-shop] body .ol-item__media { flex: none; display: block; line-height: 0; }
+html[data-shop] body .ol__img { display: block; width: 84px; height: 84px; box-sizing: border-box; padding: 6px; border: 1px solid #dfe6e1; border-radius: 14px; background: #fff; object-fit: contain; }
+html[data-shop] body .ol__img.ot__thumb--ph { display: grid; place-items: center; background: #e8f1ea; color: #245c3a; font-size: 1.8rem; font-weight: 800; text-transform: uppercase; }
+html[data-shop] body .ol-item__txt { flex: 1; display: grid; gap: 3px; min-width: 0; }
+html[data-shop] body .ol-item__txt b { color: #183D2B; font-size: 1rem; line-height: 1.3; overflow-wrap: anywhere; }
+html[data-shop] body .ol-item__txt span { color: #66746a; font-size: .85rem; }
+html[data-shop] body .ol-item__total { flex: none; color: #1c2b21; font-size: 1rem; }
+html[data-shop] body .ol-more { padding: 6px 0 10px; }
+html[data-shop] body .ol-more a { color: #1B5E3B; font-size: .9rem; font-weight: 650; }
+
+/* footer */
+html[data-shop] body .ol-card__bot { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 14px 20px; border-top: 1px solid #e3e9e4; }
+html[data-shop] body .ol-total { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+html[data-shop] body .ol-total > span:first-child { color: #66746a; font-size: .85rem; }
+html[data-shop] body .ol-total b { color: #183D2B; font-size: 1.2rem; }
+html[data-shop] body .ol-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+html[data-shop] body .ol-actions form { display: contents; }
+html[data-shop] body .ol-actions .btn { min-height: 44px; padding: 0 22px; border-radius: 12px; font-weight: 700; }
+
+@media (max-width: 600px) {
+  html[data-shop] body .ol-card__top, html[data-shop] body .ol-items, html[data-shop] body .ol-card__bot { padding-left: 14px; padding-right: 14px; }
+  html[data-shop] body .ol__img { width: 68px; height: 68px; border-radius: 12px; }
+  html[data-shop] body .ol-item { gap: 12px; align-items: flex-start; }
+  html[data-shop] body .ol-item__txt b { font-size: .95rem; }
+  html[data-shop] body .ol-item__total { font-size: .92rem; }
+  html[data-shop] body .ol-card__bot { flex-direction: column; align-items: stretch; }
+  html[data-shop] body .ol-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  html[data-shop] body .ol-actions .btn { width: 100%; justify-content: center; text-align: center; }
+}

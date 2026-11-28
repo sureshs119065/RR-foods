@@ -1,6 +1,7 @@
 {% extends "owner/layout.html" %}
 {% import "owner/_macros.html" as o %}
 {% import "admin/_macros.html" as m %}
+{% import "shared/_order_timeline.html" as ot %}
 {% block title %}Order {{ order.order_number }}{% endblock %}
 {% block heading %}Order {{ order.order_number }}{% endblock %}
 {% block content %}
@@ -50,6 +51,7 @@
     <div><h2 id="route-progress-title">Live order tracking</h2><p class="hint">Select the next stage as the order moves through your shop. The customer is notified automatically after each update.</p></div>
     {{ o.status_badge(order.status) }}
   </div>
+  {{ ot.product_strip(order, prods) }}
   {% if current_index >= 0 %}
   <ol class="order-route" aria-label="Order progress">
     {% for stage, label, note in stages %}
@@ -115,8 +117,8 @@
     <h2 id="items-h">Items</h2>
     <ul class="lines">
       {% for it in order.items %}
-        <li>
-          <span><b>{{ it.name }}</b><span class="hint">{{ it.sku or '' }}{% if it.pack_size %} · {{ it.pack_size }}{% endif %}</span></span>
+        <li class="lines__row">
+          <span class="lines__prod">{{ ot.item_img(it, prods, 'ot__pimg ot__pimg--sm') }}<span class="lines__name"><b>{{ it.name }}</b><span class="hint">{{ it.sku or '' }}{% if it.pack_size %} · {{ it.pack_size }}{% endif %}</span></span></span>
           <span class="lines__qty">{{ it.quantity }} × {{ o.inr(it.unit_price) }}</span>
           <span class="lines__total">{{ o.inr(it.line_total) }}</span>
         </li>

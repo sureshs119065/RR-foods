@@ -61,3 +61,23 @@
   {{ items_cell(order, prods) }}
 </div>
 {%- endmacro %}
+
+{# One product image (or an initial when there is none). Size comes from CSS (.ot__pimg). #}
+{% macro item_img(it, prods, cls='ot__pimg') -%}
+{%- set p = prods.get(it.product_id) if prods and it.product_id else none -%}
+{%- set src = product_image_src(p.primary_image, p, thumbnail=True) if p else none -%}
+{%- if src %}<img class="{{ cls }}" src="{{ src }}" alt="{{ it.name }}" loading="lazy" decoding="async" width="96" height="96">
+{%- else %}<span class="{{ cls }} ot__thumb--ph" aria-hidden="true">{{ (it.name or '?')[:1] }}</span>{% endif -%}
+{%- endmacro %}
+
+{# Large, readable product list for the live-tracking cards: image, name, pack and quantity. #}
+{% macro product_strip(order, prods) -%}
+<ul class="ot__plist" aria-label="Products in this order">
+  {%- for it in order.items %}
+  <li class="ot__pitem">
+    {{ item_img(it, prods) }}
+    <span class="ot__ptext"><b>{{ it.name }}</b><small>{% if it.pack_size %}{{ it.pack_size }} · {% endif %}Qty {{ it.quantity }}</small></span>
+  </li>
+  {%- endfor %}
+</ul>
+{%- endmacro %}
