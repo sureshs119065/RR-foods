@@ -63,3 +63,7 @@ html[data-shop] body .ot__info .ot__pimg { width: 150px; height: 150px; }
 html body .order-pay { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 6px 0 14px; padding: 12px 16px; background: #f7faf8; border: 1px solid #e3e9e5; border-radius: 14px; }
 html body .order-pay__state { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: #183D2B; }
 html body .order-pay .hint { flex: 1 1 220px; margin: 0; }
+
+/* Owner orders list: Mark as paid button under the order number */
+html body.owner-panel .owner-order-pay { margin: 8px 0 0; }
+html body.owner-panel .owner-order-pay .btn { min-height: 34px; }

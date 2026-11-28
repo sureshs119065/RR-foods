@@ -32,7 +32,14 @@
   {% set nxt = svc.next_step(ord.status) %}
   <article class="owner-order-card">
     <div class="owner-order-card__head">
-      <div><a class="owner-order-number" href="{{ url_for('owner.order_detail', order_id=ord.id) }}">{{ ord.order_number }}</a><p class="hint">{{ ord.created_at|local_display }}{% if ord.status == 'placed' %} · waiting {{ ord.created_at|ago }}{% endif %}</p></div>
+      <div><a class="owner-order-number" href="{{ url_for('owner.order_detail', order_id=ord.id) }}">{{ ord.order_number }}</a><p class="hint">{{ ord.created_at|local_display }}{% if ord.status == 'placed' %} · waiting {{ ord.created_at|ago }}{% endif %}</p>
+        {%- if ord.status not in ('rejected', 'cancelled', 'refunded', 'pending_whatsapp') and ord.payment_status in ('pending', 'paid') %}
+        <form class="owner-order-pay" method="post" action="{{ url_for('owner.order_payment', order_id=ord.id) }}" data-once>
+          {{ m.csrf() }}<input type="hidden" name="next" value="{{ next_url }}"><input type="hidden" name="paid" value="{{ '0' if ord.payment_status == 'paid' else '1' }}">
+          <button class="btn btn--sm {{ 'btn--ghost' if ord.payment_status == 'paid' else '' }}" type="submit" {% if ord.payment_status == 'paid' %}data-confirm="Mark order {{ ord.order_number }} as NOT paid?"{% endif %}>{{ 'Mark as not paid' if ord.payment_status == 'paid' else 'Mark as paid' }}</button>
+        </form>
+        {%- endif %}
+      </div>
       <div class="owner-order-card__badges">{{ o.status_badge(ord.status) }}{{ o.pay_badge(ord) }}</div>
     </div>
     <div class="owner-order-meta">
