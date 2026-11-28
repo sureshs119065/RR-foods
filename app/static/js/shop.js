@@ -497,7 +497,7 @@
   // ---- tracking page: when the shop moves the order along, show it without a manual refresh
   var trk = $("[data-track]");
   if (trk) {
-    var shown = trk.getAttribute("data-status"), url = trk.getAttribute("data-url"), live = $("[data-track-live]", trk), wait = false;
+    var shown = trk.getAttribute("data-status"), shownPay = trk.getAttribute("data-payment"), url = trk.getAttribute("data-url"), live = $("[data-track-live]", trk), wait = false;
     var check = function () {
       if (wait || document.hidden) return;
       wait = true;
@@ -509,8 +509,8 @@
           if (trackingId) trackingId.textContent = d.tracking_id ? "Tracking ID: " + d.tracking_id : "";
           if (trackingLink) { if (d.tracking_url) { trackingLink.href = d.tracking_url; trackingLink.hidden = false; } else { trackingLink.hidden = true; } }
         }
-        if (d.status !== shown) {
-          if (live) live.textContent = "Updated: " + d.label;
+        if (d.status !== shown || (d.payment_status && shownPay && d.payment_status !== shownPay)) {
+          if (live) live.textContent = d.status !== shown ? "Updated: " + d.label : (d.payment_status === "paid" ? "Payment received" : "Payment updated");
           trk.classList.add("trk--flash");
           setTimeout(function () { window.location.reload(); }, reduce ? 200 : 900);
         }

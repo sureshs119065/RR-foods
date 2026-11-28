@@ -58,3 +58,8 @@ html[data-shop] body .ot__info .ot__pimg { width: 150px; height: 150px; }
 @media (max-width: 600px) {
   html[data-shop] body .ot__info .ot__pimg { width: 112px; height: 112px; }
 }
+
+/* Owner live tracking: payment row */
+html body .order-pay { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 6px 0 14px; padding: 12px 16px; background: #f7faf8; border: 1px solid #e3e9e5; border-radius: 14px; }
+html body .order-pay__state { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: #183D2B; }
+html body .order-pay .hint { flex: 1 1 220px; margin: 0; }

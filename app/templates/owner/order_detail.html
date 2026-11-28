@@ -52,6 +52,16 @@
     {{ o.status_badge(order.status) }}
   </div>
   {{ ot.product_strip(order, prods) }}
+  {% if order.status not in ('rejected', 'cancelled', 'refunded', 'pending_whatsapp') and order.payment_status in ('pending', 'paid') %}
+  <div class="order-pay" role="group" aria-label="Payment status">
+    <span class="order-pay__state">Payment: {{ ot.pay_chip(order, true) }}</span>
+    <form class="inline" method="post" action="{{ url_for('owner.order_payment', order_id=order.id) }}" data-once>
+      {{ m.csrf() }}<input type="hidden" name="paid" value="{{ '0' if order.payment_status == 'paid' else '1' }}">
+      <button class="btn btn--sm {{ 'btn--ghost' if order.payment_status == 'paid' else '' }}" type="submit" {% if order.payment_status == 'paid' %}data-confirm="Mark order {{ order.order_number }} as NOT paid?"{% endif %}>{{ 'Mark as not paid' if order.payment_status == 'paid' else 'Mark as paid (money received)' }}</button>
+    </form>
+    <span class="hint">{% if order.payment_status == 'paid' %}The customer sees this order as Paid.{% else %}The customer is notified and the tracker shows Paid once you tap this.{% endif %}</span>
+  </div>
+  {% endif %}
   {% if current_index >= 0 %}
   <ol class="order-route" aria-label="Order progress">
     {% for stage, label, note in stages %}

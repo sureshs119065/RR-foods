@@ -20,7 +20,7 @@
       {% if order.payment_status == 'paid' %}<br>Your payment will be refunded.{% endif %}</div>
   {% endif %}
   {% if order.status not in ('pending_whatsapp', 'cancelled') %}
-  <section class="trk" aria-label="Order progress" data-track data-url="{{ url_for('shop.order_status_json', order_number=order.order_number) }}" data-status="{{ order.status }}">
+  <section class="trk" aria-label="Order progress" data-track data-url="{{ url_for('shop.order_status_json', order_number=order.order_number) }}" data-status="{{ order.status }}" data-payment="{{ order.payment_status }}">
     <div class="trk__head"><span class="ostatus ostatus--{{ order.status }}" data-track-label>{{ labels.get(order.status, order.status) }}</span><span class="muted small trk__live" aria-live="polite" data-track-live>Updates automatically</span></div>
     {{ ot.info(order, item_products) }}
     {{ ot.track(steps, current, when, order.created_at, 'Order progress', true) }}

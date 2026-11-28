@@ -120,7 +120,7 @@ def order_status_json(order_number):
     if order is None:
         abort(404)
     closed = order.status in tracking_svc.NO_SHIPMENT
-    resp = jsonify(status=order.status, label=order_svc.LABELS.get(order.status, order.status), updated=order.updated_at.isoformat() if order.updated_at else None, courier_name=None if closed else order.courier_name, tracking_id=None if closed else order.tracking_id, tracking_url=None if closed else order.tracking_url, delivery_date=None if closed or not order.delivery_date else order.delivery_date.isoformat(), delivery_slot=None if closed else order.delivery_slot)
+    resp = jsonify(status=order.status, payment_status=order.payment_status, label=order_svc.LABELS.get(order.status, order.status), updated=order.updated_at.isoformat() if order.updated_at else None, courier_name=None if closed else order.courier_name, tracking_id=None if closed else order.tracking_id, tracking_url=None if closed else order.tracking_url, delivery_date=None if closed or not order.delivery_date else order.delivery_date.isoformat(), delivery_slot=None if closed else order.delivery_slot)
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
